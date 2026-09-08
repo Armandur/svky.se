@@ -131,8 +131,13 @@ def applank(betalning: Swishbetalning) -> str | None:
     tom sträng och en satt bit, så den ska fortfarande byggas.
     """
     _kontrollera(betalning)
+    # version är TALET 1, inte strängen "1.0". Uppmätt på telefon
+    # 2026-09-08: en länk med strängen öppnar Swish men fyller inte i
+    # någonting, och det är den enda skillnaden mellan en länk som
+    # fungerar och en som inte gör det. docs/swish-qr.md påstod motsatsen
+    # och är rättad.
     data: dict[str, object] = {
-        "version": "1.0",
+        "version": 1,
         "payee": {"value": _rensa_mottagare(betalning.mottagare)},
     }
     if betalning.redigerbar_mottagare:
@@ -140,9 +145,11 @@ def applank(betalning: Swishbetalning) -> str | None:
 
     belopp = _kronor(betalning.belopp)
     if belopp:
-        # Hela kronor utan decimalkomma, som STRÄNG. Skiljer sig medvetet
-        # från QR-strängens 100,00.
-        data["amount"] = {"value": belopp.split(",")[0]}
+        # Ett TAL, och hela beloppet inklusive ören. Tidigare skickades
+        # bara heltalsdelen som sträng, så 149,50 blev 149 och femtio öre
+        # försvann tyst.
+        tal = float(belopp.replace(",", "."))
+        data["amount"] = {"value": int(tal) if tal == int(tal) else tal}
         if betalning.redigerbart_belopp:
             data["amount"]["editable"] = True  # type: ignore[index]
     elif betalning.redigerbart_belopp:

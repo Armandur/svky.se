@@ -42,21 +42,51 @@ Specens eget exempel, som ett enhetstest bör återskapa exakt:
     swish://payment?data=<URL-kodad JSON>
 
 ```json
-{"version":"1.0",
+{"version":1,
  "payee":   {"value":"1231234567"},
- "amount":  {"value":"100"},
+ "amount":  {"value":100},
  "message": {"value":"Kollekt"}}
 ```
 
-- `version` är strängen `"1.0"`.
-- `amount.value` är en **sträng**, inte ett tal, och i hela kronor utan
-  decimalkomma. Formatet skiljer sig alltså från QR-strängens `100,00`.
+- `version` är **talet 1**, inte strängen `"1.0"`.
+- `amount.value` är ett **tal**, till skillnad från QR-strängens `"100,00"`.
+  Ören går bra som decimaltal: `149.5`.
 - `editable` sätts bara som `true` på de fält som får ändras. Nyckeln
-  utelämnas helt för låsta fält. Det finns ingen `"editable": false`.
-- Utelämna `amount` och `message` helt när de är tomma.
+  utelämnas helt för låsta fält, och utan den är fältet låst i appen.
+  `"editable": false` accepteras men behövs inte.
+- Utelämna `amount` och `message` helt när de är tomma. En länk med bara
+  `payee` öppnar appen med mottagaren ifylld och resten tomt.
 
 Formatet är inte dokumenterat av Swish utan härlett från appen. Lägg det i en
 egen funktion så att det går att byta ut.
+
+### Mätt på telefon 2026-09-08 - strängformen fungerar INTE
+
+Sex former provades i Swish-appen med ett riktigt nummer. Resultatet rättar
+det som stod här förut:
+
+| Form | Utfall |
+| --- | --- |
+| `version` och `amount` som tal | Betala-vy, fälten låsta |
+| samma, `payee` också som tal | fungerar |
+| samma, plus `editable: false` överallt | fungerar |
+| **allt som strängar, `version: "1.0"`** | **appen öppnas men fyller inte i något** |
+| `version` som tal, `amount` som sträng | fungerar |
+| bara `payee`, inget belopp | appen frågar om belopp, mottagaren ifylld |
+
+Den enda skillnaden mellan raden som misslyckas och raden under den är
+`version`. Strängen `"1.0"` är alltså det som bryter länken, och `amount`
+tål både tal och sträng.
+
+Slöjda.de kör strängformen i drift och har samma fel. Se dess P1-todo.
+
+### Det officiella spåret kräver Handel-API
+
+Swish egen dokumentation beskriver bara
+`swish://paymentrequest?token=<token>&callbackurl=<url>`, där token kommer
+ur Handel-API:t. Det kräver certifikat, avtal och betalningsuppföljning.
+Formen vi använder, `payment?data=`, är odokumenterad och community-känd.
+Fasas den ut finns ingen väg tillbaka utan Handel-API.
 
 ## Ritandet
 

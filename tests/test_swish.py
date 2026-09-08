@@ -132,20 +132,36 @@ def _data(lank: str) -> dict:
     return json.loads(fraga["data"][0])
 
 
-def test_applanken_bar_versionen_som_strang():
+def test_applanken_bar_versionen_som_tal():
+    """version är TALET 1, inte strängen "1.0".
+
+    Uppmätt på telefon 2026-09-08: en länk med strängen öppnar Swish men
+    fyller inte i någonting. Det var den ENDA skillnaden mellan en form som
+    fungerade och en som inte gjorde det. Vår egen spec påstod motsatsen.
+    """
     data = _data(applank(Swishbetalning("1231234567", "100")))
 
-    assert data["version"] == "1.0"
-    assert isinstance(data["version"], str)
+    assert data["version"] == 1
+    assert isinstance(data["version"], int)
+    assert not isinstance(data["version"], bool)
 
 
-def test_beloppet_ar_hela_kronor_som_strang():
-    """Applänken vill ha 100 där QR-strängen vill ha 100,00. Två format för
-    samma summa, och att blanda ihop dem ger en app som öppnar tom."""
+def test_beloppet_ar_ett_tal_i_applanken():
+    """Applänken vill ha talet 100 där QR-strängen vill ha strängen 100,00.
+    Två format för samma summa, och att blanda ihop dem ger en app som
+    öppnar tom."""
     data = _data(applank(Swishbetalning("1231234567", "100.00")))
 
-    assert data["amount"]["value"] == "100"
-    assert isinstance(data["amount"]["value"], str)
+    assert data["amount"]["value"] == 100
+    assert isinstance(data["amount"]["value"], int | float)
+
+
+def test_oren_foljer_med_in_i_applanken():
+    """Tidigare skickades bara heltalsdelen, så 149,50 blev 149 och femtio
+    öre försvann tyst mellan koden och appen."""
+    data = _data(applank(Swishbetalning("1231234567", "149,50")))
+
+    assert data["amount"]["value"] == 149.5
 
 
 def test_editable_satts_bara_som_true():
