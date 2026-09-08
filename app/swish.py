@@ -125,6 +125,12 @@ def applank(betalning: Swishbetalning) -> str:
     Formatet är inte dokumenterat av Swish utan härlett ur appen, därav den
     egna funktionen: byts det ut rör ändringen bara den här koden.
 
+    VARNING: så fort något fält bär editable går MOTTAGAREN att ändra i
+    appen, oavsett vad payee säger. Mätt 2026-09-08, och editable: false på
+    payee hjälper inte. En applänk med fria fält låter alltså den som
+    klickar peka om betalningen till ett annat nummer. QR-koden har en egen
+    låsmask som fungerar, och är förstahandsvalet för allt som trycks.
+
     En gåva med fritt belopp uttrycks genom att amount-nyckeln UTELÄMNAS
     helt. Appen öppnas då med ett tomt beloppsfält och meddelandet kvar.
     Uppmätt på telefon 2026-09-08: tom sträng, noll och null fungerar alla

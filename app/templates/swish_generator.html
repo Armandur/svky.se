@@ -31,6 +31,10 @@
   display: flex; align-items: center; gap: 8px; font-weight: 400;
   margin-bottom: 6px; cursor: pointer;
 }
+.varning-fri {
+  background: var(--orange-bg); color: #7a3f00; padding: 8px 12px;
+  border-radius: var(--radius); margin-top: 8px; line-height: 1.5;
+}
 .gen-strang {
   font-family: "SF Mono","Fira Code",monospace; font-size: .78rem;
   color: var(--muted); overflow-wrap: anywhere; margin-top: 14px;
@@ -96,6 +100,15 @@
                  {% if form.fri_mottagare %}checked{% endif %}> Mottagaren får ändras
         </label>
         <div class="hint">Det som inte är ikryssat låses i appen.</div>
+        {# Mätt på telefon 2026-09-08: så fort NÅGOT fält är fritt går
+           mottagaren att ändra, oavsett vad länken säger. Den som lägger ut
+           koden ska veta det innan, inte efter. #}
+        <div class="hint varning-fri" hidden>
+          <strong>Tänk på det här innan du trycker koden.</strong> Så fort
+          något fält är fritt går även mottagarnumret att ändra i appen. Den
+          som öppnar länken kan alltså peka om betalningen till sig själv.
+          Lås allt om koden ska sitta uppe utan uppsikt.
+        </div>
       </div>
 
       <button type="submit" class="btn btn-primary">Visa koden</button>
@@ -153,6 +166,21 @@
 // Samma mönster som driftytans kopieringsknapp: clipboard kräver säkert
 // ursprung och kan nekas. Faller den, markera texten i fältet i stället för
 // att knappen tiger.
+// Varningen om fria fält visas så fort någon ruta kryssas i, inte först
+// efter att koden skapats. Den som lägger ut en kod ska veta vad den
+// tillåter innan den trycks.
+function visaVarning() {
+  var nagot = [...document.querySelectorAll('.kryss input')].some(function (i) {
+    return i.checked;
+  });
+  var ruta = document.querySelector('.varning-fri');
+  if (ruta) ruta.hidden = !nagot;
+}
+document.addEventListener('change', function (e) {
+  if (e.target.closest('.kryss')) visaVarning();
+});
+visaVarning();
+
 document.addEventListener('click', async function (e) {
   var knapp = e.target.closest('.kopiera');
   if (!knapp) return;
