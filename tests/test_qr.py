@@ -370,3 +370,24 @@ def test_paketet_ar_deterministiskt(client, inloggad_anvandare):
         ).status_code
         == 304
     )
+
+
+@pytest.mark.parametrize("symbol", sorted(qr.SYMBOLER))
+def test_symbolen_ater_inte_upp_marginalen(symbol):
+    """Skölden får inte bli så stor att koden bara nätt och jämnt går att
+    läsa under perfekta förhållanden.
+
+    Mätt 2026-09-08: marginalen mot smuts är oförändrad upp till 32 procent
+    och kollapsar vid 35. Provet låser taket, inte det valda värdet - en
+    höjning ska tvinga fram en ny mätning.
+    """
+    assert qr.SYMBOLER[symbol].andel <= 0.32
+
+
+@pytest.mark.parametrize("symbol", sorted(qr.SYMBOLER))
+def test_langa_koder_avkodas_med_symbol(symbol):
+    """En egen kod kan vara mycket längre än en autogenererad, och en tätare
+    matris beter sig inte som en gles."""
+    adress = f"{qr.BASE_URL.rstrip('/')}/julkonsertharnosand2026"
+
+    assert _avkoda(qr.png(adress, symbol=symbol)) == adress

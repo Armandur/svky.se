@@ -68,17 +68,22 @@ class Symbolinstallning:
     beskrivning: str
 
 
-# 24 procent är vårt eget val, inte ett krav utifrån. Ordningen är
-# visningsordningen: den svarta först, för den håller koden enfärgad.
+# 30 procent är mätt, inte gissat. Marginalen mot smuts är oförändrad ända
+# upp till 32 procent - koden tål lika många fläckar där som vid 24 - och
+# kollapsar vid 35. Trettio ger alltså en tredjedel större sköld med kvar
+# avstånd till klippkanten. Höj inte utan att mäta om.
+#
+# Ordningen är visningsordningen: den svarta först, för den håller koden
+# enfärgad.
 SYMBOLER: dict[str, Symbolinstallning] = {
     "skold-svart": Symbolinstallning(
         sokvag=_STATIC / "skold-svart.png",
-        andel=0.24,
+        andel=0.30,
         beskrivning="Svart sköld",
     ),
     "skold-farg": Symbolinstallning(
         sokvag=_STATIC / "skold-farg.png",
-        andel=0.24,
+        andel=0.30,
         beskrivning="Färgsköld",
     ),
 }
