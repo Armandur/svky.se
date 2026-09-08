@@ -131,41 +131,57 @@ steg signatur
 # anslag. Efter bytet skuggar sidan länken och den slutar gå att klicka på -
 # tyst, för ingenting i appen märker det.
 #
-# Frågan ställs till KANDIDATENS lista, inte till den som körs nu: det är
-# den nya versionen som avgör vilka koder som blir upptagna. Därför körs
-# kontrollen inne i kandidatens image.
+# Listan hämtas ur KANDIDATENS image, för det är den nya versionen som avgör
+# vilka koder som blir upptagna. Men FRÅGAN ställs på värden, med samma
+# sqlite3 som backupen redan använder.
+#
+# Databasen monteras alltså INTE in i containern. Det var första ansatsen och
+# den föll: SQLite behöver skapa en -shm-fil bredvid en WAL-databas, även för
+# att bara läsa, och på en skrivskyddad montering går det inte. Felet syntes
+# som "unable to open database file", vilket lika gärna kunde ha varit
+# saknad läsrätt.
+#
+# Bara stdout fångas. Med 2>&1 hamnade appens UserWarning om SECRET_KEY i
+# svaret, och en LYCKAD kontroll hade rapporterats som en krock.
 #
 # Före --ja-grinden, så en torrkörning visar krocken utan att ändra något.
-if ! KROCKAR=$(docker run --rm -i --entrypoint python \
-        --user "$(id -u):$(id -g)" \
-        -v "$PWD/data:/data:ro" "$KANDIDAT" - <<'PY' 2>&1
-import sqlite3
+if ! KODER=$(docker run --rm --entrypoint python "$KANDIDAT" -c \
+        'import json, sys; sys.path.insert(0, "/app"); from app.config import RESERVED_CODES; print(json.dumps(sorted(RESERVED_CODES)))' \
+        2>/dev/null); then
+    avbryt "kunde inte läsa reserverade koder ur kandidatens image."
+fi
+
+# Bygg SQL:en i python, inte i skalet. Koderna kommer ur vår egen kod, men en
+# lista som citeras för hand i bash är fel ställe att lita på det.
+# Listan går som ARGUMENT, inte genom en pipe. "python3 -" läser sitt
+# program från stdin, så heredocen skriver över pipen och sys.stdin är tom -
+# ett fel som ser ut som en trasig kodlista.
+if ! FRAGA=$(python3 - "$KODER" <<'PY' 2>&1
+import json
 import sys
 
-sys.path.insert(0, "/app")
-from app.config import RESERVED_CODES
+koder = json.loads(sys.argv[1])
+if not isinstance(koder, list) or not koder:
+    raise SystemExit("tom eller trasig kodlista")
+i = ",".join("'" + k.replace("'", "''") + "'" for k in koder)
+# Meningen byggs i SQL:en. Raden går rakt in i felmeddelandet på
+# driftytan, och "links nyheter 3 4" är inte en mening någon kan handla på.
+def rad(tabell):
+    return (
+        f"SELECT '{tabell}: ' || code || ' (status ' || status || "
+        f"', ägare ' || COALESCE(owner_id, '-') || ')' "
+        f"FROM {tabell} WHERE code IN ({i})"
+    )
 
-# mode=ro, och hela katalogen monterad: en vanlig öppning vill skapa
-# journalfil, och ett -wal som inte syns ger en halv bild av databasen.
-db = sqlite3.connect("file:/data/links.db?mode=ro", uri=True)
-db.row_factory = sqlite3.Row
 
-fragor = [
-    ("links", "SELECT code, status, owner_id FROM links WHERE code IN (%s)"),
-    ("bundles", "SELECT code, status, owner_id FROM bundles WHERE code IN (%s)"),
-]
-platshallare = ",".join("?" * len(RESERVED_CODES))
-koder = sorted(RESERVED_CODES)
-
-for tabell, mall in fragor:
-    for rad in db.execute(mall % platshallare, koder):
-        # Alla statusar, inte bara aktiva. En avaktiverad länk kan ägaren
-        # slå på igen, och då blir den oåtkomlig utan att någon rörde den.
-        print(f"{tabell}: {rad['code']} (status {rad['status']}, ägare {rad['owner_id']})")
+print(f"{rad('links')} UNION ALL {rad('bundles')};")
 PY
 ); then
-    printf '%s\n' "$KROCKAR" >&2
-    avbryt "kunde inte kontrollera reserverade koder mot produktionsdatan."
+    avbryt "kunde inte tolka kandidatens kodlista: $FRAGA"
+fi
+
+if ! KROCKAR=$(sqlite3 -separator ' ' data/links.db "$FRAGA" 2>&1); then
+    avbryt "kunde inte fråga produktionsdatan om reserverade koder: ${KROCKAR//$'\n'/; }"
 fi
 
 if [ -n "$KROCKAR" ]; then
@@ -173,7 +189,8 @@ if [ -n "$KROCKAR" ]; then
     notis "Promotion stoppad: kandidaten reserverar koder som redan är tagna." ops
     # Krockarna följer med IN i felmeningen, inte bara till stderr. Meningen
     # är det driftytan visar, och "se ovan" pekar på en journal ingen läser
-    # mitt i ett byte.
+    # mitt i ett byte. Alla statusar rapporteras: en avaktiverad länk kan
+    # ägaren slå på igen, och blir då oåtkomlig utan att någon rört den.
     avbryt "kandidaten reserverar koder som redan finns i produktionen: ${KROCKAR//$'\n'/; }. Byt kod på länken, eller ta bort koden ur RESERVED_CODES, innan du befordrar."
 fi
 echo "  Reserverade:   inga krockar"

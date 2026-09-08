@@ -157,7 +157,9 @@ def test_okand_miljo_markeras_som_okand(tmp_path):
 def test_skillnad_mellan_miljoer_syns(tmp_path):
     yta = _ladda_yta(_skriv(tmp_path))
     html = yta.sida()
-    assert "ligger före produktionen" in html
+    # Produktionen är subjektet. Det är den som behöver åtgärdas, och den
+    # man kom hit för att fråga om.
+    assert "Produktionen ligger efter staging" in html
     # Hänvisa till knappen som står på samma sida, inte till kommandot.
     # Ett besked som pekar förbi åtgärden lär en att sidan är gammal.
     assert "knappen under Åtgärder" in html

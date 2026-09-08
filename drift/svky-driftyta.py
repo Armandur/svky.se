@@ -399,7 +399,9 @@ def fragment(besked: str = "", beskedklass: str = "") -> str:
             # Hänvisa till knappen, inte till kommandot. Kommandot finns
             # kvar och fungerar, men ett besked som pekar förbi den åtgärd
             # som står längre ned på samma sida lär en att sidan är gammal.
-            diff = ('<p class="info-rad">Staging ligger före produktionen. '
+            # Produktionen är subjektet, inte staging. Det är den som
+            # behöver åtgärdas, och den man kom hit för att fråga om.
+            diff = ('<p class="info-rad">Produktionen ligger efter staging. '
                     'Befordra med knappen under Åtgärder.</p>')
     else:
         diff = '<p class="varning">Kan inte jämföra miljöerna, en av dem är okänd.</p>'
@@ -871,12 +873,41 @@ document.addEventListener('click', async (e) => {
     const synliga = [...innehall.querySelectorAll('.varning, .info-rad, .ok-rad')]
       .map(el => '- ' + el.textContent.trim().replace(/\s+/g, ' '));
 
+    // Förloppet hörde inte med förut, och det var just det man ville visa
+    // när ett jobb stannat: WEBBSIDAN sa var det tog stopp, men den
+    // kopierade texten sa bara att versionen var oförändrad.
+    let steg = '(inget jobb rapporterar steg)';
+    let forloppsfel = '';
+    try {
+      const svar = await fetch('/steg.json', {cache: 'no-store'});
+      const rader = await svar.json();
+      const namn = Object.keys(rader);
+      if (namn.length) {
+        steg = namn.map(function (n) {
+          const r = rader[n];
+          const lista = (r.alla || []).map(function (s) {
+            if ((r.klara || []).indexOf(s) >= 0) return '  [x] ' + s;
+            if (s === r.pagaende) return '  [>] ' + s;
+            return '  [ ] ' + s;
+          }).join('\n');
+          return n + ' (' + (r.klara || []).length + ' av ' + (r.alla || []).length +
+                 ', utfall ' + r.utfall + ', uppdaterad ' + r.uppdaterad + ')\n' + lista +
+                 (r.fel ? '\n  FEL: ' + r.fel : '');
+        }).join('\n\n');
+      }
+    } catch (e4) { forloppsfel = ' (kunde inte hämtas: ' + e4.message + ')'; }
+
+    const t = tillstand();
     const text =
       'svky.se driftyta, felsökningsdata\n' +
       'Kopierad: ' + new Date().toISOString() + '\n' +
-      'Statusrad: ' + status.textContent.trim() + '\n\n' +
+      'Statusrad: ' + status.textContent.trim() + '\n' +
+      'Väntar: ' + (t.vantande || '(inget)') +
+      ' | Kör: ' + (t.korande || '(inget)') +
+      ' | Stoppade: ' + (t.stoppade || '(inga)') + '\n\n' +
       'MEDDELANDEN PÅ SIDAN\n' +
       (synliga.length ? synliga.join('\n') : '(inga)') + '\n\n' +
+      'JOBBENS FÖRLOPP' + forloppsfel + '\n' + steg + '\n\n' +
       'RÅTT LÄGE\n' + rad + '\n';
 
     try {
@@ -972,6 +1003,18 @@ class Handler(BaseHTTPRequestHandler):
             except OSError as e:
                 self._svara(json.dumps({"fel": str(e)}).encode(),
                             "application/json", 503)
+        elif vag == "/steg.json":
+            # Jobbens förlopp, samlat. Kopieringsknappen behöver det: sidan
+            # kunde visa var ett jobb stannade, men den kopierade texten
+            # sa bara att versionen var oförändrad - och det var texten som
+            # skickades vidare när något skulle felsökas.
+            rader = {}
+            for operation in sorted(OPERATIONER):
+                rad = forlopp(operation)
+                if rad:
+                    rader[operation] = rad
+            self._svara(json.dumps(rader, ensure_ascii=False).encode(),
+                        "application/json")
         elif vag == "/fragment":
             besked = (parse_qs(fraga).get("besked") or [""])[0]
             try:

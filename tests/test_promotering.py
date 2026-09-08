@@ -37,12 +37,11 @@ def arbetsyta(tmp_path):
     bin_.mkdir()
     _attrapp(bin_ / "docker", f'''
 case "$*" in
-  run*)
-     # Kollisionskontrollen. Svaret läggs i krockar.txt, exitkoden i
-     # krockar-exit.txt - ett prov ska kunna skilja "inga krockar" från
-     # "kontrollen kunde inte köras".
-     cat "$SVKY_ARBETSKATALOG/krockar.txt" 2>/dev/null || true
-     exit $(cat "$SVKY_ARBETSKATALOG/krockar-exit.txt" 2>/dev/null || echo 0) ;;
+  run*RESERVED_CODES*)
+     # Kandidatens kodlista. Exitkoden läggs i koder-exit.txt så ett prov
+     # kan pröva vad som händer när imagen inte går att läsa.
+     cat "$SVKY_ARBETSKATALOG/koder.txt" 2>/dev/null || echo '["nyheter","swish"]'
+     exit $(cat "$SVKY_ARBETSKATALOG/koder-exit.txt" 2>/dev/null || echo 0) ;;
   *" ps -q svky"*) echo "container123" ;;
   *inspect*revision*) echo "abc1234" ;;
   *inspect*) echo "{KANDIDAT}" ;;
@@ -55,6 +54,11 @@ esac
     _attrapp(bin_ / "sqlite3", '''
 case "$*" in
   *integrity_check*) echo ok ;;
+  *"WHERE code IN"*)
+     # Krockarna, en rad per träff. Exitkoden separat: tom utdata från en
+     # FALLERAD fråga får aldrig läsas som "inga krockar".
+     cat "$SVKY_ARBETSKATALOG/krockar.txt" 2>/dev/null || true
+     exit $(cat "$SVKY_ARBETSKATALOG/krockar-exit.txt" 2>/dev/null || echo 0) ;;
   *schema_version*)
      n=$(cat "$SVKY_ARBETSKATALOG/schemaraknare" 2>/dev/null || echo 1)
      sed -n "${n}p" "$SVKY_ARBETSKATALOG/schemasvar.txt"
@@ -221,19 +225,34 @@ def test_krocken_syns_redan_i_torrkorningen(arbetsyta):
     assert "Torrkörning" not in r.stdout
 
 
-def test_kontroll_som_inte_kan_koras_stoppar_ocksa(arbetsyta):
+def test_frageuttag_som_faller_stoppar_ocksa(arbetsyta):
     """En kontroll som faller får aldrig läsas som ett godkänt svar.
 
     Tom utdata betyder inga krockar, och exakt samma tomma utdata kommer
-    från en image utan python eller en omonterbar databas.
+    från en databas som inte gick att öppna.
     """
     (arbetsyta / "krockar-exit.txt").write_text("1\n")
-    (arbetsyta / "krockar.txt").write_text("no such file or directory\n")
+    (arbetsyta / "krockar.txt").write_text("unable to open database file\n")
 
     r = _kor(arbetsyta, "--ja")
 
     assert r.returncode != 0
-    assert "kunde inte kontrollera reserverade koder" in r.stdout + r.stderr
+    assert "kunde inte fråga produktionsdatan" in r.stdout + r.stderr
+    # Orsaken ska med i MENINGEN, inte bara till stderr. Meningen är det
+    # driftytan visar, och ett fel utan orsak är samma återvändsgränd som
+    # en hänvisning till journalen.
+    assert "unable to open database" in (r.stdout + r.stderr).lower()
+
+
+def test_olasbar_image_stoppar_ocksa(arbetsyta):
+    """Kodlistan kommer ur kandidaten. Går den inte att läsa vet vi inte
+    vilka koder som blir upptagna - och då ska ingenting bytas."""
+    (arbetsyta / "koder-exit.txt").write_text("1\n")
+
+    r = _kor(arbetsyta, "--ja")
+
+    assert r.returncode != 0
+    assert "kunde inte läsa reserverade koder" in r.stdout + r.stderr
 
 
 def test_ren_kontroll_slapper_igenom(arbetsyta):
@@ -249,14 +268,31 @@ def test_ren_kontroll_slapper_igenom(arbetsyta):
 def test_bada_tabellerna_fragas():
     """Både links och bundles har unika koder. En krock i endera är en länk
     någon tryckt som slutar fungera."""
-    assert "FROM links WHERE code IN" in KOD
-    assert "FROM bundles WHERE code IN" in KOD
+    assert "rad('links')" in KOD
+    assert "rad('bundles')" in KOD
+    assert "FROM {tabell} WHERE code IN" in KOD
+
+
+def test_databasen_lases_pa_varden_inte_i_containern():
+    """Första ansatsen monterade databasen read-only i kandidaten och föll:
+    SQLite behöver skapa en -shm-fil bredvid en WAL-databas även för att
+    läsa. Felet såg ut som saknad läsrätt."""
+    assert "-v " not in KOD[KOD.index("2b."):KOD.index("Reserverade:")]
+    assert "sqlite3 -separator" in KOD
+
+
+def test_bara_stdout_fangas_fran_imagen():
+    """Appen skriver en UserWarning om SECRET_KEY vid import. Med 2>&1 hade
+    en LYCKAD kontroll rapporterats som en krock."""
+    avsnitt = KOD[KOD.index("KODER=$(docker run"):KOD.index("Bygg SQL")]
+    assert "2>/dev/null" in avsnitt
+    assert "2>&1" not in avsnitt
 
 
 def test_kontrollen_fragar_kandidatens_lista():
     """Det är den NYA versionen som avgör vilka koder som blir upptagna.
     Frågas den gamla listan missas precis de koder som just tillkommit."""
-    assert '"$KANDIDAT" -' in KOD
+    assert '--entrypoint python "$KANDIDAT"' in KOD
     assert "from app.config import RESERVED_CODES" in KOD
 
 
