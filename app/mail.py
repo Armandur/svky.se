@@ -264,6 +264,22 @@ def skicka_loginmail(to: str, login_url: str):
     )
 
 
+def skicka_domanansokan_godkand(to: str, base_url: str):
+    _send(
+        to=to,
+        subject="Din ansökan om extern länkning har godkänts",
+        html=_render("domanansokan_godkand.html", order_url=f"{base_url}/bestall"),
+    )
+
+
+def skicka_domanansokan_avslagen(to: str):
+    _send(
+        to=to,
+        subject="Din ansökan om extern länkning har avslagits",
+        html=_render("domanansokan_avslagen.html"),
+    )
+
+
 def skicka_radera_konto_bekraftelse(to: str, confirm_url: str):
     _send(
         to=to,

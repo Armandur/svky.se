@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}svky.se Admin - Extern länkning{% endblock %}
+{% block main_class %}class="wide"{% endblock %}
+
+{% block admin_bar %}
+{% include "admin/_bar.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <h1>Ansökningar om extern länkning</h1>
+  <p>Godkänn bara ansökningar med ett tydligt behov och en betrodd avsändare.</p>
+</div>
+
+{% if request.query_params.get('beslut') == 'godkand' %}
+<div class="alert alert-success">Ansökan godkändes. Användaren har fått e-post.</div>
+{% elif request.query_params.get('beslut') == 'avslagen' %}
+<div class="alert alert-warning">Ansökan avslogs. Användaren har fått e-post.</div>
+{% endif %}
+
+{% set pending = domain_requests | selectattr('status', 'equalto', 'pending') | list %}
+{% set resolved = domain_requests | selectattr('status', 'ne', 'pending') | list %}
+
+{% if pending %}
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Användare</th><th>Motivering</th><th>Inkommen</th><th>Åtgärder</th></tr></thead>
+    <tbody>
+    {% for item in pending %}
+      <tr>
+        <td>{{ item.email }}</td>
+        <td style="max-width:520px;white-space:pre-wrap;overflow-wrap:anywhere;">{{ item.reason }}</td>
+        <td>{{ item.created_at | sthlm }}</td>
+        <td style="white-space:nowrap;">
+          <form action="/admin/domanansokningar/{{ item.id }}/approve" method="post" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-sm">Godkänn</button>
+          </form>
+          <form action="/admin/domanansokningar/{{ item.id }}/reject" method="post" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-danger btn-sm">Avslå</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p>Det finns inga väntande ansökningar.</p>
+{% endif %}
+
+{% if resolved %}
+<h2>Hanterade</h2>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Användare</th><th>Status</th><th>Hanterad</th></tr></thead>
+    <tbody>
+    {% for item in resolved %}
+      <tr>
+        <td>{{ item.email }}</td>
+        <td>{{ 'Godkänd' if item.status == 'approved' else 'Avslagen' }}</td>
+        <td>{{ item.resolved_at | sthlm }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

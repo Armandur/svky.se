@@ -1,0 +1,12 @@
+{% extends "_layout.html" %}
+{% block heading %}Din ansökan har godkänts{% endblock %}
+{% block body %}
+<p>Du får nu skapa kortlänkar till domäner utanför den vanliga listan.</p>
+<p>Kontrollera mål-adressen noga innan du beställer länken.</p>
+{% endblock %}
+{% block buttons %}
+<table cellspacing="0" cellpadding="0" style="margin:0 0 8px;"><tr>
+  <td><a href="{{ order_url }}"
+         style="display:inline-block;padding:12px 28px;color:#fff;background:#2355a0;border-radius:6px;text-decoration:none;font-weight:600;font-size:15px;">Beställ en kortlänk</a></td>
+</tr></table>
+{% endblock %}

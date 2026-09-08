@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Ansök om extern länkning - svky.se{% endblock %}
+
+{% block content %}
+<div style="max-width:680px;">
+  <p><a href="/mina-lankar">&larr; Mina länkar</a></p>
+  <h1>Ansök om extern länkning</h1>
+
+  {% if request.query_params.get('skickad') %}
+  <div class="alert alert-success">Ansökan är skickad. Du får besked via e-post.</div>
+  {% elif request.query_params.get('vantar') or pending_request %}
+  <div class="alert alert-warning">Du har redan en ansökan som väntar på beslut.</div>
+  {% elif request.query_params.get('redan_behorig') or user.allow_external_urls %}
+  <div class="alert alert-success">Du får redan länka till externa domäner.</div>
+  {% else %}
+    {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+    <p>Beskriv varför du behöver skapa kortlänkar till domäner utanför den tillåtna listan.</p>
+    <form action="/mina-lankar/domanansokan" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="reason">Motivering</label>
+      <textarea id="reason" name="reason" rows="7" maxlength="2000" required>{{ reason or '' }}</textarea>
+      <button type="submit" class="btn btn-primary">Skicka ansökan</button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

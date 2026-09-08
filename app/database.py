@@ -120,6 +120,16 @@ def init_db():
                 resolved_at     DATETIME
             );
 
+            CREATE TABLE IF NOT EXISTS domain_permission_requests (
+                id              INTEGER PRIMARY KEY,
+                user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                permission      TEXT NOT NULL DEFAULT 'external_urls',
+                reason          TEXT NOT NULL,
+                status          TEXT NOT NULL DEFAULT 'pending',
+                created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+                resolved_at     DATETIME
+            );
+
             CREATE TABLE IF NOT EXISTS schema_version (
                 version INTEGER PRIMARY KEY
             );
@@ -132,6 +142,11 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_takeover_status ON takeover_requests(status);
             CREATE INDEX IF NOT EXISTS idx_transfer_link ON transfer_requests(link_id);
             CREATE INDEX IF NOT EXISTS idx_transfer_status ON transfer_requests(status);
+            CREATE INDEX IF NOT EXISTS idx_domain_permission_status
+                ON domain_permission_requests(status);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_domain_permission_pending_user
+                ON domain_permission_requests(user_id, permission)
+                WHERE status='pending';
         """)
         default_integritet = (
             "## Vad lagrar tjänsten?\n\n"
@@ -432,6 +447,26 @@ def _mig_008_allowed_domains(conn: sqlite3.Connection) -> None:
     )
 
 
+def _mig_009_domain_permission_requests(conn: sqlite3.Connection) -> None:
+    """Skapa ansökningar om rätt att använda externa mål-URL:er."""
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS domain_permission_requests (
+            id              INTEGER PRIMARY KEY,
+            user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            permission      TEXT NOT NULL DEFAULT 'external_urls',
+            reason          TEXT NOT NULL,
+            status          TEXT NOT NULL DEFAULT 'pending',
+            created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+            resolved_at     DATETIME
+        );
+        CREATE INDEX IF NOT EXISTS idx_domain_permission_status
+            ON domain_permission_requests(status);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_domain_permission_pending_user
+            ON domain_permission_requests(user_id, permission)
+            WHERE status='pending';
+    """)
+
+
 # Nya migrationer läggs ALLTID SIST - aldrig infogas mellan existerande.
 MIGRATIONS: list[tuple[int, object]] = [
     (1, _mig_001_baseline),
@@ -442,6 +477,7 @@ MIGRATIONS: list[tuple[int, object]] = [
     (6, _mig_006_indexes),
     (7, _mig_007_bundle_transfer_cancelled),
     (8, _mig_008_allowed_domains),
+    (9, _mig_009_domain_permission_requests),
 ]
 
 
