@@ -75,7 +75,7 @@
   border-left: 3px solid var(--blue);
   border-radius: 8px;
   padding: 14px 18px;
-  margin-bottom: 28px;
+  margin-top: 32px;
   box-shadow: var(--shadow);
 }
 .nyhetsruta-topp {
@@ -143,16 +143,6 @@
 </div>
 {% endif %}
 
-{% if senaste_nyhet %}
-<div class="nyhetsruta">
-  <div class="nyhetsruta-topp">
-    <h2>Senaste nytt</h2>
-    <a href="/nyheter">Alla nyheter &rarr;</a>
-  </div>
-  <div class="nyhetsruta-text">{{ senaste_nyhet | safe }}</div>
-</div>
-{% endif %}
-
 {% if featured %}
 {% if featured_heading or featured_subtitle %}
 <div class="quicklinks-header">
@@ -186,5 +176,15 @@
     för att hantera dina kortlänkar och samlingar.
   </p>
 </div>
+
+{% if senaste_nyhet %}
+<div class="nyhetsruta">
+  <div class="nyhetsruta-topp">
+    <h2>Senaste nytt</h2>
+    <a href="/nyheter">Alla nyheter &rarr;</a>
+  </div>
+  <div class="nyhetsruta-text">{{ senaste_nyhet | safe }}</div>
+</div>
+{% endif %}
 
 {% endblock %}
