@@ -30,8 +30,6 @@
   display: flex; align-items: center; gap: 5px; cursor: pointer;
   font-size: .85rem; color: var(--text);
 }
-.qr-notis { font-size: .8rem; color: #7a3f00; background: var(--orange-bg);
-            padding: 6px 10px; border-radius: var(--radius); margin: 0 0 10px; }
 .edit-form {
   background: var(--blue-pale); border: 1px solid var(--blue-light);
   border-radius: var(--radius); padding: 16px; margin-top: 14px; display: none;
@@ -207,10 +205,6 @@
             {{ text }}
           </label>
           {% endfor %}
-        </p>
-        <p class="qr-notis" data-qr-notis hidden>
-          Färgskölden gör koden tvåfärgad. Den kostar vid svartvit utskrift
-          och kopiering.
         </p>
         <p class="qr-lankar">
           <a href="/mina-lankar/{{ link.id }}/qr.svg" data-qr-lank
@@ -577,10 +571,6 @@ document.addEventListener('change', function (e) {
   ruta.querySelectorAll('[data-qr-lank]').forEach(function (a) {
     a.href = medSymbol(a.getAttribute('href'));
   });
-
-  // Notisen gäller bara färgskölden. Den svarta håller koden enfärgad.
-  var notis = ruta.querySelector('[data-qr-notis]');
-  if (notis) notis.hidden = symbol !== 'skold-farg';
 });
 </script>
 {% endblock %}
