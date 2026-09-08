@@ -54,6 +54,9 @@
 
 {% block content %}
 
+{% include "_ansok_upplysning.html" %}
+
+
 {% if flash %}
   {% set parts = flash.split(':') %}
   {% if parts[0] == 'error' %}
