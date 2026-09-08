@@ -94,9 +94,7 @@ def _kontrollera(betalning: Swishbetalning) -> None:
     beställningen och inte på anslagstavlan.
     """
     if not betalning.belopp and not betalning.redigerbart_belopp:
-        raise Swishfel(
-            "En kod utan förifyllt belopp måste låta betalaren fylla i det själv."
-        )
+        raise Swishfel("En kod utan förifyllt belopp måste låta betalaren fylla i det själv.")
 
 
 def qr_strang(betalning: Swishbetalning) -> str:
