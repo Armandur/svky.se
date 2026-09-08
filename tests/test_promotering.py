@@ -386,3 +386,20 @@ def test_stegfilen_ar_lasbar_for_ytan(stegyta):
 
     lage = (stegyta / "steg/promotera.json").stat().st_mode
     assert lage & stat.S_IROTH, "stegfilen är inte läsbar för andra"
+
+
+def test_avslutat_jobb_sager_klar(stegyta):
+    """Ett jobb som gått hela vägen ska inte stå kvar som pågående.
+
+    Felsökningsdatan bär utfallet, och 'kor' för en avslutad promotering
+    säger att något fortfarande händer.
+    """
+    (stegyta / "bin/curl").write_text("#!/usr/bin/env bash\nexit 0\n")
+    (stegyta / "bin/curl").chmod(0o755)
+
+    _kor_med_steg(stegyta, "--ja")
+
+    forlopp = _steg(stegyta)
+    assert forlopp["klara"] == forlopp["alla"]
+    assert forlopp["utfall"] == "klar"
+    assert forlopp["pagaende"] is None

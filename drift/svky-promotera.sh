@@ -65,7 +65,17 @@ _skriv_steg() {  # _skriv_steg <utfall> <felmening>
     mv -f "$tmp" "$STEGFIL" 2>/dev/null || rm -f "$tmp"
 }
 
-steg() { STEG_KLARA+=("$1"); _skriv_steg kor; }
+steg() {
+    STEG_KLARA+=("$1")
+    # Sista steget avslutar jobbet. Utan det stod utfallet kvar som "kor"
+    # för ett jobb som var klart, och felsökningsdatan sa alltså att en
+    # avslutad promotering fortfarande pågick.
+    if [ ${#STEG_KLARA[@]} -ge ${#STEG_ALLA[@]} ]; then
+        _skriv_steg klar
+    else
+        _skriv_steg kor
+    fi
+}
 
 avbryt() {
     _skriv_steg fel "$*"
