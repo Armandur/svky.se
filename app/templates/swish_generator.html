@@ -44,9 +44,9 @@
   display: flex; align-items: center; gap: 8px; font-weight: 400;
   margin-bottom: 6px; cursor: pointer;
 }
-.varning-fri {
-  background: var(--orange-bg); color: #7a3f00; padding: 8px 12px;
-  border-radius: var(--radius); margin-top: 8px; line-height: 1.5;
+.laset {
+  margin-top: 8px; line-height: 1.6;
+  border-left: 3px solid var(--border); padding-left: 10px;
 }
 /* Strängen står direkt under koden. .gen-kod bär redan sin undermarginal,
    så den här behöver bara luft nedåt mot nedladdningsknapparna. */
@@ -110,17 +110,17 @@
           <input type="checkbox" name="fri_mottagare" value="1"
                  {% if form.fri_mottagare %}checked{% endif %}> Mottagaren får ändras
         </label>
-        <div class="hint">Det som inte är ikryssat låses i appen.</div>
-        {# Mätt på telefon 2026-09-08, docs/swish-applankens-format.md.
-           Gäller BÅDA formerna: låsmasken styr vilka fält appen öppnar,
-           men fäster inte mottagaren. Bara en helt låst betalning gör det. #}
-        <div class="hint varning-fri" hidden>
-          <strong>Mottagaren går inte att låsa nu.</strong> Så fort något
-          fält är fritt går mottagarnumret att ändra i appen, oavsett vad
-          koden säger. Det gäller både knappen och den skannade QR-koden.
-          Den som betalar kan alltså skicka pengarna till sig själv i
-          stället. Ska koden sitta uppe utan uppsikt: fyll i ett belopp och
-          lämna alla rutor tomma.
+        {# En rad som säger vad som FAKTISKT gäller, räknad på servern ur de
+           ifyllda värdena. Här stod förut "Det som inte är ikryssat låses i
+           appen" - och det stämde inte: mottagaren följer med så fort något
+           annat fält är fritt, oavsett kryssrutan. Mätt på telefon
+           2026-09-08, se docs/swish-applankens-format.md.
+
+           Upplysning, inte varning. Den som betalar kan bara peka om sin
+           EGEN betalning och ser numret vid BankID. Att en betalning kommit
+           fram kontrolleras i Swish-appen eller på kontot, oavsett lås. #}
+        <div class="hint laset" id="gen-las" {% if not lastext %}hidden{% endif %}>
+          {{ lastext or '' }}
         </div>
       </div>
 
@@ -195,20 +195,6 @@
 // Varningen om fria fält visas så fort någon ruta kryssas i, inte först
 // efter att koden skapats. Den som lägger ut en kod ska veta vad den
 // tillåter innan den trycks.
-function visaVarning() {
-  // Ett enda villkor: är NÅGOT fritt går mottagaren att ändra. Vilken ruta
-  // det är spelar ingen roll, och det spelar ingen roll om koden skannas
-  // eller trycks på.
-  var nagot = [...document.querySelectorAll('.kryss input')].some(function (i) {
-    return i.checked;
-  });
-  var ruta = document.querySelector('.varning-fri');
-  if (ruta) ruta.hidden = !nagot;
-}
-document.addEventListener('change', function (e) {
-  if (e.target.closest('.kryss')) visaVarning();
-});
-visaVarning();
 
 // ── Räkna om medan man skriver ────────────────────────────────────────────
 // Ingen knapp att trycka på: fälten ändras, och koden följer efter. Kodens
@@ -225,6 +211,7 @@ visaVarning();
   var felruta = document.getElementById('gen-fel');
   var bild = document.getElementById('gen-bild');
   var strang = document.getElementById('gen-strang');
+  var laset = document.getElementById('gen-las');
 
   form.addEventListener('submit', function (e) { e.preventDefault(); rakna(); });
   knapp.hidden = true;
@@ -251,6 +238,11 @@ visaVarning();
     felruta.hidden = lage !== 'fel';
     felruta.textContent = svar.fel || '';
     tom.hidden = lage !== 'tom';
+    // Låsraden döljs när betalningen inte går att koda. Den beskriver vad
+    // som händer i appen, och finns det ingen kod finns det inget att
+    // beskriva - en rad om lås över ett felmeddelande är brus.
+    laset.hidden = !svar.lastext;
+    laset.textContent = svar.lastext || '';
 
     fardig.hidden = lage !== 'ok';
     if (lage !== 'ok') return;

@@ -28,6 +28,7 @@ from app.swish import (
     betalning_ur_rad,
     qr_strang,
 )
+from app.swishtext import lastext
 from app.templating import templates
 from app.validation import MAX_NAME_LENGTH, MAX_TEXT_LENGTH, validate_length
 
@@ -65,6 +66,7 @@ def _poster(db, bundle_id: int) -> list[dict]:
             post["kodstrang"] = qr_strang(betalning)
             post["applank"] = applank(betalning)
             post["fel"] = None
+            post["lastext"] = lastext(betalning)
         except Swishfel as fel:
             # Allt som skrivs härifrån går genom _falt() och är kodbart. En
             # rad som ändrats direkt i databasen behöver ändå kunna visas:
@@ -73,6 +75,7 @@ def _poster(db, bundle_id: int) -> list[dict]:
             post["kodstrang"] = None
             post["applank"] = None
             post["fel"] = str(fel)
+            post["lastext"] = None
         # Sant betyder att den som öppnar applänken kan peka om betalningen
         # till ett annat nummer. Se applank(). Visas bara för ÄGAREN.
         post["mottagare_gar_att_andra"] = betalning.mask() != 0

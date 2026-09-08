@@ -126,8 +126,15 @@ What follows from it:
 
 - **Nothing keeps the payee locked except locking every field.** That holds
   for the printed code and the app link alike.
-- Any code with an editable field should carry a warning wherever a user
-  creates one - the QR code included.
+- Whoever creates a code should be told what it allows, for the values they
+  entered. Listing the checkboxes is not enough: the payee goes free without
+  anyone ticking it, and text saying otherwise contradicts reality on the
+  one point that matters.
+- Treat it as **information, not a warning**. The payer can only redirect
+  their own payment, sees the payee before signing with BankID, and rarely
+  has reason to move a church collection to themselves. For a sale in
+  person the seller verifies the payment arrived anyway, in the Swish app
+  or on the account - which you do regardless of how the code is locked.
 - A fully locked code is safe in both forms.
 
 ## The QR code payload is a different format

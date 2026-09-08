@@ -101,8 +101,10 @@ Konsekvenser för oss:
 
 - Ingenting håller mottagaren låst utom att låsa alla fält. Det gäller den
   tryckta koden lika mycket som applänken.
-- Varje kod med fria fält ska bära en varning i gränssnittet. Den som lägger
-  ut den ska veta vad den tillåter.
+- Den som skapar en kod ska se vad den tillåter, för de värden hen fyllt i -
+  inte en uppräkning av kryssrutorna, som inte stämmer för mottagaren.
+  Upplysning, inte varning: betalaren kan bara peka om sin egen betalning och
+  ser numret vid BankID.
 - En helt låst kod är säker i båda formerna, och är den form som hör hemma på
   ett anslag utan uppsikt.
 

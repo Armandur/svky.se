@@ -24,6 +24,10 @@
   border-left: 3px solid var(--red, #c0392b); background: #fdf3f2;
   padding: 10px 14px; margin-top: 12px; font-size: .83rem; line-height: 1.6; color: #7d2b21;
 }
+.sw-upplysning {
+  font-size: .82rem; color: var(--muted); margin: 10px 0 0; line-height: 1.6;
+  border-left: 3px solid var(--border); padding-left: 10px;
+}
 .sw-ny { border: 1px dashed var(--border); background: var(--bg); }
 .sw-hjalp { font-size: .78rem; color: var(--muted); margin-top: 3px; }
 {% endblock %}
@@ -121,15 +125,10 @@
     </div>
     {% endif %}
 
-    {% if post.mottagare_gar_att_andra %}
-    <div class="sw-varning">
-      <strong>Mottagaren går inte att låsa här.</strong>
-      Så fort något fält är fritt kan den som betalar byta mottagarnummer i
-      Swish, oavsett vad vi skickar med. Det gäller både knappen och den
-      skannade QR-koden - mätt på telefon 2026-09-08. Betalaren ser numret
-      innan hen skriver under med BankID. Ska posten vara låst: fyll i ett
-      belopp och kryssa ur alla rutor.
-    </div>
+    {# Vad posten faktiskt tillåter, räknad ur de sparade värdena. Samma
+       text som generatorn visar - se app/swishtext.py. #}
+    {% if post.lastext %}
+    <p class="sw-upplysning">{{ post.lastext }}</p>
     {% endif %}
 
   </form>

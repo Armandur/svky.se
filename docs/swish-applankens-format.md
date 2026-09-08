@@ -125,8 +125,15 @@ Vad som följer av det:
 
 - **Ingenting håller mottagaren låst utom att låsa alla fält.** Det gäller
   den tryckta koden lika mycket som applänken.
-- Varje kod med ett fritt fält ska bära en varning där någon skapar den,
-  QR-koden inräknad.
+- Den som skapar en kod ska få veta vad den tillåter, för de värden hen
+  fyllt i. En rad som räknar upp kryssrutorna räcker inte: mottagaren
+  följer med utan att någon kryssat i den, och en text som säger något
+  annat säger emot verkligheten på just den punkt som betyder mest.
+- Det är en **upplysning, inte en varning**. Betalaren kan bara peka om sin
+  egen betalning, ser mottagaren innan hen skriver under med BankID, och
+  har sällan skäl att flytta en kollekt till sig själv. Vid försäljning på
+  plats kontrollerar säljaren ändå att betalningen kommit fram, i
+  Swish-appen eller på kontot - och det gör man oavsett hur koden är låst.
 - En helt låst kod är säker i båda formerna.
 
 ## QR-kodens nyttolast är ett annat format

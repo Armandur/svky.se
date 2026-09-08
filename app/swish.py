@@ -218,3 +218,29 @@ def betalning_ur_rad(rad) -> Swishbetalning:
         redigerbart_belopp=bool(rad["fritt_belopp"]),
         redigerbart_meddelande=bool(rad["fritt_meddelande"]),
     )
+
+
+def fria_falt(betalning: Swishbetalning) -> tuple[str, ...]:
+    """Vad betalaren FAKTISKT kan ändra i appen.
+
+    Inte samma sak som kryssrutorna. Så fort något fält är fritt går
+    mottagaren att ändra också, mätt på telefon 2026-09-08 och lika sant
+    för den skannade koden som för applänken. Kryssrutan för mottagaren
+    styr bit 1 i låsmasken, inte vad appen tillåter.
+
+    Regeln bor här och inte i ett gränssnitt, för den gäller varje ställe
+    som visar en betalning: generatorn, samlingen och det som kommer sedan.
+
+    Fälten kommer i den ordning formuläret har dem.
+    """
+    if betalning.mask() == 0:
+        return ()
+
+    fria = []
+    if betalning.redigerbart_belopp:
+        fria.append("belopp")
+    if betalning.redigerbart_meddelande:
+        fria.append("meddelande")
+    # Mottagaren sist och alltid: den följer med, oavsett kryssruta.
+    fria.append("mottagare")
+    return tuple(fria)

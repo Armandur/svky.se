@@ -551,21 +551,37 @@ def test_swish_data_ar_reserverad(client):
 # --- vad gränssnittet säger om låsen -------------------------------------
 
 
-def test_varningen_galler_bada_formerna(client):
-    """Varningen får inte lova att den tryckta koden skyddar.
+def test_lasraden_raknar_med_mottagaren_utan_kryssrutan(client):
+    """Raden får inte säga att mottagaren är låst när den inte är det.
 
-    Mätt på telefon 2026-09-08: låsmasken styr vilka fält appen öppnar men
-    fäster inte mottagaren, så en skannad kod med fritt belopp låter
-    betalaren byta nummer precis som applänken. Sidan påstod tidigare
-    motsatsen, och det rådet hade lett till tryckta koder någon kunde peka
-    om. Se docs/swish-applankens-format.md.
+    Här stod förut "Det som inte är ikryssat låses i appen". Det stämde
+    inte: mottagaren följer med så fort något ANNAT fält är fritt, mätt på
+    telefon 2026-09-08 och lika sant för den skannade koden som för
+    applänken. Se docs/swish-applankens-format.md.
     """
-    text = client.get("/swish").text
+    fraga = "mottagare=1231234567&belopp=150&meddelande=Kollekt&fritt_belopp=1"
 
-    assert "Mottagaren går inte att låsa nu" in text
-    assert "både knappen och den skannade QR-koden" in text
-    # Det gamla, felaktiga löftet får inte komma tillbaka.
+    text = client.get(f"/swish?{fraga}").text
+
+    assert "Betalaren kan ändra beloppet och mottagarnumret" in text
+    assert "även utan kryssrutan" in text
+    # De gamla, felaktiga formuleringarna får inte komma tillbaka.
+    assert "Det som inte är ikryssat låses i appen" not in text
     assert "QR-koden är däremot låst" not in text
+
+
+def test_lasraden_sager_att_allt_ar_last_nar_det_ar_det(client):
+    text = client.get("/swish?mottagare=1231234567&belopp=150&meddelande=Kollekt").text
+
+    assert "Allt är låst" in text
+    assert "150,00 kr till 1231234567" in text
+
+
+def test_lasraden_visar_normaliserade_varden(client):
+    """Raden ska visa vad koden BÄR, inte vad som skrevs in."""
+    text = client.get("/swish?mottagare=070-123 45 67&belopp=149.5").text
+
+    assert "149,50 kr till 0701234567" in text
 
 
 def test_mottagarbiten_ar_ett_i_lasmasken(client):
@@ -607,3 +623,32 @@ def test_last_mottagare_utelamnar_nyckeln_helt(client):
     nyttolast = json.loads(unquote(data["applank"].split("data=", 1)[1]))
 
     assert "editable" not in nyttolast["payee"]
+
+
+def test_fria_falt_raknar_alltid_med_mottagaren(client):
+    """Regeln som resten bygger på, prövad direkt.
+
+    Mottagaren är fri så fort NÅGOT fält är fritt, oavsett kryssrutan för
+    just mottagaren. Bara en helt låst betalning håller numret.
+    """
+    from app.swish import Swishbetalning, fria_falt
+
+    def betalning(**kw):
+        return Swishbetalning(mottagare="1231234567", belopp="150", meddelande="Kollekt", **kw)
+
+    assert fria_falt(betalning()) == ()
+    assert fria_falt(betalning(redigerbart_belopp=True)) == ("belopp", "mottagare")
+    assert fria_falt(betalning(redigerbart_meddelande=True)) == ("meddelande", "mottagare")
+    assert fria_falt(betalning(redigerbar_mottagare=True)) == ("mottagare",)
+    assert fria_falt(betalning(redigerbart_belopp=True, redigerbart_meddelande=True)) == (
+        "belopp",
+        "meddelande",
+        "mottagare",
+    )
+
+
+def test_lasraden_utelamnar_ett_meddelande_som_inte_finns(client):
+    """Ett tomt meddelande finns inte att låsa."""
+    text = client.get("/swish?mottagare=1231234567&belopp=150&fritt_belopp=1").text
+
+    assert "Låst: meddelandet" not in text

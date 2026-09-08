@@ -26,6 +26,7 @@ from app.swish import (
     applank,
     qr_strang,
 )
+from app.swishtext import lastext
 from app.templating import templates
 
 router = APIRouter()
@@ -130,6 +131,7 @@ async def swish_data(request: Request):
             "kodstrang": qr_strang(betalning),
             "applank": applank(betalning),
             "mottagare": betalning.mottagare,
+            "lastext": lastext(betalning),
         }
     )
 
@@ -148,6 +150,7 @@ async def generator(request: Request):
             "fel": fel,
             "applank": applank(betalning) if betalning else None,
             "kodstrang": qr_strang(betalning) if betalning else None,
+            "lastext": lastext(betalning) if betalning else None,
             "form": dict(request.query_params),
             "max_meddelande": MAX_MEDDELANDE,
         },

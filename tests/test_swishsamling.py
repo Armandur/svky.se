@@ -398,24 +398,26 @@ def test_agaren_far_hamta_postens_egen_kod(client, inloggad_anvandare, andelse):
     assert "attachment" in svar.headers["content-disposition"]
 
 
-def test_varningen_visas_for_agaren_men_inte_for_besokaren(client, inloggad_anvandare):
-    """Fritt belopp gör mottagaren ändringsbar i applänken. Ägaren ska veta
-    det, besökaren har ingen nytta av att veta det."""
+def test_lasraden_visas_for_agaren_men_inte_for_besokaren(client, inloggad_anvandare):
+    """Ägaren väljer låsen och ska se vad de ger. Besökaren ska betala."""
     bundle_id = _samling(inloggad_anvandare["id"])
     _post(bundle_id, "Dagens kollekt", belopp=None)
 
     agarvy = client.get(f"/mina-samlingar/{bundle_id}").text
     publikt = client.get("/domkyrkan").text
 
-    assert "går inte att låsa här" in agarvy
-    assert "går inte att låsa här" not in publikt
+    assert "Betalaren kan ändra" in agarvy
+    assert "även utan kryssrutan" in agarvy
+    assert "Betalaren kan ändra" not in publikt
 
 
-def test_lasta_poster_far_ingen_varning(client, inloggad_anvandare):
+def test_last_post_sager_att_allt_ar_last(client, inloggad_anvandare):
     bundle_id = _samling(inloggad_anvandare["id"])
     _post(bundle_id, "Diakoni", belopp="100,00")
 
-    assert "går inte att låsa här" not in client.get(f"/mina-samlingar/{bundle_id}").text
+    text = client.get(f"/mina-samlingar/{bundle_id}").text
+    assert "Allt är låst" in text
+    assert "även utan kryssrutan" not in text
 
 
 def test_trycken_visas_for_agaren(client, inloggad_anvandare):
