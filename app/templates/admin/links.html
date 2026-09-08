@@ -19,6 +19,19 @@
 .owner-cell { font-size: .82rem; color: var(--muted); }
 td.actions { white-space: nowrap; }
 .count-info { color: var(--muted); font-size: .83rem; text-align: right; margin-bottom: 8px; }
+
+.qr-adminrad > td { background: var(--bg); }
+.qr-ruta {
+  display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; padding: 12px;
+  box-sizing: border-box; max-width: calc(100vw - 48px); position: sticky; left: 0;
+}
+.qr-ruta img { background: #fff; border-radius: 4px; flex-shrink: 0; }
+.qr-text { flex: 1; min-width: 200px; font-size: .85rem; color: var(--muted); }
+.qr-text p { margin: 0 0 10px; }
+.qr-lankar, .qr-symbolval { display: flex; gap: 10px; flex-wrap: wrap; }
+.qr-symbolval label {
+  display: flex; align-items: center; gap: 5px; cursor: pointer; color: var(--text);
+}
 {% endblock %}
 
 {% block admin_bar %}
@@ -123,6 +136,8 @@ td.actions { white-space: nowrap; }
         <td style="font-size:.83rem;">{{ link.created_at | sthlm }}</td>
         <td class="actions">
           <a href="/admin/links/{{ link.id }}" class="btn btn-secondary btn-sm">Detalj</a>
+          <button type="button" class="btn btn-secondary btn-sm"
+                  data-qr-open="qr-admin-link-{{ link.id }}">&#9635; QR</button>
           {% if link.status in (1, 0) %}
           <form action="/admin/links/{{ link.id }}/toggle" method="post" style="display:inline;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -136,6 +151,35 @@ td.actions { white-space: nowrap; }
             <button type="submit" class="btn btn-primary btn-sm">Återaktivera</button>
           </form>
           {% endif %}
+        </td>
+      </tr>
+      <tr class="qr-adminrad" id="qr-admin-link-{{ link.id }}"
+          data-qr-display="table-row" style="display:none;">
+        <td colspan="8">
+          <div class="qr-ruta">
+            <img alt="QR-kod till svky.se/{{ link.code }}"
+                 data-src="/admin/links/{{ link.id }}/qr.png" width="180" height="180">
+            <div class="qr-text">
+              <p>Koden bär <strong>svky.se/{{ link.code }}</strong>.</p>
+              <p class="qr-symbolval" data-qr-val>
+                {% for varde, text in qr_symboler.items() %}
+                <label>
+                  <input type="radio" name="qr-admin-link-{{ link.id }}" value="{{ varde }}"
+                         {% if not varde %}checked{% endif %}>
+                  {{ text }}
+                </label>
+                {% endfor %}
+              </p>
+              <p class="qr-lankar">
+                <a href="/admin/links/{{ link.id }}/qr.svg" data-qr-lank
+                   class="btn btn-secondary btn-sm">&#11015; SVG för tryck</a>
+                <a href="/admin/links/{{ link.id }}/qr.png" data-qr-lank
+                   class="btn btn-secondary btn-sm">&#11015; PNG</a>
+                <a href="/admin/links/{{ link.id }}/qr.zip"
+                   class="btn btn-secondary btn-sm">&#11015; Alla varianter (zip)</a>
+              </p>
+            </div>
+          </div>
         </td>
       </tr>
       {% else %}
@@ -164,4 +208,8 @@ td.actions { white-space: nowrap; }
   {% endif %}
 </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/qr.js"></script>
 {% endblock %}

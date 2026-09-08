@@ -30,6 +30,30 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 
+# Färdiga frågor per tabell, inte ett tabellnamn infogat med f-sträng.
+# Allowlisten före en f-sträng är säker men ser ut som en injektion, och nästa
+# läsare kan kopiera raden utan kontrollen. Här finns ingen sträng att bygga.
+_KODFRAGA = {
+    ("links", False): "SELECT code FROM links WHERE id=?",
+    ("links", True): "SELECT code FROM links WHERE id=? AND owner_id=?",
+    ("bundles", False): "SELECT code FROM bundles WHERE id=?",
+    ("bundles", True): "SELECT code FROM bundles WHERE id=? AND owner_id=?",
+}
+
+
+def _hamta_kod(post_id: int, agare: int | None, tabell: str) -> str:
+    """Kortkoden, eller 404. Ägarvillkoret ingår i frågan, inte efteråt."""
+    fraga = _KODFRAGA.get((tabell, agare is not None))
+    if fraga is None:
+        raise ValueError(f"Okänd QR-tabell: {tabell}")
+    argument = (post_id,) if agare is None else (post_id, agare)
+    with get_db() as db:
+        rad = db.execute(fraga, argument).fetchone()
+    if not rad:
+        raise HTTPException(status_code=404)
+    return rad["code"]
+
+
 def _bildsvar(kropp: bytes, typ: str, filnamn: str, request: Request | None) -> Response:
     """Bilden med en ETag som speglar innehållet.
 
@@ -59,11 +83,12 @@ def _bildsvar(kropp: bytes, typ: str, filnamn: str, request: Request | None) -> 
 
 
 def _qr_svar(
-    link_id: int,
+    post_id: int,
     andelse: str,
     agare: int | None = None,
     symbol: str | None = None,
     request: Request | None = None,
+    tabell: str = "links",
 ) -> Response:
     """Gemensam för användarens och adminens QR-route.
 
@@ -74,47 +99,36 @@ def _qr_svar(
     if andelse not in ("png", "svg"):
         raise HTTPException(status_code=404)
 
-    with get_db() as db:
-        if agare is None:
-            rad = db.execute("SELECT code FROM links WHERE id=?", (link_id,)).fetchone()
-        else:
-            rad = db.execute(
-                "SELECT code FROM links WHERE id=? AND owner_id=?", (link_id, agare)
-            ).fetchone()
-    if not rad:
-        raise HTTPException(status_code=404)
+    code = _hamta_kod(post_id, agare, tabell)
 
     # Symbolen kommer ur frågesträngen. valj_symbol matchar mot registret och
     # ger None för allt okänt, så namnet når aldrig en sökväg. Ett felstavat
     # värde ger en kod utan sköld, inte ett fel - koden ska ritas ändå.
     vald = symbol if qr.valj_symbol(symbol) else None
 
-    adress = qr.lankadress(rad["code"])
+    adress = qr.lankadress(code)
     if andelse == "png":
         kropp, typ = qr.png(adress, symbol=vald), "image/png"
     else:
         kropp, typ = qr.svg(adress, symbol=vald), "image/svg+xml"
 
-    return _bildsvar(kropp, typ, qr.filnamn(rad["code"], andelse, vald), request)
+    return _bildsvar(kropp, typ, qr.filnamn(code, andelse, vald), request)
 
 
-def _qr_paket(link_id: int, agare: int | None = None, request: Request | None = None) -> Response:
+def _qr_paket(
+    post_id: int,
+    agare: int | None = None,
+    request: Request | None = None,
+    tabell: str = "links",
+) -> Response:
     """Alla varianter i en zip: PNG och SVG gånger varje symbol plus ingen.
 
     Byggs i minnet och strömmas. Sex QR-koder är inget att skriva till disk
     för, och en temporärfil hade behövt städas av någon.
     """
-    with get_db() as db:
-        if agare is None:
-            rad = db.execute("SELECT code FROM links WHERE id=?", (link_id,)).fetchone()
-        else:
-            rad = db.execute(
-                "SELECT code FROM links WHERE id=? AND owner_id=?", (link_id, agare)
-            ).fetchone()
-    if not rad:
-        raise HTTPException(status_code=404)
+    code = _hamta_kod(post_id, agare, tabell)
 
-    adress = qr.lankadress(rad["code"])
+    adress = qr.lankadress(code)
     buffert = io.BytesIO()
     with zipfile.ZipFile(buffert, "w", zipfile.ZIP_DEFLATED) as paket:
         for symbol in (None, *qr.SYMBOLER):
@@ -122,16 +136,14 @@ def _qr_paket(link_id: int, agare: int | None = None, request: Request | None = 
                 # Fast tidsstämpel. Utan den skriver zipfile klockslaget för
                 # varje bygge in i arkivet, och två paket med identiskt
                 # innehåll får då olika ETag - vilket gör ETaggen värdelös.
-                post = zipfile.ZipInfo(
-                    qr.filnamn(rad["code"], andelse, symbol), (1980, 1, 1, 0, 0, 0)
-                )
+                post = zipfile.ZipInfo(qr.filnamn(code, andelse, symbol), (1980, 1, 1, 0, 0, 0))
                 post.compress_type = zipfile.ZIP_DEFLATED
                 paket.writestr(post, rita(adress, symbol=symbol))
 
     return _bildsvar(
         buffert.getvalue(),
         "application/zip",
-        qr.filnamn(rad["code"], "zip"),
+        qr.filnamn(code, "zip"),
         request,
     )
 

@@ -45,6 +45,15 @@ def _skapa_lank(agare: int, code: str = "hsandkonf") -> int:
         return db.execute("SELECT last_insert_rowid()").fetchone()[0]
 
 
+def _skapa_samling(agare: int, code: str = "konfirmander") -> int:
+    with get_db() as db:
+        db.execute(
+            "INSERT INTO bundles (code, name, owner_id, status) VALUES (?,?,?,1)",
+            (code, "Konfirmander", agare),
+        )
+        return db.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+
 # --- modulen -------------------------------------------------------------
 
 def test_koden_bar_kortlanken_inte_maladressen():
@@ -130,6 +139,83 @@ def test_admin_far_hamta_alla(client, admin):
 def test_vanlig_anvandare_nekas_adminroutens_kod(client, inloggad_anvandare):
     lank = _skapa_lank(inloggad_anvandare["id"])
     assert client.get(f"/admin/links/{lank}/qr.png").status_code == 303
+
+
+@pytest.mark.parametrize("andelse", ["png", "svg"])
+def test_agaren_far_hamta_samlingens_kod(client, inloggad_anvandare, andelse):
+    samling = _skapa_samling(inloggad_anvandare["id"])
+
+    svar = client.get(
+        f"/mina-samlingar/{samling}/qr.{andelse}?symbol=skold-svart"
+    )
+
+    assert svar.status_code == 200
+    assert svar.headers["etag"]
+    assert svar.headers["cache-control"] == "private, no-cache"
+    png = svar.content if andelse == "png" else _svg_till_png(svar.content)
+    assert _zxing(png) == qr.lankadress("konfirmander")
+
+
+def test_annans_samling_ger_404(client, inloggad_anvandare):
+    with get_db() as db:
+        db.execute("INSERT INTO users (email) VALUES ('samling@svenskakyrkan.se')")
+        annan = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+    samling = _skapa_samling(annan, "annans-samling")
+
+    assert client.get(f"/mina-samlingar/{samling}/qr.png").status_code == 404
+
+
+def test_utloggad_nekas_samlingens_kod(client):
+    assert client.get("/mina-samlingar/1/qr.png").status_code == 303
+
+
+def test_samlingens_paket_bar_sex_unika_namn(client, inloggad_anvandare):
+    import zipfile
+
+    samling = _skapa_samling(inloggad_anvandare["id"])
+
+    svar = client.get(f"/mina-samlingar/{samling}/qr.zip")
+
+    assert svar.status_code == 200
+    assert svar.headers["etag"]
+    namn = zipfile.ZipFile(io.BytesIO(svar.content)).namelist()
+    assert len(namn) == len(set(namn)) == 6
+
+
+def test_admin_far_hamta_samlingens_kod_och_paket(client, admin):
+    import zipfile
+
+    with get_db() as db:
+        db.execute("INSERT INTO users (email) VALUES ('agare@svenskakyrkan.se')")
+        agare = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+    samling = _skapa_samling(agare)
+
+    bild = client.get(f"/admin/bundles/{samling}/qr.png?symbol=skold-farg")
+    paket = client.get(f"/admin/bundles/{samling}/qr.zip")
+
+    assert bild.status_code == 200
+    assert _zxing(bild.content) == qr.lankadress("konfirmander")
+    assert paket.status_code == 200
+    assert len(set(zipfile.ZipFile(io.BytesIO(paket.content)).namelist())) == 6
+
+
+def test_admin_far_hamta_lankens_paket(client, admin):
+    import zipfile
+
+    with get_db() as db:
+        db.execute("INSERT INTO users (email) VALUES ('paket@svenskakyrkan.se')")
+        agare = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+    lank = _skapa_lank(agare)
+
+    svar = client.get(f"/admin/links/{lank}/qr.zip")
+
+    assert svar.status_code == 200
+    assert len(set(zipfile.ZipFile(io.BytesIO(svar.content)).namelist())) == 6
+
+
+def test_vanlig_anvandare_nekas_adminroutens_samling(client, inloggad_anvandare):
+    samling = _skapa_samling(inloggad_anvandare["id"])
+    assert client.get(f"/admin/bundles/{samling}/qr.png").status_code == 303
 
 
 def _moduler(adress: str, felkorrigering: int) -> int:
@@ -429,3 +515,19 @@ def test_alla_kodlangder_avkodas_med_symbol(symbol):
         adress = qr.lankadress((m * 7)[:n])
 
         assert _zxing(qr.png(adress, symbol=symbol)) == adress, f"{n} tecken, mönster {m!r}"
+
+
+def test_okand_tabell_avvisas():
+    """Tabellnamnet är en parameter, och en f-sträng i SQL ser ut som en
+    injektion även när den är allowlistad.
+
+    Uppslagstabellen med färdiga frågor gör att det inte finns någon sträng
+    att bygga. Provet låser att ett okänt namn stoppas i stället för att
+    tolkas.
+    """
+    from app.routes.user.links import _hamta_kod
+
+    with pytest.raises(ValueError):
+        _hamta_kod(1, None, "users")
+    with pytest.raises(ValueError):
+        _hamta_kod(1, 1, "links; DROP TABLE links")
