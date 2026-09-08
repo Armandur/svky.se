@@ -14,13 +14,10 @@ den som fyller i redan känner till.
 
 from __future__ import annotations
 
-from urllib.parse import urlencode
-
 from fastapi import APIRouter, HTTPException, Request, Response
 
 from app import qr
 from app.auth import get_current_user
-from app.config import BASE_URL
 from app.swish import (
     MAX_MEDDELANDE,
     Swishbetalning,
@@ -57,20 +54,6 @@ def _ur_fragan(request: Request) -> tuple[Swishbetalning | None, str | None]:
     except Swishfel as fel:
         return None, str(fel)
     return betalning, None
-
-
-def _lankadress(request: Request) -> str:
-    """Den ifyllda generatorns egen adress, absolut.
-
-    Det är den länk användaren klistrar in i ett CMS. En svky.se-adress
-    fungerar i varje webbläsare, till skillnad från swish:// som bara appen
-    förstår.
-    """
-    fraga = urlencode(
-        {n: v for n, v in request.query_params.items() if v},
-        encoding="utf-8",
-    )
-    return f"{BASE_URL.rstrip('/')}{request.url.path}?{fraga}"
 
 
 @router.get("/swish-kod.png")
@@ -126,7 +109,6 @@ async def generator(request: Request):
             "fel": fel,
             "applank": applank(betalning) if betalning else None,
             "kodstrang": qr_strang(betalning) if betalning else None,
-            "delalank": _lankadress(request) if betalning else None,
             "form": dict(request.query_params),
             "max_meddelande": MAX_MEDDELANDE,
         },

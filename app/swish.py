@@ -68,12 +68,19 @@ def _kronor(belopp: str | None) -> str:
 
     Swish vill ha 100,00 och inte 100. Applänken vill däremot ha hela kronor
     utan komma, så de två formaten får inte blandas ihop - se applank().
+
+    Ören går bra, både 149,50 och 149.50. Fler än två decimaler AVVISAS i
+    stället för att avrundas: den som skriver 10,999 får annars en tryckt
+    kod på 11 kronor utan att veta om det.
     """
     if belopp in (None, ""):
         return ""
-    text = str(belopp).replace(",", ".").strip()
+    text = str(belopp).strip().replace(",", ".")
+    heltal, punkt, decimaler = text.partition(".")
+    if punkt and len(decimaler) > 2:
+        raise Swishfel("Beloppet kan ha högst två decimaler, alltså ören.")
     try:
-        tal = round(float(text), 2)
+        tal = float(text)
     except ValueError:
         raise Swishfel("Beloppet går inte att tolka som ett tal.") from None
     if tal <= 0:

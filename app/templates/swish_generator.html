@@ -38,9 +38,9 @@
 {% block content %}
 <div class="page-title">
   <h1>Skapa en Swish-kod</h1>
-  <p>Fyll i betalningen och ladda ner koden för tryck. Ingenting sparas -
-     koden räknas fram ur adressen, så du kan spara sidan som bokmärke eller
-     skicka länken till en kollega.</p>
+  <p>Fyll i betalningen och ladda ner koden för tryck. Ingenting sparas här -
+     koden räknas fram ur adressen. Vill du komma tillbaka till samma kod,
+     spara sidans adress som bokmärke.</p>
 </div>
 
 <div class="gen-layout">
@@ -61,9 +61,10 @@
       <div class="form-group">
         <label for="belopp">Belopp i kronor</label>
         <input type="text" id="belopp" name="belopp" inputmode="decimal"
-               placeholder="150" value="{{ form.belopp or '' }}">
+               placeholder="149,50" value="{{ form.belopp or '' }}">
         <div class="hint">
-          Lämna tomt för en gåva där givaren väljer själv. Kryssa då i
+          Kronor eller kronor och ören: <code>150</code> eller <code>149,50</code>.
+          Lämna tomt för en gåva där givaren väljer själv, och kryssa då i
           <strong>Beloppet får ändras</strong> - en tom och låst summa går
           inte att betala.
         </div>
@@ -113,19 +114,8 @@
         &#11015; PNG</a>
     </p>
 
-    <div class="gen-dela">
-      <label for="delalank">Länk att klistra in</label>
-      <input type="text" id="delalank" readonly value="{{ delalank }}"
-             onclick="this.select()">
-      <button type="button" class="btn btn-secondary btn-sm kopiera"
-              data-text="{{ delalank }}">&#128203; Kopiera länken</button>
-      <div class="hint" style="margin-top:8px;">
-        Fungerar i alla webbläsare. Den som öppnar den ser samma kod som du.
-      </div>
-    </div>
-
     {% if applank %}
-    <div class="gen-dela" style="margin-top:16px;">
+    <div class="gen-dela">
       <label for="applank">Applänk för mobil</label>
       <input type="text" id="applank" readonly value="{{ applank }}"
              onclick="this.select()">

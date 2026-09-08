@@ -348,13 +348,16 @@ def test_ifylld_generator_visar_kod_och_lankar(client):
     assert "C1231234567;150,00;Kollekt;2" in svar.text
 
 
-def test_lanken_att_klistra_in_ar_absolut(client):
-    """Den ska fungera i ett CMS, alltså kan den inte vara relativ."""
-    svar = client.get("/swish?mottagare=1231234567&belopp=50")
+def test_ingen_egen_ruta_for_sidans_egen_adress(client):
+    """Adressfältet bär redan den länken.
 
-    from app.config import BASE_URL
+    Ett fält som dubblerar webbläsarens adressrad är brus, och det man vill
+    klistra in i ett CMS är bilden eller en betallänk med egen kortkod -
+    inte en förifylld generator.
+    """
+    text = client.get("/swish?mottagare=1231234567&belopp=50").text
 
-    assert f"{BASE_URL.rstrip('/')}/swish?" in svar.text
+    assert "Länk att klistra in" not in text
 
 
 def test_koden_avkodas_till_betalningen(client):
@@ -398,3 +401,25 @@ def test_gava_visar_ingen_applank(client):
     assert svar.status_code == 200
     assert "swish-kod.png" in svar.text
     assert "Applänk för mobil" not in svar.text
+
+
+def test_oren_gar_bra_i_bada_formen():
+    """Swish tar kronor och ören. Både komma och punkt ska fungera - folk
+    skriver det ena eller det andra utan att tänka på det."""
+    for skrivet, vantat in (("149,50", "149,50"), ("149.50", "149,50"), ("0,5", "0,50")):
+        assert qr_strang(Swishbetalning("1231234567", skrivet)).split(";")[1] == vantat
+
+
+def test_fler_an_tva_decimaler_avvisas():
+    """Tidigare avrundades 10,999 tyst till 11,00. Beställaren fick då en
+    tryckt kod på fel belopp utan att veta om det."""
+    for belopp in ("10,999", "10.001", "5,1234"):
+        with pytest.raises(Swishfel):
+            qr_strang(Swishbetalning("1231234567", belopp))
+
+
+def test_generatorn_upplyser_om_oren(client):
+    text = client.get("/swish").text
+
+    assert "ören" in text
+    assert "149,50" in text
