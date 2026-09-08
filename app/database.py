@@ -481,6 +481,46 @@ def _mig_010_borttagen(conn: sqlite3.Connection) -> None:
     """
 
 
+def _mig_011_swish_items(conn: sqlite3.Connection) -> None:
+    """Swish-samlingens poster, och tryckräkningen per ändamål.
+
+    Samlingen själv är en vanlig bundle med theme='swish'. Bara posterna
+    får en egen tabell: en swishpost bär mottagare, belopp, meddelande och
+    låsmask, medan bundle_items bär title och url. Att tränga in den ena i
+    den andra gör båda sämre.
+
+    swish_taps räknar tryck på knappen, inte skanningar. En QR-kod läses av
+    Swish-appen utan att passera oss, så skanningar går inte att räkna alls
+    - se docs och samlingssidan.
+    """
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS swish_items (
+            id                    INTEGER PRIMARY KEY,
+            bundle_id             INTEGER NOT NULL REFERENCES bundles(id) ON DELETE CASCADE,
+            title                 TEXT NOT NULL,
+            description           TEXT,
+            mottagare             TEXT NOT NULL,
+            belopp                TEXT,
+            meddelande            TEXT,
+            fri_mottagare         INTEGER NOT NULL DEFAULT 0,
+            fritt_belopp          INTEGER NOT NULL DEFAULT 0,
+            fritt_meddelande      INTEGER NOT NULL DEFAULT 0,
+            sort_order            INTEGER DEFAULT 0,
+            created_at            DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_swish_items_bundle
+            ON swish_items(bundle_id, sort_order, id);
+
+        CREATE TABLE IF NOT EXISTS swish_taps (
+            id            INTEGER PRIMARY KEY,
+            swish_item_id INTEGER NOT NULL REFERENCES swish_items(id) ON DELETE CASCADE,
+            tapped_at     DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_swish_taps_item
+            ON swish_taps(swish_item_id, tapped_at);
+    """)
+
+
 # Nya migrationer läggs ALLTID SIST - aldrig infogas mellan existerande.
 MIGRATIONS: list[tuple[int, object]] = [
     (1, _mig_001_baseline),
@@ -493,6 +533,7 @@ MIGRATIONS: list[tuple[int, object]] = [
     (8, _mig_008_allowed_domains),
     (9, _mig_009_domain_permission_requests),
     (10, _mig_010_borttagen),
+    (11, _mig_011_swish_items),
 ]
 
 

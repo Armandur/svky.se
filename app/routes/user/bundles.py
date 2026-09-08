@@ -32,6 +32,7 @@ from app.validation import (
 )
 
 from .links import _qr_paket, _qr_svar
+from .swishsamlingar import samlingsvy
 
 log = logging.getLogger(__name__)
 
@@ -81,7 +82,7 @@ async def skapa_samling(
 
     name = name.strip()
     code = code.strip().lower()
-    theme = theme if theme in ("rich", "compact") else "rich"
+    theme = theme if theme in ("rich", "compact", "swish") else "rich"
     errors = {}
 
     if not name:
@@ -207,6 +208,14 @@ async def min_samling(request: Request, bundle_id: int):
 
     with get_db() as db:
         bundle = _get_own_bundle(db, bundle_id, user["id"])
+
+    # En swishsamling bär betalkoder i stället för länkar, och har en egen
+    # redigeringsvy. Allt runtomkring - kortkod, ägarskap, överlåtelse - är
+    # gemensamt, så avgreningen sker här och inte i en parallell route.
+    if bundle["theme"] == "swish":
+        return await samlingsvy(request, user, bundle)
+
+    with get_db() as db:
         sections = [
             dict(r)
             for r in db.execute(
@@ -273,7 +282,7 @@ async def uppdatera_samling(
     if not validate_csrf_token(csrf_token, get_csrf_secret(request)):
         raise HTTPException(status_code=403)
     user = get_user_or_redirect(request)
-    theme = theme if theme in ("rich", "compact") else "rich"
+    theme = theme if theme in ("rich", "compact", "swish") else "rich"
 
     if r := _langdfel(
         bundle_id,

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ bundle.name }} - svky.se/{{ bundle.code }}</title>
+<meta name="theme-color" content="#193d7a">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+.swish-hero {
+  background: linear-gradient(135deg, var(--blue-dark) 0%, #2355a0 100%);
+  color: #fff; padding: 30px 20px 26px;
+}
+.swish-hero-inner { max-width: 720px; width: 100%; box-sizing: border-box; margin: 0 auto; }
+.swish-hero h1 { font-size: 1.55rem; font-weight: 800; margin: 0 0 8px; line-height: 1.2; }
+.swish-hero .desc { font-size: .92rem; opacity: .88; margin: 0; line-height: 1.55; }
+
+/* width och box-sizing är inte prydnad: style.css gör body till en
+   flexkolumn, och där krymper `margin: 0 auto` elementet till sitt
+   innehåll i stället för att centrera en full bredd. */
+.swish-body {
+  max-width: 720px; width: 100%; box-sizing: border-box;
+  margin: 0 auto; padding: 22px 16px 48px;
+}
+
+.swish-intro {
+  background: #fff; border: 1px solid var(--border, #dde3ed); border-radius: 10px;
+  padding: 16px 20px; margin-bottom: 20px; font-size: .92rem; line-height: 1.7;
+}
+
+/* Växeln. Sidan väljer läge själv efter pekdon, och den här knappen
+   låter besökaren välja om. Vi frågar aldrig servern om enheten. */
+.swish-vaxel {
+  display: flex; justify-content: flex-end; margin-bottom: 14px;
+}
+.swish-vaxel button {
+  background: none; border: 1px solid var(--border, #dde3ed); border-radius: 20px;
+  padding: 6px 14px; font-size: .8rem; color: var(--muted, #5a6b85); cursor: pointer;
+}
+.swish-vaxel button:hover { border-color: #2355a0; color: #2355a0; }
+
+.swish-post {
+  background: #fff; border: 1px solid var(--border, #dde3ed); border-radius: 12px;
+  padding: 20px; margin-bottom: 16px;
+}
+.swish-post h2 { font-size: 1.15rem; font-weight: 700; color: #193d7a; margin: 0 0 4px; }
+.swish-post .post-desc { font-size: .88rem; color: #4a5568; margin: 0 0 14px; line-height: 1.6; }
+.swish-belopp {
+  display: inline-block; background: #eef3fb; color: #193d7a; border-radius: 6px;
+  padding: 3px 10px; font-size: .82rem; font-weight: 700; margin-bottom: 12px;
+}
+
+/* Knapp och kod ligger båda i DOM:en alltid. Lägena byter bara ordning
+   och storlek, så ingen besökare kan hamna utan sitt sätt att betala. */
+.swish-medel { display: flex; flex-direction: column; gap: 14px; align-items: center; }
+.swish-knapp {
+  display: block; width: 100%; text-align: center; box-sizing: border-box;
+  background: #2355a0; color: #fff; text-decoration: none; font-weight: 700;
+  border-radius: 10px; padding: 15px 18px; font-size: 1rem;
+}
+.swish-knapp:hover { background: #193d7a; }
+.swish-kod { text-align: center; }
+.swish-kod img { display: block; margin: 0 auto; width: 190px; height: auto; }
+.swish-kod .kod-text { font-size: .78rem; color: var(--muted, #5a6b85); margin-top: 6px; }
+
+/* Skannläge: koden är huvudsaken, knappen krymper till en rad under. */
+body[data-lage="skanna"] .swish-medel { flex-direction: column; }
+body[data-lage="skanna"] .swish-kod img { width: 260px; }
+body[data-lage="skanna"] .swish-knapp {
+  background: none; color: #2355a0; border: 1px solid #2355a0;
+  padding: 9px 18px; font-size: .88rem; font-weight: 600; width: auto;
+}
+body[data-lage="skanna"] .swish-medel { flex-direction: column-reverse; }
+
+@media (max-width: 480px) {
+  .swish-kod img { width: 160px; }
+  body[data-lage="skanna"] .swish-kod img { width: 220px; }
+}
+</style>
+</head>
+<body data-lage="trycka">
+
+<div class="swish-hero">
+  <div class="swish-hero-inner">
+    <h1>{{ bundle.name }}</h1>
+    {% if bundle.description %}<p class="desc">{{ bundle.description }}</p>{% endif %}
+  </div>
+</div>
+
+<div class="swish-body">
+
+  {% if body_html %}<div class="swish-intro">{{ body_html | safe }}</div>{% endif %}
+
+  {% if poster %}
+  <div class="swish-vaxel">
+    <button type="button" id="vaxel" aria-pressed="false">Jag ska skanna i stället</button>
+  </div>
+  {% endif %}
+
+  {% for post in poster %}
+  <div class="swish-post">
+    <h2>{{ post.title }}</h2>
+    {% if post.description %}<p class="post-desc">{{ post.description }}</p>{% endif %}
+    {% if post.belopp %}
+    <div class="swish-belopp">{{ post.belopp }} kr</div>
+    {% else %}
+    <div class="swish-belopp">Du väljer belopp</div>
+    {% endif %}
+
+    <div class="swish-medel">
+      <a class="swish-knapp" href="{{ post.applank }}" data-post="{{ post.id }}">
+        Öppna Swish
+      </a>
+      <div class="swish-kod">
+        <img src="/swish-post/{{ post.id }}/qr.png"
+             alt="Swish-kod för {{ post.title }}" loading="lazy">
+        <div class="kod-text">Skanna med Swish eller kameran</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  {% if not poster %}
+  <p style="color:var(--muted); text-align:center; margin-top:40px;">
+    Den här samlingen har inga betalkoder än.
+  </p>
+  {% endif %}
+
+</div>
+
+<footer class="site-footer">
+  svky.se -
+  <a href="/om" style="color:var(--muted); text-decoration:none;">Om tjänsten</a>
+  -
+  <a href="/integritet" style="color:var(--muted); text-decoration:none;">Integritet</a>
+</footer>
+
+<script>
+(function () {
+  // Läget väljs av pekdonet, inte av user-agent: servern får aldrig veta
+  // något om besökarens enhet, och en user-agent-sträng ljuger ändå.
+  var pekfinger = window.matchMedia('(pointer: coarse)').matches;
+  var vaxel = document.getElementById('vaxel');
+
+  function satt(lage) {
+    document.body.dataset.lage = lage;
+    if (!vaxel) return;
+    vaxel.textContent = lage === 'skanna'
+      ? 'Jag betalar på den här telefonen'
+      : 'Jag ska skanna i stället';
+    vaxel.setAttribute('aria-pressed', lage === 'skanna' ? 'true' : 'false');
+  }
+
+  satt(pekfinger ? 'trycka' : 'skanna');
+
+  if (vaxel) {
+    vaxel.addEventListener('click', function () {
+      satt(document.body.dataset.lage === 'skanna' ? 'trycka' : 'skanna');
+    });
+  }
+
+  // Räknar tryck, aldrig skanningar. En kod som skannas från en tryckt
+  // lapp går rakt in i Swish-appen utan att passera oss.
+  document.querySelectorAll('.swish-knapp[data-post]').forEach(function (knapp) {
+    knapp.addEventListener('click', function () {
+      var adress = '/swish-post/' + knapp.dataset.post + '/tryck';
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(adress);
+      } else {
+        fetch(adress, { method: 'POST', keepalive: true });
+      }
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}svky.se - {{ bundle.name }}{% endblock %}
+
+{% block extra_style %}
+.sw-post {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px 20px; margin-bottom: 14px;
+  box-shadow: var(--shadow);
+}
+.sw-post-topp { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.sw-post-topp .namn { font-size: 1.05rem; font-weight: 700; color: var(--blue-dark); }
+.sw-post-topp .summa { font-size: .84rem; color: var(--muted); }
+.sw-post-topp .tryck { font-size: .8rem; color: var(--muted); margin-left: auto; }
+
+.sw-falt { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.sw-falt label { font-size: .8rem; font-weight: 600; display: block; margin-bottom: 3px; }
+.sw-fria { display: flex; gap: 16px; flex-wrap: wrap; margin: 12px 0 4px; font-size: .84rem; }
+.sw-fria label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+
+.sw-knappar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; align-items: center; }
+.sw-knappar form { display: inline; }
+
+.sw-varning {
+  border-left: 3px solid var(--red, #c0392b); background: #fdf3f2;
+  padding: 10px 14px; margin-top: 12px; font-size: .83rem; line-height: 1.6; color: #7d2b21;
+}
+.sw-ny { border: 1px dashed var(--border); background: var(--bg); }
+.sw-hjalp { font-size: .78rem; color: var(--muted); margin-top: 3px; }
+{% endblock %}
+
+{% block content %}
+
+<div style="margin-bottom:14px;">
+  <a href="/mina-lankar" style="font-size:.84rem; color:var(--muted);">&#8592; Mina länkar</a>
+</div>
+
+<div style="display:flex; align-items:center; gap:12px; margin-bottom:18px; flex-wrap:wrap;">
+  <span style="font-size:1.4rem; font-weight:800; color:var(--blue-dark);">{{ bundle.name }}</span>
+  <span class="badge">Swish-samling</span>
+  <a href="/{{ bundle.code }}" target="_blank" style="font-size:.82rem; color:var(--blue);">
+    svky.se/{{ bundle.code }} &#8599;
+  </a>
+  <a href="/mina-samlingar/{{ bundle.id }}/qr.svg" style="font-size:.82rem; color:var(--muted);">
+    &#11015; QR till samlingen (SVG)
+  </a>
+</div>
+
+{% if saved %}
+<div class="alert alert-success" style="margin-bottom:18px;">&#10003; Sparat.</div>
+{% endif %}
+{% if swish_error %}
+<div class="alert alert-error" style="margin-bottom:18px;">{{ swish_error }}</div>
+{% endif %}
+
+<p style="font-size:.88rem; color:var(--muted); max-width:60ch; margin-bottom:22px;">
+  En kod på lappen, flera ändamål på sidan. Byt kollektändamålet här när det
+  ändras - den tryckta lappen behöver inte bytas.
+</p>
+
+{% for post in poster %}
+<div class="sw-post">
+  <div class="sw-post-topp">
+    <span class="namn">{{ post.title }}</span>
+    <span class="summa">
+      {% if post.belopp %}{{ post.belopp }} kr{% else %}fritt belopp{% endif %}
+      &middot; {{ post.mottagare }}
+    </span>
+    <span class="tryck">{{ post.tryck }} tryck på Öppna Swish</span>
+  </div>
+
+  <form method="post" id="uppd-{{ post.id }}" action="/mina-samlingar/{{ bundle.id }}/swish-poster/{{ post.id }}/update">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="sw-falt">
+      <div>
+        <label for="t{{ post.id }}">Ändamål</label>
+        <input id="t{{ post.id }}" type="text" name="title" value="{{ post.title }}" required>
+      </div>
+      <div>
+        <label for="m{{ post.id }}">Swish-nummer</label>
+        <input id="m{{ post.id }}" type="text" name="mottagare" value="{{ post.mottagare }}"
+               inputmode="numeric" required>
+      </div>
+      <div>
+        <label for="b{{ post.id }}">Belopp (kr)</label>
+        <input id="b{{ post.id }}" type="text" name="belopp" value="{{ post.belopp or '' }}"
+               inputmode="decimal" placeholder="tomt = givaren väljer">
+      </div>
+      <div>
+        <label for="me{{ post.id }}">Meddelande</label>
+        <input id="me{{ post.id }}" type="text" name="meddelande"
+               value="{{ post.meddelande or '' }}" maxlength="{{ max_meddelande }}">
+      </div>
+    </div>
+    <div>
+      <label for="d{{ post.id }}" style="font-size:.8rem; font-weight:600; display:block; margin:12px 0 3px;">
+        Beskrivning
+      </label>
+      <input id="d{{ post.id }}" type="text" name="description" value="{{ post.description or '' }}">
+    </div>
+
+    <div class="sw-fria">
+      <label>
+        <input type="checkbox" name="fri_mottagare" value="1"
+               {% if post.fri_mottagare %}checked{% endif %}> Fritt Swish-nummer
+      </label>
+      <label>
+        <input type="checkbox" name="fritt_belopp" value="1"
+               {% if post.fritt_belopp %}checked{% endif %}> Fritt belopp
+      </label>
+      <label>
+        <input type="checkbox" name="fritt_meddelande" value="1"
+               {% if post.fritt_meddelande %}checked{% endif %}> Fritt meddelande
+      </label>
+    </div>
+
+    {% if post.mottagare_gar_att_andra %}
+    <div class="sw-varning">
+      <strong>Applänken går att peka om.</strong>
+      Så fort något fält är fritt kan den som öppnar länken i Swish byta
+      mottagarnummer, oavsett vad vi skickar med. Det gäller bara knappen -
+      QR-koden är låst och visar alltid {{ post.mottagare }}.
+      Betalaren ser numret innan hen skriver under med BankID.
+    </div>
+    {% endif %}
+
+  </form>
+
+  <div class="sw-knappar">
+      <button type="submit" form="uppd-{{ post.id }}" class="btn btn-primary btn-sm">Spara</button>
+      <a class="btn btn-secondary btn-sm"
+         href="/mina-samlingar/{{ bundle.id }}/swish-poster/{{ post.id }}/qr.svg">
+        &#11015; Egen QR (SVG)
+      </a>
+      <form method="post" action="/mina-samlingar/{{ bundle.id }}/swish-poster/{{ post.id }}/move">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="riktning" value="upp">
+        <button type="submit" class="btn btn-secondary btn-sm"
+                {% if loop.first %}disabled{% endif %}>&#8593;</button>
+      </form>
+      <form method="post" action="/mina-samlingar/{{ bundle.id }}/swish-poster/{{ post.id }}/move">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="riktning" value="ner">
+        <button type="submit" class="btn btn-secondary btn-sm"
+                {% if loop.last %}disabled{% endif %}>&#8595;</button>
+      </form>
+      <form method="post" action="/mina-samlingar/{{ bundle.id }}/swish-poster/{{ post.id }}/delete"
+            onsubmit="return confirm('Ta bort {{ post.title }}?');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-danger btn-sm">Ta bort</button>
+      </form>
+    </div>
+</div>
+{% endfor %}
+
+{% if not poster %}
+<p style="color:var(--muted); margin-bottom:20px;">
+  Samlingen har inga ändamål än. Lägg till det första nedan.
+</p>
+{% endif %}
+
+<div class="sw-post sw-ny">
+  <div class="sw-post-topp"><span class="namn">Nytt ändamål</span></div>
+  <form method="post" action="/mina-samlingar/{{ bundle.id }}/swish-poster">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="sw-falt">
+      <div>
+        <label for="nytt-title">Ändamål</label>
+        <input id="nytt-title" type="text" name="title" required placeholder="Dagens kollekt">
+      </div>
+      <div>
+        <label for="nytt-mottagare">Swish-nummer</label>
+        <input id="nytt-mottagare" type="text" name="mottagare" required
+               inputmode="numeric" placeholder="1231234567">
+      </div>
+      <div>
+        <label for="nytt-belopp">Belopp (kr)</label>
+        <input id="nytt-belopp" type="text" name="belopp" inputmode="decimal"
+               placeholder="tomt = givaren väljer">
+        <div class="sw-hjalp">Lämnas beloppet tomt kryssas Fritt belopp i automatiskt.</div>
+      </div>
+      <div>
+        <label for="nytt-meddelande">Meddelande</label>
+        <input id="nytt-meddelande" type="text" name="meddelande" maxlength="{{ max_meddelande }}"
+               placeholder="Kollekt {{ bundle.name }}">
+      </div>
+    </div>
+    <div>
+      <label for="nytt-desc" style="font-size:.8rem; font-weight:600; display:block; margin:12px 0 3px;">
+        Beskrivning
+      </label>
+      <input id="nytt-desc" type="text" name="description">
+    </div>
+    <div class="sw-fria">
+      <label><input type="checkbox" name="fri_mottagare" value="1"> Fritt Swish-nummer</label>
+      <label><input type="checkbox" name="fritt_belopp" value="1" id="nytt-fritt-belopp"> Fritt belopp</label>
+      <label><input type="checkbox" name="fritt_meddelande" value="1"> Fritt meddelande</label>
+    </div>
+    <div class="sw-knappar">
+      <button type="submit" class="btn btn-primary btn-sm">Lägg till</button>
+    </div>
+  </form>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Ett tomt belopp utan Fritt belopp ger en kod som ingen kan betala. Kryssa
+// i den åt beställaren i stället för att avvisa formuläret efteråt.
+(function () {
+  var belopp = document.getElementById('nytt-belopp');
+  var fritt = document.getElementById('nytt-fritt-belopp');
+  if (!belopp || !fritt) return;
+  belopp.addEventListener('input', function () {
+    if (!belopp.value.trim()) fritt.checked = true;
+  });
+})();
+</script>
+{% endblock %}

@@ -37,7 +37,7 @@
 .login-gate p { color: var(--blue-dark); margin-bottom: 16px; font-size: .9rem; }
 .login-gate .actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
-.theme-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+.theme-choice { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-top: 4px; }
 .theme-card {
   border: 2px solid var(--border); border-radius: 8px; padding: 12px 14px; cursor: pointer;
   transition: border-color .15s;
@@ -237,13 +237,19 @@
             <div class="tc-name">≡ Kompakt</div>
             <div class="tc-sub">Enkel länklista, snabb att skumma</div>
           </label>
+          <label class="theme-card">
+            <input type="radio" name="theme" value="swish"
+                   {% if bundle_values and bundle_values.theme == 'swish' %}checked{% endif %}>
+            <div class="tc-name">Swish</div>
+            <div class="tc-sub">Flera betalkoder, en kod på lappen</div>
+          </label>
         </div>
       </div>
       <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; padding:11px;">
         Skapa samling &rarr;
       </button>
       <p style="font-size:.8rem; color:var(--muted); text-align:center; margin-top:12px;">
-        Du kan lägga till länkar efter att samlingen skapats.
+        Du kan lägga till länkar - eller betalkoder - efter att samlingen skapats.
       </p>
     </form>
     {% endif %}

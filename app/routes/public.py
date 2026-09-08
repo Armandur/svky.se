@@ -22,6 +22,7 @@ from app.auth import get_current_user
 from app.config import BASE_URL, RESERVED_CODES, LinkStatus
 from app.database import get_db
 from app.markdown_safe import render_markdown
+from app.swish import applank, betalning_ur_rad, qr_strang
 from app.templating import templates
 
 router = APIRouter()
@@ -190,6 +191,36 @@ async def redirect_code(request: Request, code: str):
         bundle = db.execute("SELECT * FROM bundles WHERE code=? AND status=1", (code,)).fetchone()
         if bundle:
             bundle = dict(bundle)
+
+            # Swishsamlingen har egen sida: betalkoder i stället för länkar,
+            # och ingen sektionsindelning. Vyn ligger före den vanliga för
+            # att slippa hämta sektioner och items som inte finns.
+            if bundle["theme"] == "swish":
+                poster = [
+                    dict(r)
+                    for r in db.execute(
+                        "SELECT * FROM swish_items WHERE bundle_id=? ORDER BY sort_order, id",
+                        (bundle["id"],),
+                    ).fetchall()
+                ]
+                for post in poster:
+                    betalning = betalning_ur_rad(post)
+                    post["kodstrang"] = qr_strang(betalning)
+                    post["applank"] = applank(betalning)
+                db.execute("INSERT INTO bundle_views (bundle_id) VALUES (?)", (bundle["id"],))
+                return templates.TemplateResponse(
+                    "swish_bundle.html",
+                    {
+                        "request": request,
+                        "user": user,
+                        "bundle": bundle,
+                        "poster": poster,
+                        "base_url": BASE_URL,
+                        "body_html": (
+                            render_markdown(bundle["body_md"]) if bundle.get("body_md") else None
+                        ),
+                    },
+                )
             sections = db.execute(
                 "SELECT * FROM bundle_sections WHERE bundle_id=? ORDER BY sort_order, id",
                 (bundle["id"],),

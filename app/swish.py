@@ -48,6 +48,23 @@ class Swishbetalning:
     redigerbart_belopp: bool = False
     redigerbart_meddelande: bool = False
 
+    def normaliserad(self) -> Swishbetalning:
+        """Samma betalning med fälten på sin lagringsform.
+
+        "070-123 45 67" och "0701234567" är samma nummer, "100" och "100,00"
+        samma belopp - men bara den ena formen går att jämföra mot en tryckt
+        lapp. Anropas före den sparas, aldrig i kodningen: qr_strang() och
+        applank() normaliserar redan var för sig.
+        """
+        return Swishbetalning(
+            mottagare=_rensa_mottagare(self.mottagare),
+            belopp=_kronor(self.belopp) or None,
+            meddelande=_meddelande(self.meddelande) or None,
+            redigerbar_mottagare=self.redigerbar_mottagare,
+            redigerbart_belopp=self.redigerbart_belopp,
+            redigerbart_meddelande=self.redigerbart_meddelande,
+        )
+
     def mask(self) -> int:
         return (
             (REDIGERBAR_MOTTAGARE if self.redigerbar_mottagare else 0)
@@ -171,3 +188,19 @@ def applank(betalning: Swishbetalning) -> str:
     # och varje tecken kostar där.
     nyttolast = json.dumps(data, separators=(",", ":"), ensure_ascii=False)
     return f"swish://payment?data={quote(nyttolast, safe='')}"
+
+
+def betalning_ur_rad(rad) -> Swishbetalning:
+    """En sparad swishpost som betalning.
+
+    Raden kommer ur swish_items och bär samma fält som formuläret, men med
+    heltal 0/1 där dataklassen vill ha bool.
+    """
+    return Swishbetalning(
+        mottagare=rad["mottagare"],
+        belopp=rad["belopp"] or None,
+        meddelande=rad["meddelande"] or None,
+        redigerbar_mottagare=bool(rad["fri_mottagare"]),
+        redigerbart_belopp=bool(rad["fritt_belopp"]),
+        redigerbart_meddelande=bool(rad["fritt_meddelande"]),
+    )

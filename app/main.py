@@ -17,6 +17,7 @@ from app.routes import (
     orders,
     public,
     swishgenerator,
+    swishsamling,
     takeovers,
     transfers,
     user,
@@ -121,6 +122,7 @@ async def healthz():
 # Före public: /swish och /swishqr är reserverade koder, men catch-all
 # svarar 404 på dem innan generatorn hinner rendera.
 app.include_router(swishgenerator.router)
+app.include_router(swishsamling.router)
 
 app.include_router(public.router)  # sist - innehåller catch-all GET /{code}
 

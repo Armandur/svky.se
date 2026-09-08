@@ -223,6 +223,246 @@ Kontrollera samma sak för produktionsstacken - 80 och 443 ska vara publicerade,
 
 ---
 
+## [P3][todo] [svky] Bygg Swish-samlingen: flera betalkoder på en sida med en kortkod
+
+Den starkaste delen av Rasmus ursprungliga idé, och den enda som inte är byggd.
+
+En lapp i domkyrkan bär i dag tre Swish-koder: diakoni, musikverksamheten och dagens kollektändamål. Tre koder på en lapp är svåra att träffa rätt på, och kollektändamålet byts varje vecka medan lappen sitter kvar. En kod som leder till en sida med alla tre löser båda.
+
+Beslut som redan är fattade, se kommentarerna på TASK-1673:
+
+Egen tabell för swishposter, inte bundle_items. Den bär title och url, alltså länkar. En swishpost behöver mottagare, belopp, meddelande och låsmask, och har varken sektioner, ikon per post eller externa länkar.
+
+Enhetsdetektering görs INTE på servern. User-agent är opålitligt och tjänsten sparar medvetet inget om besökaren. Använd @media (pointer: coarse) eller en breddkontroll i JS, med en synlig växel 'Jag ska skanna i stället'. Visa aldrig bara det ena: på mobil knappen stor och koden under, på dator tvärtom.
+
+Statistik per ändamål faller ut gratis och är värd att ta med. Vilket kollektändamål trycker folk på är något en papperslapp aldrig kunde svara på.
+
+Grunden finns: app/swish.py bär QR-strängen och applänken, båda mätta mot en riktig telefon 2026-09-08. app/routes/swishgenerator.py visar mönstret för hur en betalning renderas.
+
+VARNING som måste in i gränssnittet: en applänk med fritt belopp låter den som öppnar den peka om betalningen till ett annat nummer. Mottagaren går inte att låsa när något fält är fritt. Se docs/swish-app-link-format.md, mätning 4. Generatorn varnar redan, samlingen måste göra det också.
+
+Verifiera: prov som anropar ROUTEN, avkodning med zxing som resten av QR-proven, och shot vid 390px OCH 1280px av samlingssidan i båda lägena.
+
+- ID: `01M213WKW1PHWCFCPFC1DX5FW2`
+- Type: feature
+- Actor: ai:claude-code
+
+---
+
+## [P3][doing] [svky] Designspecifikation som avgör komponentval i gränssnittet
+
+Genomgång av hela gränssnittet, och en spec som AVGÖR val i stället för att beskriva nuläget.
+
+Rasmus exempel: raden 'Ansök om rätt att länka externt' på /mina-lankar är i dag en textlänk i en informationsruta. Ska den vara det, eller en knapp? Specen ska svara, och bära regeln som gör att nästa person kommer till samma svar utan att fråga.
+
+Mätt 2026-09-08: btn-secondary btn-sm används 82 gånger, btn-primary 27, utan att något skrivet säger varför. 93 respektive 74 inline style-attribut i mina_samlingar_detalj.html och my_links.html. Tjugo mallar har egna extra_style-block vid sidan av style.css på 405 rader.
+
+Resultatet ligger i docs/design.md.
+
+- ID: `01M210D693YXA9EWE9B4QXSW0G`
+- Type: task
+- Actor: ai:claude-code
+
+---
+
+## [P3][done] [svky] Ge samlingar QR-koder, och visa QR i admin-gränssnittet
+
+## Context
+
+Samlingar saknar QR-koder helt, och admin kan inte se någon QR i gränssnittet.
+Tabellen `bundles` har en unik `code` precis som `links`, och en samling delas
+på samma sätt. En samling är dessutom det som oftast trycks på ett anslag,
+eftersom den bär flera länkar bakom en adress.
+
+Admin har redan routen `/admin/links/<id>/qr.<andelse>` med symbolval - den
+delar `_qr_svar` med användarens. Det som saknas är rutan i mallen.
+
+Hela mekaniken finns byggd sedan 2026-09-08 och ska återanvändas, inte
+kopieras.
+
+## Acceptance criteria
+
+- [ ] `GET /mina-samlingar/<id>/qr.png` och `qr.svg` ritar samlingens kod, med
+      `?symbol=skold-svart` och `?symbol=skold-farg` som för länkar
+- [ ] `GET /mina-samlingar/<id>/qr.zip` ger sex filer med sex olika namn
+- [ ] En annan användares samling ger 404, utloggad ger 303 till `/login`
+- [ ] Samlingsvyn (`mina_samlingar_detalj.html`) har samma QR-ruta som
+      `my_links.html`: trelägesväxel, bild som byts utan omladdning, och
+      nedladdningslänkar som bär det valda läget
+- [ ] Admin har QR-rutan i `admin/links.html` med samma växel
+- [ ] Admin når `qr.zip` för en länk, vilket i dag bara finns under
+      `/mina-lankar`
+- [ ] Admin kan se QR för en samling
+- [ ] Alla nya svar bär ETag och `Cache-Control: private, no-cache`, som de
+      befintliga
+
+## Implementation hints
+
+Ritningen är klar och rörs inte: `app/qr.py` bär `png()`, `svg()`, `SYMBOLER`,
+`valj_symbol()` och `filnamn()`.
+
+Svarshanteringen ligger i `app/routes/user/links.py`:
+
+- `_bildsvar(kropp, typ, filnamn, request)` - ETag och 304, återanvänd rakt av
+- `_qr_svar(link_id, andelse, agare, symbol, request)` - slår i `links`
+- `_qr_paket(link_id, agare, request)` - bygger zipen i minnet
+
+De två sista slår hårdkodat mot `links`. Välj EN väg: en tabellparameter, eller
+syskonfunktioner för `bundles`. Duplicera inte zip-bygget - filnamnen måste
+förbli unika, och det kravet finns redan mätt i `tests/test_qr.py`.
+
+Ordningen på routerna spelar roll: `qr.zip` måste stå FÖRE `qr.{andelse}`,
+annars fångar den senare `zip` som en ändelse och svarar 404. Se kommentaren
+vid `my_link_qr_paket`.
+
+Växelns JavaScript ligger i `{% block scripts %}` i `my_links.html` och lyssnar
+på `[data-qr-val]`. Det är generiskt och bör flyttas till en delad plats i
+stället för att kopieras in i två mallar till.
+
+Frågan om `RESERVED_CODES` är redan besvarad: samlingskoder valideras, se
+kommentaren på tasken. Rör inte den delen, men överväg att samla de tre
+kontrollerna i `validate_code` om du ändå är inne i `bundles.py`.
+
+## Verification
+
+- `pytest tests/test_qr.py -q` - alla befintliga prov ska stå kvar gröna
+- Nya prov ska anropa ROUTEN, inte tjänsten under den, och avkoda med
+  `_zxing()` som resten av QR-proven. Minst: ägare får sin kod, annan
+  användare får 404, utloggad får 303, admin når båda, zipen bär sex unika
+  namn
+- `pytest -q` - hela sviten
+- `ruff check app/` och `ruff format --check app/` - CI kör bara `app/`
+- Browser: starta appen (`svc port` för ledig port), klicka QR-knappen i
+  samlingsvyn och i admin, och växla mellan alla tre lägena. Bekräfta att
+  bilden OCH båda nedladdningslänkarna byter variant - en växel som bara
+  uppdaterar förhandsvisningen är det troliga halvfelet
+- `shot <url> ut.png --width 390` och `--width 1280` för samlingsvyn och
+  adminvyn. Ingen horisontell overflow, och QR-rutan ska rymmas i kortet
+
+- ID: `01M20QAAWMEKVC2B4Z4Y5QZVYY`
+- Type: feature
+- Actor: ai:claude-code
+
+---
+
+## [P3][todo] [svky] Val att lägga Svenska kyrkans sköld i mitten av QR-koden
+
+En växel på QR-kod-vyn som lägger skölden i mitten av koden, utan omladdning av sidan. Samma mekanik som Swish-symbolen ska få (TASK-1673), och samma ritväg.
+
+Förebilden finns färdig i slöjda.de: app/services/qrkod.py. Läs den innan du börjar - den bär tre saker som kostat tid att komma fram till:
+
+1. Varje symbol har EGNA regler i en Symbolinstallning-dataklass: sökväg, andel av kodens bredd, och om en vit kontrastplatta ska läggas bakom. Hemslöjdens H får platta (24 procent), Swish får INTE det (25 procent) eftersom Swish egna riktlinjer kräver att filens egen runda vita bakgrund står orörd. Skölden och Swish delar alltså inte behandling.
+2. Nedskalning måste ske så att kanterna inte smutsas ner. Symbolfilerna bär svart i färgkanalerna där de är genomskinliga, och LANCZOS blandar in svärtan i kantpixlarna - resultatet blir en mörk frans mot den vita plattan.
+3. Symbolen kräver felkorrigering H. Kortlänkar kör M sedan 2026-09-07 (FELKORRIGERING_LANK i app/qr.py), så en kod MED sköld måste ritas om med FELKORRIGERING_SWISH - inte bara få en bild pålagd.
+
+Växeln ska vara async: byt bilden utan att ladda om sidan, och behåll valet i nedladdningslänkarna för PNG och SVG.
+
+Verifiera: att koden fortfarande går att avkoda MED symbolen (tests/test_qr.py avkodar redan med cv2 - lägg ett fall för sköldvarianten), shot vid 390px OCH 1280px, och att klicket på växeln faktiskt byter bild.
+
+- ID: `01M209F7EVQGGB856QYBZ9KV4X`
+- Type: feature
+- Actor: ai:claude-code
+
+---
+
+## [P3][done] [svky] Låt användare ansöka om rätt att länka utanför de tillåtna domänerna
+
+## Context
+
+Rätten att peka en kortlänk utanför `allowed_domains` styrs i dag av två
+flaggor på användaren, `allow_any_domain` och `allow_external_urls`. Bara
+admin kan sätta dem, och det finns ingen väg att be om dem. En användare som
+behöver rätten vet inte ens att den finns, så frågan når aldrig admin.
+
+Överlåtelseflödet är förebilden och ska härmas, inte uppfinnas om: tabellen
+`transfer_requests`, vyn `/admin/takeover-requests`, badgen i adminbaren
+(`pending_takeover_count` i `app/routes/admin/helpers.py`) och det
+skanner-säkra e-postmönstret.
+
+## Acceptance criteria
+
+- [ ] En inloggad användare kan ansöka från `/mina-lankar` med en motivering
+      i fritext. Motiveringen är obligatorisk - admin behöver veta varför
+- [ ] Ansökan går inte att skicka två gånger medan en väntar
+- [ ] `/mina-lankar` upplyser om att möjligheten finns, även för den som
+      aldrig ansökt
+- [ ] Admin ser väntande ansökningar i en egen vy med motiveringen synlig,
+      och en badge i adminbaren som räknar dem
+- [ ] Admin kan godkänna eller avslå. Ett godkännande sätter flaggan på
+      användaren, ett avslag gör det inte
+- [ ] Användaren får e-post vid både godkännande och avslag
+- [ ] Alla POST-formulär bär `csrf_token` och avvisar en ogiltig med 403
+- [ ] En vanlig användare når inte adminvyn (303 till `/login`), och kan inte
+      godkänna sin egen ansökan
+
+## Implementation hints
+
+Flaggorna och deras uppslag ligger i `app/deps.py`: `user_allows_any_domain()`
+och `user_allows_external_urls()`. Rör inte deras signatur - `app/validation.py`
+och beställningsflödet anropar dem.
+
+Ny tabell i `app/database.py`, efter mönstret för `transfer_requests` (raderna
+kring 113). Migrationer sker med `ALTER TABLE`-guards i `init_db()`, inte med
+Alembic. Fälten som behövs: användare, vilken rätt som söks, motivering,
+status, tidsstämplar.
+
+Admin-routen hör hemma i en ny fil i `app/routes/admin/`, inkluderad från
+`app/routes/admin/__init__.py`. Se hur `takeovers.py` gör.
+
+Badgen: `pending_takeover_count()` i `app/routes/admin/helpers.py` visar
+mönstret, och `app/templates/admin/_bar.html` visar hur den renderas.
+
+E-post: lägg funktionerna i `app/mail.py` bredvid de befintliga elva. De bygger
+HTML inline och skickar via SMTP.
+
+Ändrar du en e-postlänk som ändrar tillstånd gäller det skanner-säkra mönstret
+utan undantag: GET renderar BARA en bekräftelsesida, POST med CSRF utför
+åtgärden. Microsoft Safe Links hämtar annars länken och bränner den. Se
+`/verify/<token>` i `app/routes/public.py` för ett färdigt exempel.
+
+## Verification
+
+- `pytest tests/ -q -k "ansok or behorighet"` för de nya proven, och
+  `pytest -q` för hela sviten när du är klar
+- Proven ska anropa ROUTEN, inte tjänsten under den. Minst: utloggad får 303,
+  vanlig användare når inte adminvyn, POST utan giltigt `csrf_token` ger 403
+  och sparar ingenting, dubbel ansökan avvisas, godkännande sätter flaggan,
+  avslag sätter den inte
+- `ruff check app/` och `ruff format --check app/` - CI kör bara `app/`
+- Browser: starta appen (`svc port` för ledig port), fyll i formuläret som
+  vanlig användare, godkänn som admin, och bekräfta att flaggan slår igenom
+  genom att beställa en länk mot en domän som inte står i `allowed_domains`
+- `shot <url> ut.png --width 390` och `--width 1280` för ansökningsformuläret
+  och adminvyn. Ingen horisontell overflow
+
+- ID: `01M202M9R1851MKNJS1CJ3YF6W`
+- Type: feature
+- Actor: ai:claude-code
+
+---
+
+## [P3][todo] [svky] Byt ut marked-förhandsvisningen mot EasyMDE i alla markdown-redigerare
+
+Fyra redigerare skriver markdown i dag, alla med samma lösning: en textarea plus live-förhandsvisning via marked. Ingen av dem har EasyMDE.
+
+Att byta:
+- admin/notis_edit.html (notisbannern)
+- admin/om_edit.html (delas av Om-sidan, Integritet och Nyheter)
+- admin/snabblänkar.html (introtexten på startsidan)
+- mina_samlingar_detalj.html (samlingens brödtext, användarsida - inte admin)
+
+EasyMDE ska köras UTAN fullskärmsvyn. Toolbaren behöver anpassas per plats: notisbannern är en till tre rader och ska inte få samma verktygsrad som en hel om-sida.
+
+Markdown renderas på fem ställen i appen (render_markdown i public.py och templating.py): om, integritet, nyheter, samlingens brödtext och startsidans introtext. Alla fem har alltså en redigerare - inget ställe saknar redigerare helt.
+
+Verifiera: shot vid 390px OCH 1280px per redigerare, och att SPARA fungerar från EasyMDE-instansen (den ersätter textarean med en CodeMirror-yta, och ett formulär som postar tom text är det tysta felet här). Kolla också ljust och mörkt läge - EasyMDE:s toolbar-ikoner ärver textfärg och har försvunnit mot ljus bakgrund i andra projekt.
+
+- ID: `01M1ZVY10JK2SV21GYE59GW98Z`
+- Type: improvement
+- Actor: ai:claude-code
+
+---
+
 ## [P3][todo] [svky] Driftytan ska visa när driftkoden ligger efter, och kunna hämta den
 
 ## Context
@@ -360,7 +600,7 @@ Den som checkar ut main och kör dev-stacken på en publik maskin exponerar den 
 
 ---
 
-## [P3][todo] [svky] Besluta hur Swish-länkar räknas i statistiken
+## [P3][done] [svky] Besluta hur Swish-länkar räknas i statistiken
 
 Blockerar TASK-1673. En Swish-länk har ingen redirect, så dagens klickmodell går inte att applicera rakt av.
 
@@ -383,7 +623,7 @@ Klart när / Verifiera:
 
 ---
 
-## [P3][todo] [svky] Swish-betallänkar: swish://-applänk, QR-kod och landningssida
+## [P3][doing] [svky] Swish-betallänkar: swish://-applänk, QR-kod och landningssida
 
 Ny länktyp i kortlänksgeneratorn: Swish-betalning. Kortkoden leder till en landningssida som öppnar Swish-appen förifylld på mobil och visar QR-koden på desktop. Applänk och QR-kod ligger i samma vy, så användaren kan lägga ut båda.
 
@@ -535,6 +775,36 @@ Kör `crontab -l` (och `systemctl list-timers`) på Hetzner-burken och avgör.
 - ID: `01KYWKZPQVRE56CQWC0Y8T251R`
 - Type: chore
 - Actor: ai:claude-opus-5
+
+---
+
+## [P4][todo] [svky] Testlistan svky-1673 har föråldrade punkter efter att Swish-länktypen revs
+
+Sessionen http://ubuntu-ai:8890/test/svky-1673 skapades innan Swish byggdes om. Punkt 3 till 12 prövar en funktion som inte finns längre: kortlänkar med typ swish, landningssidan /kollekt och /gava, och Swish-fliken i beställningsformuläret. Allt det revs 2026-09-08 i commit f75d851.
+
+Rasmus hann testa 7 av 34 punkter innan omtaget.
+
+Ersätt punkterna om Swish med den generator som faktiskt byggdes: /swish och /swishqr, nedladdning av PNG och SVG, testknappen för applänken, och varningen som visas när något fält kryssas i som fritt.
+
+Resten av listan gäller fortfarande: QR-sköldarna, samlingarnas QR, admin-gränssnittet, domänansökan, nyheter och notisbanner, och mobilbredderna.
+
+- ID: `01M213X2YVD6GM6J3E3CPGGEAQ`
+- Type: chore
+- Actor: ai:claude-code
+
+---
+
+## [P4][todo] [svky] Beställningssidan spränger mobilbredden med 5 px
+
+Mätt 2026-09-08: /bestall ger scrollWidth 395 i ett 390 px fönster, inloggad. Felet fanns före Swish-fliken - samma siffra med och utan den.
+
+Överflödet ligger i tab-link, inte i typvalet. Alerten som säger 'Inloggad som <adress>' har scrollWidth 337 mot clientWidth 274, så en lång e-postadress bryter inte.
+
+Verifiera: shot vid 390px före och efter, och att document.documentElement.scrollWidth är 390. Kolla även 320px.
+
+- ID: `01M20ZKHHSARN33JEY4N177PTX`
+- Type: bug
+- Actor: ai:claude-code
 
 ---
 
@@ -696,7 +966,7 @@ Det som återstår är mindre men konkret. Ingenting här är en bugg - det är 
 
 ---
 
-## [P4][todo] [svky] Sidhuvudet spränger mobilbredden för inloggade
+## [P4][done] [svky] Sidhuvudet spränger mobilbredden för inloggade
 
 ## Context
 
