@@ -6,3 +6,7 @@ itsdangerous==2.2.0
 markdown==3.7
 nh3==0.2.18
 qrcode[pil]==8.2
+# Direkt, inte bara som qrcodes extra: app/qr.py importerar PIL självt för
+# att lägga skölden i mitten av koden. Ett beroende som bara följer med
+# någon annans extra kan försvinna när det beroendet byts ut.
+pillow==12.3.0

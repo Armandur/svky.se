@@ -158,3 +158,73 @@ def test_swish_behaller_hog_felkorrigering():
     """Symbolen i mitten täcker moduler. Utan H blir koden oläsbar."""
     assert qr.FELKORRIGERING_SWISH == qrcode.constants.ERROR_CORRECT_H
     assert qr.FELKORRIGERING_LANK != qr.FELKORRIGERING_SWISH
+
+
+@pytest.mark.parametrize("symbol", sorted(qr.SYMBOLER))
+def test_koden_avkodas_med_symbol(symbol):
+    """Det enda utfall som betyder något: att koden går att läsa av.
+
+    En sköld täcker moduler. Ritas matrisen med M och får symbolen pålagd
+    efteråt ser bilden perfekt ut och skanningen faller - därför är det
+    avkodningen som provas, inte att bilden blev till.
+    """
+    adress = qr.lankadress("hsandkonf")
+
+    assert _avkoda(qr.png(adress, symbol=symbol)) == adress
+
+
+@pytest.mark.parametrize("symbol", sorted(qr.SYMBOLER))
+def test_svg_avkodas_med_symbol(symbol):
+    """SVG-vägen räknar i moduler och PNG-vägen i pixlar. Två uträkningar av
+    samma sak glider isär, så båda provas."""
+    adress = qr.lankadress("hsandkonf")
+
+    assert _avkoda(_svg_till_png(qr.svg(adress, symbol=symbol))) == adress
+
+
+@pytest.mark.parametrize("symbol", sorted(qr.SYMBOLER))
+def test_symbolen_hojer_felkorrigeringen(symbol):
+    """Nivån måste väljas innan matrisen ritas, inte efter."""
+    installning = qr.valj_symbol(symbol)
+
+    assert qr._felkorrigering(installning) == qr.FELKORRIGERING_SWISH
+    assert qr._felkorrigering(None) == qr.FELKORRIGERING_LANK
+
+
+def test_okand_symbol_ger_ingen_symbol():
+    """Värdet kommer ur en frågesträng. Ett okänt namn ska ge en kod utan
+    sköld, inte ett fel - och aldrig fogas in i en sökväg."""
+    assert qr.valj_symbol("../../etc/passwd") is None
+    assert qr.valj_symbol("finns-inte") is None
+    assert qr.valj_symbol(None) is None
+    assert qr.valj_symbol("") is None
+
+
+def test_symbolfilerna_finns():
+    """Registret pekar på filer. Saknas en blir felet ett undantag mitt i en
+    nedladdning, inte ett tomt svar."""
+    for namn, installning in qr.SYMBOLER.items():
+        assert installning.sokvag.exists(), f"{namn}: {installning.sokvag} saknas"
+
+
+def test_plattan_ar_helmodulsbred():
+    """Skär plattans kant genom en modul blir svarta pixlar kvar som en tunn
+    ram runt den vita fyrkanten. Felet ser ut som en renderingsartefakt och
+    överlever en granskning med ögat."""
+    for kodmoduler in (25, 29, 33, 37):
+        bredd = qr._modulanpassad_platta(kodmoduler, 9.4, 1)
+
+        assert bredd == int(bredd), f"{kodmoduler}: plattan är inte hela moduler"
+        assert (kodmoduler - bredd) % 2 == 0, f"{kodmoduler}: plattan är inte centrerad"
+
+
+def test_filnamnen_skiljer_symbolerna_at():
+    """Ett paket med sex koder behöver sex olika namn. Två poster med samma
+    namn i en zip behåller tyst bara den ena."""
+    namn = {
+        qr.filnamn("abc", andelse, symbol)
+        for andelse in ("png", "svg")
+        for symbol in (None, *qr.SYMBOLER)
+    }
+
+    assert len(namn) == 2 * (1 + len(qr.SYMBOLER))
