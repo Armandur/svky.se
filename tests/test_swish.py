@@ -253,3 +253,59 @@ def test_ingen_frans_runt_swishsymbolen():
     for avstand in range(2, 6):
         pixel = bild.getpixel((mitt - halva + avstand, mitt))
         assert min(pixel) > 200, f"mörk frans vid {avstand} px in: {pixel}"
+
+
+# --------------------------------------------------------------------------
+# Catch-all-routen: den farligaste ändringen i hela tasken
+# --------------------------------------------------------------------------
+#
+# GET /<kod> gör i dag en sak: 302 till target_url. En Swish-länk ska i
+# stället rendera en sida. Provet nedan skrivs FÖRE den grenen läggs in, och
+# är det som säger till om vanliga kortlänkar slutar fungera.
+
+
+def test_vanlig_kortlank_omdirigerar_fortfarande(client):
+    """Varje kortlänk i drift går genom den här routen.
+
+    Provet finns för att skydda dem när Swish-grenen läggs in. Faller det har
+    tjänstens huvudfunktion gått sönder, inte en ny funktion.
+    """
+    from app.database import get_db
+
+    with get_db() as db:
+        db.execute("INSERT INTO users (email) VALUES ('n@svenskakyrkan.se')")
+        agare = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+        db.execute(
+            "INSERT INTO links (code, target_url, owner_id, status) VALUES "
+            "('vanlig', 'https://www.svenskakyrkan.se/harnosand', ?, 1)",
+            (agare,),
+        )
+
+    svar = client.get("/vanlig")
+
+    assert svar.status_code == 302
+    assert svar.headers["location"] == "https://www.svenskakyrkan.se/harnosand"
+
+
+def test_klick_raknas_for_vanlig_lank(client):
+    """302:an ÄR klicket i dagens modell. Swish-länken får en egen räkning,
+    men den här betydelsen ska stå kvar."""
+    from app.database import get_db
+
+    with get_db() as db:
+        db.execute("INSERT INTO users (email) VALUES ('n@svenskakyrkan.se')")
+        agare = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+        db.execute(
+            "INSERT INTO links (code, target_url, owner_id, status) VALUES "
+            "('raknas', 'https://www.svenskakyrkan.se/x', ?, 1)",
+            (agare,),
+        )
+
+    client.get("/raknas")
+
+    with get_db() as db:
+        antal = db.execute(
+            "SELECT count(*) FROM clicks c JOIN links l ON l.id = c.link_id "
+            "WHERE l.code = 'raknas'"
+        ).fetchone()[0]
+    assert antal == 1
