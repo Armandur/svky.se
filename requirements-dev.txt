@@ -5,3 +5,8 @@
 
 pytest==9.1.1
 httpx==0.28.1
+# Andra avkodare vid sidan av cv2. cv2:s QRCodeDetector faller på vissa
+# H-kodade matriser även UTAN symbol i mitten, så den kan inte ensam svara
+# på om en kod med sköld går att läsa. zxing-cpp är samma familj som
+# telefonernas läsare och används i längdsvepet i tests/test_qr.py.
+zxing-cpp==3.1.1

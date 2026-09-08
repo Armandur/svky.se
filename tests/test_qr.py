@@ -391,3 +391,41 @@ def test_langa_koder_avkodas_med_symbol(symbol):
     adress = f"{qr.BASE_URL.rstrip('/')}/julkonsertharnosand2026"
 
     assert _avkoda(qr.png(adress, symbol=symbol)) == adress
+
+
+def _zxing(png: bytes) -> str | None:
+    """Avkodar med zxing-cpp, samma familj som telefonernas läsare.
+
+    cv2:s QRCodeDetector räcker inte som ensam domare här. Den faller på
+    vissa H-kodade matriser även UTAN symbol i mitten (mätt 2026-09-08: 12
+    av 14 misstänkta koder föll redan innan skölden lades på). Ett prov som
+    litar på den skulle alltså underkänna koder som varje telefon läser.
+    """
+    import io
+
+    import zxingcpp
+    from PIL import Image
+
+    traff = zxingcpp.read_barcode(Image.open(io.BytesIO(png)).convert("RGB"))
+    return traff.text if traff else None
+
+
+@pytest.mark.parametrize("symbol", sorted(qr.SYMBOLER))
+def test_alla_kodlangder_avkodas_med_symbol(symbol):
+    """Hela spannet validate_code släpper igenom, inte bara en exempelkod.
+
+    Kortkoden får vara 2 till 60 tecken, och matrisen växer i steg. Skölden
+    är en andel av bredden, så den skalar med - men den täcker olika många
+    moduler i olika versioner, och utfallet visade sig bero på innehållet
+    och inte bara på längden.
+    """
+    monster = ("svky-test-", "abcdefghij", "x1y2z3w4v5", "aaaaaaaaaa")
+
+    # Ett mönster per längd, roterat. Alla längder och alla mönster täcks,
+    # men provet tar en fjärdedel av tiden - fyra mönster per längd tog en
+    # minut och gjorde sviten tre gånger långsammare.
+    for n in range(2, 61):
+        m = monster[n % len(monster)]
+        adress = qr.lankadress((m * 7)[:n])
+
+        assert _zxing(qr.png(adress, symbol=symbol)) == adress, f"{n} tecken, mönster {m!r}"
