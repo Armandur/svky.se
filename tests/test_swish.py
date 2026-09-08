@@ -309,3 +309,92 @@ def test_klick_raknas_for_vanlig_lank(client):
             "WHERE l.code = 'raknas'"
         ).fetchone()[0]
     assert antal == 1
+
+
+# --------------------------------------------------------------------------
+# Generatorn på /swish och /swishqr
+# --------------------------------------------------------------------------
+#
+# Ett verktyg, inte en länk. Ingenting sparas, och därför finns ingen
+# ägarskapskontroll att prova - i stället provas att frågesträngen räcker.
+
+
+def test_generatorn_ar_publik_pa_bada_adresserna(client):
+    """Båda koderna står i RESERVED_CODES, och folk skriver rimligen det
+    ena eller det andra."""
+    for vag in ("/swish", "/swishqr"):
+        svar = client.get(vag)
+
+        assert svar.status_code == 200, vag
+        assert "Skapa en Swish-kod" in svar.text
+
+
+def test_tom_generator_visar_inget_resultat(client):
+    text = client.get("/swish").text
+
+    assert "Fyll i Swish-numret" in text
+    assert "swish-kod.png" not in text
+
+
+def test_ifylld_generator_visar_kod_och_lankar(client):
+    svar = client.get(
+        "/swish?mottagare=1231234567&belopp=150&meddelande=Kollekt&fritt_belopp=1"
+    )
+
+    assert svar.status_code == 200
+    assert "swish-kod.png" in svar.text
+    assert "swish-kod.svg" in svar.text
+    # Betalsträngen visas som text, så det går att kontrollera med ögat.
+    assert "C1231234567;150,00;Kollekt;2" in svar.text
+
+
+def test_lanken_att_klistra_in_ar_absolut(client):
+    """Den ska fungera i ett CMS, alltså kan den inte vara relativ."""
+    svar = client.get("/swish?mottagare=1231234567&belopp=50")
+
+    from app.config import BASE_URL
+
+    assert f"{BASE_URL.rstrip('/')}/swish?" in svar.text
+
+
+def test_koden_avkodas_till_betalningen(client):
+    svar = client.get("/swish-kod.png?mottagare=1231234567&belopp=150&meddelande=Kollekt")
+
+    assert svar.status_code == 200
+    assert svar.headers["content-type"] == "image/png"
+    assert _zxing(svar.content) == "C1231234567;150,00;Kollekt;0"
+
+
+def test_svg_laddas_ner_med_eget_namn(client):
+    svar = client.get("/swish-kod.svg?mottagare=1231234567&belopp=150")
+
+    assert svar.status_code == 200
+    assert "swish-qr.svg" in svar.headers["content-disposition"]
+
+
+def test_omojlig_betalning_ger_fel_i_stallet_for_kod(client):
+    """Tomt och låst belopp går inte att betala. Felet ska mötas här, inte
+    på anslagstavlan."""
+    svar = client.get("/swish?mottagare=1231234567")
+
+    assert svar.status_code == 200
+    assert "swish-kod.png" not in svar.text
+    assert "belopp" in svar.text.lower()
+
+    assert client.get("/swish-kod.png?mottagare=1231234567").status_code == 404
+
+
+def test_trasigt_nummer_faller_inte_sidan(client):
+    svar = client.get("/swish?mottagare=123")
+
+    assert svar.status_code == 200
+    assert "tio siffror" in svar.text.lower()
+
+
+def test_gava_visar_ingen_applank(client):
+    """Applänken kan inte uttrycka fritt belopp."""
+    svar = client.get("/swish?mottagare=1231234567&fritt_belopp=1")
+
+    assert svar.status_code == 200
+    assert "swish-kod.png" in svar.text
+    assert "Applänk för mobil" not in svar.text

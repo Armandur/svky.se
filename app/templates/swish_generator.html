@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}svky.se - Skapa en Swish-kod{% endblock %}
+
+{% block extra_style %}
+.gen-layout { display: grid; grid-template-columns: 1fr; gap: 24px; }
+@media (min-width: 900px) { .gen-layout { grid-template-columns: 1fr 340px; } }
+.gen-resultat { text-align: center; }
+.gen-kod {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px; display: inline-block; margin-bottom: 14px;
+}
+.gen-kod img { display: block; width: 240px; height: 240px; }
+.gen-tom {
+  border: 2px dashed var(--border); border-radius: 8px; padding: 40px 20px;
+  color: var(--muted); font-size: .9rem;
+}
+.gen-hamta { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 18px; }
+.gen-dela label {
+  display: block; font-size: .78rem; text-transform: uppercase;
+  letter-spacing: .4px; color: var(--muted); font-weight: 600; margin-bottom: 6px;
+}
+.gen-dela input {
+  width: 100%; font-size: .8rem; font-family: "SF Mono","Fira Code",monospace;
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg); color: var(--text);
+}
+.gen-dela .btn { margin-top: 8px; }
+.kryss {
+  display: flex; align-items: center; gap: 8px; font-weight: 400;
+  margin-bottom: 6px; cursor: pointer;
+}
+.gen-strang {
+  font-family: "SF Mono","Fira Code",monospace; font-size: .78rem;
+  color: var(--muted); overflow-wrap: anywhere; margin-top: 14px;
+}
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <h1>Skapa en Swish-kod</h1>
+  <p>Fyll i betalningen och ladda ner koden för tryck. Ingenting sparas -
+     koden räknas fram ur adressen, så du kan spara sidan som bokmärke eller
+     skicka länken till en kollega.</p>
+</div>
+
+<div class="gen-layout">
+  <div class="card">
+    {% if fel %}
+    <div class="alert alert-error">{{ fel }}</div>
+    {% endif %}
+
+    <form method="get" action="/swish">
+      <div class="form-group">
+        <label for="mottagare">Swish-nummer *</label>
+        <input type="text" id="mottagare" name="mottagare" required
+               inputmode="numeric" placeholder="123 123 45 67"
+               value="{{ form.mottagare or '' }}">
+        <div class="hint">Tio siffror. Numret betalningen går till.</div>
+      </div>
+
+      <div class="form-group">
+        <label for="belopp">Belopp i kronor</label>
+        <input type="text" id="belopp" name="belopp" inputmode="decimal"
+               placeholder="150" value="{{ form.belopp or '' }}">
+        <div class="hint">
+          Lämna tomt för en gåva där givaren väljer själv. Kryssa då i
+          <strong>Beloppet får ändras</strong> - en tom och låst summa går
+          inte att betala.
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="meddelande">Meddelande</label>
+        <input type="text" id="meddelande" name="meddelande"
+               maxlength="{{ max_meddelande }}"
+               placeholder="Kollekt Härnösands domkyrka"
+               value="{{ form.meddelande or '' }}">
+        <div class="hint">Syns i Swish-appen. Högst {{ max_meddelande }} tecken.</div>
+      </div>
+
+      <div class="form-group">
+        <label>Vad får betalaren ändra?</label>
+        <label class="kryss">
+          <input type="checkbox" name="fritt_belopp" value="1"
+                 {% if form.fritt_belopp %}checked{% endif %}> Beloppet får ändras
+        </label>
+        <label class="kryss">
+          <input type="checkbox" name="fritt_meddelande" value="1"
+                 {% if form.fritt_meddelande %}checked{% endif %}> Meddelandet får ändras
+        </label>
+        <label class="kryss">
+          <input type="checkbox" name="fri_mottagare" value="1"
+                 {% if form.fri_mottagare %}checked{% endif %}> Mottagaren får ändras
+        </label>
+        <div class="hint">Det som inte är ikryssat låses i appen.</div>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Visa koden</button>
+    </form>
+  </div>
+
+  <div class="gen-resultat">
+    {% if betalning %}
+    <div class="gen-kod">
+      <img src="/swish-kod.png?{{ request.url.query }}" width="240" height="240"
+           alt="Swish-QR-kod för betalning till {{ betalning.mottagare }}">
+    </div>
+
+    <p class="gen-hamta">
+      <a href="/swish-kod.svg?{{ request.url.query }}" class="btn btn-secondary btn-sm">
+        &#11015; SVG för tryck</a>
+      <a href="/swish-kod.png?{{ request.url.query }}" class="btn btn-secondary btn-sm">
+        &#11015; PNG</a>
+    </p>
+
+    <div class="gen-dela">
+      <label for="delalank">Länk att klistra in</label>
+      <input type="text" id="delalank" readonly value="{{ delalank }}"
+             onclick="this.select()">
+      <button type="button" class="btn btn-secondary btn-sm kopiera"
+              data-text="{{ delalank }}">&#128203; Kopiera länken</button>
+      <div class="hint" style="margin-top:8px;">
+        Fungerar i alla webbläsare. Den som öppnar den ser samma kod som du.
+      </div>
+    </div>
+
+    {% if applank %}
+    <div class="gen-dela" style="margin-top:16px;">
+      <label for="applank">Applänk för mobil</label>
+      <input type="text" id="applank" readonly value="{{ applank }}"
+             onclick="this.select()">
+      <button type="button" class="btn btn-secondary btn-sm kopiera"
+              data-text="{{ applank }}">&#128203; Kopiera applänken</button>
+      <div class="hint" style="margin-top:8px;">
+        Öppnar Swish direkt, men bara på en telefon med appen installerad.
+      </div>
+    </div>
+    {% endif %}
+
+    <p class="gen-strang">{{ kodstrang }}</p>
+
+    {% else %}
+    <div class="gen-tom">
+      Fyll i Swish-numret till vänster, så visas koden här.
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Samma mönster som driftytans kopieringsknapp: clipboard kräver säkert
+// ursprung och kan nekas. Faller den, markera texten i fältet i stället för
+// att knappen tiger.
+document.addEventListener('click', async function (e) {
+  var knapp = e.target.closest('.kopiera');
+  if (!knapp) return;
+  var original = knapp.textContent;
+  try {
+    await navigator.clipboard.writeText(knapp.dataset.text);
+    knapp.textContent = 'Kopierat';
+  } catch (fel) {
+    knapp.textContent = 'Markera texten och kopiera';
+    var falt = knapp.parentNode.querySelector('input');
+    if (falt) { falt.focus(); falt.select(); }
+  }
+  setTimeout(function () { knapp.textContent = original; }, 4000);
+});
+</script>
+{% endblock %}

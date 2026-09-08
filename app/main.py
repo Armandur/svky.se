@@ -11,7 +11,16 @@ from app.config import MILJO
 from app.csrf import generate_csrf_token, get_csrf_secret
 from app.database import init_db, log_page_view, run_periodic_cleanup
 from app.deps import RedirectRequired
-from app.routes import admin, auth, orders, public, takeovers, transfers, user
+from app.routes import (
+    admin,
+    auth,
+    orders,
+    public,
+    swishgenerator,
+    takeovers,
+    transfers,
+    user,
+)
 from app.templating import templates
 
 log = logging.getLogger(__name__)
@@ -108,6 +117,10 @@ app.include_router(transfers.router)
 async def healthz():
     return {"ok": True}
 
+
+# Före public: /swish och /swishqr är reserverade koder, men catch-all
+# svarar 404 på dem innan generatorn hinner rendera.
+app.include_router(swishgenerator.router)
 
 app.include_router(public.router)  # sist - innehåller catch-all GET /{code}
 
