@@ -25,16 +25,6 @@
 .qr-text { flex: 1; min-width: 200px; font-size: .85rem; color: var(--muted); }
 .qr-text p { margin: 0 0 10px; }
 .qr-lankar { display: flex; gap: 8px; flex-wrap: wrap; }
-.swish-rad {
-  font-size: .9rem; color: var(--text); margin-bottom: 10px;
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-}
-.swish-marke {
-  background: var(--blue-pale); color: var(--blue-dark); font-weight: 700;
-  font-size: .72rem; text-transform: uppercase; letter-spacing: .04em;
-  padding: 2px 8px; border-radius: 999px;
-}
-.swish-nummer { color: var(--muted); font-size: .85rem; }
 .qr-symbolval { display: flex; gap: 14px; flex-wrap: wrap; margin: 0 0 8px; }
 .qr-symbolval label {
   display: flex; align-items: center; gap: 5px; cursor: pointer;
@@ -178,30 +168,10 @@
       <span class="badge {{ badge_cls }}">{{ badge_txt }}</span>
     </div>
 
-    {% if link.typ == 'swish' %}
-    <div class="swish-rad">
-      <span class="swish-marke">Swish</span>
-      {% if link.swish_belopp %}{{ link.swish_belopp }} kr{% else %}Fritt belopp{% endif %}
-      {%- if link.swish_meddelande %} &middot; {{ link.swish_meddelande }}{% endif %}
-      <span class="swish-nummer">till {{ link.swish_mottagare }}</span>
-    </div>
-    {% if link.applank %}
-    <p class="qr-lankar" style="margin-bottom:14px;">
-      <button type="button" class="btn btn-secondary btn-sm kopiera-applank"
-              data-applank="{{ link.applank }}">&#128203; Kopiera applänk</button>
-    </p>
-    {% else %}
-    <p class="link-note" style="margin-bottom:14px;">
-      Den här koden har fritt belopp, och applänken kan inte uttrycka det.
-      QR-koden fungerar för samma betalning.
-    </p>
-    {% endif %}
-    {% else %}
     <div class="link-target">
       <span class="arrow">&#8594;</span>
       {{ link.target_url }}
     </div>
-    {% endif %}
 
     {% if link.note %}
     <div class="link-note">
@@ -581,30 +551,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-// Applänken är lång och URL-kodad, alltså omöjlig att skriva av. Den som vill
-// lägga den bakom en egen knapp på en webbsida eller i ett utskick behöver
-// kunna kopiera den.
-document.addEventListener('click', async function (e) {
-  var knapp = e.target.closest('.kopiera-applank');
-  if (!knapp) return;
-  var text = knapp.dataset.applank;
-  var original = knapp.textContent;
-  try {
-    await navigator.clipboard.writeText(text);
-    knapp.textContent = 'Kopierat';
-  } catch (fel) {
-    // clipboard kräver säkert ursprung och kan nekas. Att tiga då vore värre
-    // än att visa texten - användaren kan alltid markera den själv.
-    knapp.textContent = 'Kunde inte kopiera, visar texten';
-    var ruta = document.createElement('textarea');
-    ruta.value = text;
-    ruta.style.cssText = 'width:100%;margin-top:8px;font-size:.75rem;height:5em;';
-    knapp.parentNode.appendChild(ruta);
-    ruta.select();
-  }
-  setTimeout(function () { knapp.textContent = original; }, 4000);
-});
-</script>
 <script src="/static/qr.js"></script>
 {% endblock %}

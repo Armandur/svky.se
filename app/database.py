@@ -54,22 +54,7 @@ def init_db():
                 status       INTEGER DEFAULT 0,
                 note         TEXT,
                 created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
-                last_used_at DATETIME,
-                -- Swish-fälten. NULL i typ betyder en vanlig kortlänk, och
-                -- det är default: en befintlig rad ska inte byta betydelse
-                -- av att kolumnen tillkommer.
-                --
-                -- target_url är NOT NULL och kan inte bli tom. En Swish-rad
-                -- bär därför sin egen publika adress där, alltså samma sida
-                -- som koden leder till. Det håller varje befintlig fråga
-                -- ärlig, och en rad som av misstag renderas som en vanlig
-                -- länk skickar besökaren till rätt ställe i stället för till
-                -- ingenstans.
-                typ                TEXT,
-                swish_mottagare    TEXT,
-                swish_belopp       TEXT,
-                swish_meddelande   TEXT,
-                swish_mask         INTEGER DEFAULT 0
+                last_used_at DATETIME
             );
 
             CREATE TABLE IF NOT EXISTS tokens (
@@ -462,23 +447,6 @@ def _mig_008_allowed_domains(conn: sqlite3.Connection) -> None:
     )
 
 
-def _mig_010_swish(conn: sqlite3.Connection) -> None:
-    """Swish-fälten på links.
-
-    Kolumner och inte en egen tabell: en Swish-länk är en kortlänk med en
-    annan renderingsväg, och delar ägarskap, överlåtelser, statusar och
-    klickräkning med de vanliga.
-    """
-    for definition in (
-        "typ TEXT",
-        "swish_mottagare TEXT",
-        "swish_belopp TEXT",
-        "swish_meddelande TEXT",
-        "swish_mask INTEGER DEFAULT 0",
-    ):
-        _alter(conn, f"ALTER TABLE links ADD COLUMN {definition}")
-
-
 def _mig_009_domain_permission_requests(conn: sqlite3.Connection) -> None:
     """Skapa ansökningar om rätt att använda externa mål-URL:er."""
     conn.executescript("""
@@ -499,6 +467,20 @@ def _mig_009_domain_permission_requests(conn: sqlite3.Connection) -> None:
     """)
 
 
+def _mig_010_borttagen(conn: sqlite3.Connection) -> None:
+    """Nummer 10 är förbrukat och får aldrig återanvändas.
+
+    Här låg Swish-kolumnerna på links, byggda 2026-09-08 och rivna samma
+    dag: ansatsen blev en länktyp när den skulle bli en generator. Staging
+    hann köra migrationen, så dess schema_version står på 10. Ett nytt
+    innehåll under samma nummer hade aldrig körts där, och felet syns först
+    när något saknas i databasen.
+
+    De tomma kolumnerna ligger kvar på staging. Nullbara och oanvända gör de
+    ingen skada, och en DROP COLUMN är en större risk än ett par tomma fält.
+    """
+
+
 # Nya migrationer läggs ALLTID SIST - aldrig infogas mellan existerande.
 MIGRATIONS: list[tuple[int, object]] = [
     (1, _mig_001_baseline),
@@ -510,7 +492,7 @@ MIGRATIONS: list[tuple[int, object]] = [
     (7, _mig_007_bundle_transfer_cancelled),
     (8, _mig_008_allowed_domains),
     (9, _mig_009_domain_permission_requests),
-    (10, _mig_010_swish),
+    (10, _mig_010_borttagen),
 ]
 
 
