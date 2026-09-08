@@ -136,9 +136,7 @@ def _qr_paket(
                 # Fast tidsstämpel. Utan den skriver zipfile klockslaget för
                 # varje bygge in i arkivet, och två paket med identiskt
                 # innehåll får då olika ETag - vilket gör ETaggen värdelös.
-                post = zipfile.ZipInfo(
-                    qr.filnamn(code, andelse, symbol), (1980, 1, 1, 0, 0, 0)
-                )
+                post = zipfile.ZipInfo(qr.filnamn(code, andelse, symbol), (1980, 1, 1, 0, 0, 0))
                 post.compress_type = zipfile.ZIP_DEFLATED
                 paket.writestr(post, rita(adress, symbol=symbol))
 
