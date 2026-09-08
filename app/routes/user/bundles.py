@@ -31,6 +31,8 @@ from app.validation import (
     validate_target_url,
 )
 
+from .links import _qr_paket, _qr_svar
+
 log = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -169,6 +171,34 @@ async def skapa_samling(
         bundle_id = db.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
 
     return RedirectResponse(url=f"/mina-samlingar/{bundle_id}", status_code=303)
+
+
+@router.get("/mina-samlingar/{bundle_id}/qr.zip")
+async def min_samling_qr_paket(request: Request, bundle_id: int):
+    """Alla QR-varianter för samlingen i ett paket.
+
+    Ligger före qr.{andelse}, annars fångar den routen zip som en ändelse.
+    """
+    user = get_user_or_redirect(request)
+    return _qr_paket(bundle_id, agare=user["id"], request=request, tabell="bundles")
+
+
+@router.get("/mina-samlingar/{bundle_id}/qr.{andelse}")
+async def min_samling_qr(
+    request: Request,
+    bundle_id: int,
+    andelse: str,
+    symbol: str | None = None,
+):
+    user = get_user_or_redirect(request)
+    return _qr_svar(
+        bundle_id,
+        andelse,
+        agare=user["id"],
+        symbol=symbol,
+        request=request,
+        tabell="bundles",
+    )
 
 
 @router.get("/mina-samlingar/{bundle_id}")

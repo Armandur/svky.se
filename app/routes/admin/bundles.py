@@ -9,12 +9,40 @@ from app.csrf import get_csrf_secret, validate_csrf_token
 from app.database import get_db
 from app.deps import get_admin_or_redirect
 from app.ownership import move_twin_rows
+from app.routes.user.links import _qr_paket, _qr_svar
 from app.templating import templates
 from app.validation import MAX_NAME_LENGTH, MAX_TEXT_LENGTH, validate_length, validate_target_url
 
 from .helpers import pending_takeover_count
 
 router = APIRouter()
+
+
+@router.get("/bundles/{bundle_id}/qr.zip")
+async def admin_bundle_qr_paket(request: Request, bundle_id: int):
+    """Alla QR-varianter för samlingen i ett paket.
+
+    Ligger före qr.{andelse}, annars fångar den routen zip som en ändelse.
+    """
+    get_admin_or_redirect(request)
+    return _qr_paket(bundle_id, request=request, tabell="bundles")
+
+
+@router.get("/bundles/{bundle_id}/qr.{andelse}")
+async def admin_bundle_qr(
+    request: Request,
+    bundle_id: int,
+    andelse: str,
+    symbol: str | None = None,
+):
+    get_admin_or_redirect(request)
+    return _qr_svar(
+        bundle_id,
+        andelse,
+        symbol=symbol,
+        request=request,
+        tabell="bundles",
+    )
 
 
 @router.get("/bundles")

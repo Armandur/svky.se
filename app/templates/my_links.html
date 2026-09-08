@@ -188,7 +188,7 @@
 
     {% if link.status == 1 %}
     {% set pt = (pending_link_transfers | default({})).get(link.id) %}
-    <div class="qr-ruta" style="display:none;">
+    <div class="qr-ruta" id="qr-link-{{ link.id }}" style="display:none;">
       {# src sätts först när rutan öppnas. En dold img med src hämtas ändå,
          och en lång länklista hade gett en QR-begäran per kort vid varje
          sidladdning - koderna ritas om vid varje anrop. #}
@@ -219,8 +219,7 @@
 
     <div class="link-actions">
       <a href="/mina-lankar/{{ link.id }}" class="btn btn-secondary btn-sm">&#128202; Statistik</a>
-      <button class="btn btn-secondary btn-sm"
-              onclick="var r=this.closest('.link-card').querySelector('.qr-ruta'); var i=r.querySelector('img'); if(!i.src) i.src=i.dataset.src; r.style.display='flex'; this.style.display='none';">
+      <button type="button" class="btn btn-secondary btn-sm" data-qr-open="qr-link-{{ link.id }}">
         &#9635; QR-kod
       </button>
       <button class="btn btn-secondary btn-sm"
@@ -549,28 +548,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-// QR-växeln. Byter bilden och nedladdningslänkarna utan omladdning - en
-// växel som uppdaterar förhandsvisningen men lämnar PNG-länken på fel
-// variant är det troliga halvfelet här.
-document.addEventListener('change', function (e) {
-  var val = e.target.closest('[data-qr-val]');
-  if (!val || e.target.type !== 'radio') return;
-  var ruta = val.closest('.qr-ruta');
-  var symbol = e.target.value;
-
-  // Frågesträngen sätts om från grunden varje gång. Att lägga till en
-  // parameter på en adress som redan bär en ger ?symbol=a&symbol=b.
-  function medSymbol(adress) {
-    var bas = adress.split('?')[0];
-    return symbol ? bas + '?symbol=' + encodeURIComponent(symbol) : bas;
-  }
-
-  var bild = ruta.querySelector('img');
-  bild.src = medSymbol(bild.dataset.src);
-  ruta.querySelectorAll('[data-qr-lank]').forEach(function (a) {
-    a.href = medSymbol(a.getAttribute('href'));
-  });
-});
-</script>
+<script src="/static/qr.js"></script>
 {% endblock %}

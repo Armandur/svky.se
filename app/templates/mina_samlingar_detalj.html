@@ -6,6 +6,18 @@
 .detail-layout { display: grid; grid-template-columns: 300px 1fr; gap: 24px; align-items: start; }
 @media (max-width: 720px) { .detail-layout { grid-template-columns: 1fr; } }
 
+.qr-ruta {
+  display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;
+  background: var(--bg); border-radius: 6px; padding: 12px; margin-bottom: 20px;
+}
+.qr-ruta img { background: #fff; border-radius: 4px; }
+.qr-text { flex: 1; min-width: 200px; font-size: .85rem; color: var(--muted); }
+.qr-text p { margin: 0 0 10px; }
+.qr-lankar, .qr-symbolval { display: flex; gap: 10px; flex-wrap: wrap; }
+.qr-symbolval label {
+  display: flex; align-items: center; gap: 5px; cursor: pointer; color: var(--text);
+}
+
 .settings-panel {
   background: var(--white); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 20px 22px; box-shadow: var(--shadow);
@@ -237,6 +249,34 @@ select:focus {
   <a href="/mina-samlingar/{{ bundle.id }}/stats" style="font-size:.82rem; color:var(--muted);">
     &#128202; Statistik
   </a>
+  <button type="button" class="btn btn-secondary btn-sm" data-qr-open="qr-bundle-{{ bundle.id }}">
+    &#9635; QR-kod
+  </button>
+</div>
+
+<div class="qr-ruta" id="qr-bundle-{{ bundle.id }}" style="display:none;">
+  <img alt="QR-kod till svky.se/{{ bundle.code }}"
+       data-src="/mina-samlingar/{{ bundle.id }}/qr.png" width="180" height="180">
+  <div class="qr-text">
+    <p>Koden bär <strong>svky.se/{{ bundle.code }}</strong>.</p>
+    <p class="qr-symbolval" data-qr-val>
+      {% for varde, text in qr_symboler.items() %}
+      <label>
+        <input type="radio" name="qr-symbol-bundle-{{ bundle.id }}" value="{{ varde }}"
+               {% if not varde %}checked{% endif %}>
+        {{ text }}
+      </label>
+      {% endfor %}
+    </p>
+    <p class="qr-lankar">
+      <a href="/mina-samlingar/{{ bundle.id }}/qr.svg" data-qr-lank
+         class="btn btn-secondary btn-sm">&#11015; SVG för tryck</a>
+      <a href="/mina-samlingar/{{ bundle.id }}/qr.png" data-qr-lank
+         class="btn btn-secondary btn-sm">&#11015; PNG</a>
+      <a href="/mina-samlingar/{{ bundle.id }}/qr.zip"
+         class="btn btn-secondary btn-sm">&#11015; Alla varianter (zip)</a>
+    </p>
+  </div>
 </div>
 
 {% if saved %}
@@ -704,6 +744,7 @@ select:focus {
 {% endblock %}
 
 {% block scripts %}
+<script src="/static/qr.js"></script>
 <script>
 function openAddForm(type, sectionId) {
   const forms = document.querySelectorAll('.add-form');
