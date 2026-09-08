@@ -15,13 +15,23 @@ Takeover-formulär → app/routes/takeovers.py
 from collections import defaultdict
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 
+from app import qr
 from app.auth import get_current_user
 from app.config import BASE_URL, RESERVED_CODES, LinkStatus
 from app.database import get_db
 from app.markdown_safe import render_markdown
+from app.swish import (
+    REDIGERBAR_MOTTAGARE,
+    REDIGERBART_BELOPP,
+    REDIGERBART_MEDDELANDE,
+    Swishbetalning,
+    Swishfel,
+    applank,
+    qr_strang,
+)
 from app.templating import templates
 
 router = APIRouter()
@@ -177,6 +187,107 @@ async def integritet(request: Request):
     )
 
 
+def _betalning(rad: dict) -> Swishbetalning:
+    """Raden som en betalning. Masken är lagrad, kryssrutorna härleds ur den."""
+    mask = rad["swish_mask"] or 0
+    return Swishbetalning(
+        mottagare=rad["swish_mottagare"] or "",
+        belopp=rad["swish_belopp"] or None,
+        meddelande=rad["swish_meddelande"] or None,
+        redigerbar_mottagare=bool(mask & REDIGERBAR_MOTTAGARE),
+        redigerbart_belopp=bool(mask & REDIGERBART_BELOPP),
+        redigerbart_meddelande=bool(mask & REDIGERBART_MEDDELANDE),
+    )
+
+
+def _swishsida(request: Request, rad: dict):
+    """Landningssidan för en Swish-länk.
+
+    Applänken öppnar appen förifylld på mobil, QR-koden skannas från en
+    annan enhet. Båda ligger på samma sida: den som lägger ut länken vet
+    inte vilket som behövs.
+    """
+    betalning = _betalning(rad)
+    try:
+        lank = applank(betalning)
+    except Swishfel:
+        # En rad som inte går att koda får inte fälla sidan. Koden visas
+        # ändå, och den som äger länken ser felet i sin egen vy.
+        lank = None
+    return templates.TemplateResponse(
+        "swish.html",
+        {
+            "request": request,
+            "user": get_current_user(request),
+            "code": rad["code"],
+            "betalning": betalning,
+            "applank": lank,
+            "belopp": rad["swish_belopp"],
+            "meddelande": rad["swish_meddelande"],
+        },
+    )
+
+
+@router.get("/{code}/swish-qr.png")
+async def swish_qr(code: str):
+    """Swish-koden som bild. Publik, som landningssidan den sitter på.
+
+    Egen route och inte /mina-lankar/<id>/qr.png: den senare ligger bakom
+    ägarskap och bär kortlänkens adress. Den här bär betalsträngen och ska
+    kunna skannas av vem som helst som står framför ett anslag.
+    """
+    code = code.lower()
+    with get_db() as db:
+        rad = db.execute(
+            "SELECT * FROM links WHERE code=? AND status=? AND typ='swish'",
+            (code, LinkStatus.ACTIVE),
+        ).fetchone()
+    if not rad:
+        raise HTTPException(status_code=404)
+
+    try:
+        strang = qr_strang(_betalning(dict(rad)))
+    except Swishfel:
+        raise HTTPException(status_code=404) from None
+
+    return Response(
+        content=qr.png(strang, symbol_installning=qr.SWISH),
+        media_type="image/png",
+        headers={"Cache-Control": "public, no-cache"},
+    )
+
+
+@router.get("/{code}/oppna")
+async def oppna_swish(request: Request, code: str):
+    """Räknar trycket på Öppna Swish och skickar vidare till appen.
+
+    Det HÄR är klicket för en Swish-länk. Sidvisningen räknas separat i
+    page_views, och de två siffrorna betyder olika saker: många visningar
+    och få tryck betyder att koden skannas på anslag utan att någon börjar
+    betala.
+
+    En e-postskanner som följer länken höjer siffran. Det accepteras med
+    öppna ögon - page_views ger den ärliga nämnaren, och alternativet vore
+    att inte kunna mäta avsikt alls.
+    """
+    code = code.lower()
+    with get_db() as db:
+        rad = db.execute(
+            "SELECT * FROM links WHERE code=? AND status=? AND typ='swish'",
+            (code, LinkStatus.ACTIVE),
+        ).fetchone()
+        if not rad:
+            raise HTTPException(status_code=404)
+        db.execute("INSERT INTO clicks (link_id) VALUES (?)", (rad["id"],))
+
+    lank = applank(_betalning(dict(rad)))
+    if not lank:
+        # Gåva utan belopp: applänken kan inte uttrycka den. Tillbaka till
+        # sidan, där QR-koden fungerar.
+        return RedirectResponse(url=f"/{code}", status_code=303)
+    return RedirectResponse(url=lank, status_code=303)
+
+
 @router.get("/{code}")
 async def redirect_code(request: Request, code: str):
     code = code.lower()  # P4.1: case-insensitive lookup
@@ -236,7 +347,7 @@ async def redirect_code(request: Request, code: str):
 
         # Sedan kortlänkar
         row = db.execute(
-            "SELECT id, target_url FROM links WHERE code=? AND status=?",
+            "SELECT * FROM links WHERE code=? AND status=?",
             (code, LinkStatus.ACTIVE),
         ).fetchone()
 
@@ -246,6 +357,14 @@ async def redirect_code(request: Request, code: str):
                 {"request": request, "code": code},
                 status_code=404,
             )
+
+        # En Swish-länk renderar en sida i stället för att omdirigera. Grenen
+        # ligger EFTER uppslaget och före klickräkningen: en vanlig länk ska
+        # gå exakt samma väg som förut, och sidvisningen är inte ett klick.
+        if row["typ"] == "swish":
+            db.execute("INSERT INTO page_views (path) VALUES (?)", (f"/{code}",))
+            db.execute("UPDATE links SET last_used_at=CURRENT_TIMESTAMP WHERE id=?", (row["id"],))
+            return _swishsida(request, dict(row))
 
         db.execute("INSERT INTO clicks (link_id) VALUES (?)", (row["id"],))
         db.execute("UPDATE links SET last_used_at=CURRENT_TIMESTAMP WHERE id=?", (row["id"],))

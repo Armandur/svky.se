@@ -54,7 +54,22 @@ def init_db():
                 status       INTEGER DEFAULT 0,
                 note         TEXT,
                 created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
-                last_used_at DATETIME
+                last_used_at DATETIME,
+                -- Swish-fälten. NULL i typ betyder en vanlig kortlänk, och
+                -- det är default: en befintlig rad ska inte byta betydelse
+                -- av att kolumnen tillkommer.
+                --
+                -- target_url är NOT NULL och kan inte bli tom. En Swish-rad
+                -- bär därför sin egen publika adress där, alltså samma sida
+                -- som koden leder till. Det håller varje befintlig fråga
+                -- ärlig, och en rad som av misstag renderas som en vanlig
+                -- länk skickar besökaren till rätt ställe i stället för till
+                -- ingenstans.
+                typ                TEXT,
+                swish_mottagare    TEXT,
+                swish_belopp       TEXT,
+                swish_meddelande   TEXT,
+                swish_mask         INTEGER DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS tokens (
@@ -447,6 +462,23 @@ def _mig_008_allowed_domains(conn: sqlite3.Connection) -> None:
     )
 
 
+def _mig_010_swish(conn: sqlite3.Connection) -> None:
+    """Swish-fälten på links.
+
+    Kolumner och inte en egen tabell: en Swish-länk är en kortlänk med en
+    annan renderingsväg, och delar ägarskap, överlåtelser, statusar och
+    klickräkning med de vanliga.
+    """
+    for definition in (
+        "typ TEXT",
+        "swish_mottagare TEXT",
+        "swish_belopp TEXT",
+        "swish_meddelande TEXT",
+        "swish_mask INTEGER DEFAULT 0",
+    ):
+        _alter(conn, f"ALTER TABLE links ADD COLUMN {definition}")
+
+
 def _mig_009_domain_permission_requests(conn: sqlite3.Connection) -> None:
     """Skapa ansökningar om rätt att använda externa mål-URL:er."""
     conn.executescript("""
@@ -478,6 +510,7 @@ MIGRATIONS: list[tuple[int, object]] = [
     (7, _mig_007_bundle_transfer_cancelled),
     (8, _mig_008_allowed_domains),
     (9, _mig_009_domain_permission_requests),
+    (10, _mig_010_swish),
 ]
 
 

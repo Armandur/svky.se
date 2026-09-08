@@ -309,3 +309,132 @@ def test_klick_raknas_for_vanlig_lank(client):
             "WHERE l.code = 'raknas'"
         ).fetchone()[0]
     assert antal == 1
+
+
+# --------------------------------------------------------------------------
+# Landningssidan och klickräkningen
+# --------------------------------------------------------------------------
+
+
+def _swishlank(client, code="kollekt", **falt):
+    """Lägger en Swish-länk och returnerar dess id."""
+    from app.database import get_db
+
+    rad = {
+        "swish_mottagare": "1231234567",
+        "swish_belopp": "100",
+        "swish_meddelande": "Kollekt",
+        "swish_mask": 2,
+    }
+    rad.update(falt)
+    with get_db() as db:
+        db.execute("INSERT OR IGNORE INTO users (email) VALUES ('a@svenskakyrkan.se')")
+        agare = db.execute(
+            "SELECT id FROM users WHERE email='a@svenskakyrkan.se'"
+        ).fetchone()[0]
+        db.execute(
+            """INSERT INTO links
+               (code, target_url, owner_id, status, typ, swish_mottagare,
+                swish_belopp, swish_meddelande, swish_mask)
+               VALUES (?, ?, ?, 1, 'swish', ?, ?, ?, ?)""",
+            (
+                code,
+                f"https://svky.se/{code}",
+                agare,
+                rad["swish_mottagare"],
+                rad["swish_belopp"],
+                rad["swish_meddelande"],
+                rad["swish_mask"],
+            ),
+        )
+        return db.execute("SELECT id FROM links WHERE code=?", (code,)).fetchone()[0]
+
+
+def test_swishlank_renderar_i_stallet_for_att_omdirigera(client):
+    """Den gren som gör hela tasken riskabel. Vanliga länkar 302:ar
+    fortfarande, se provet längre upp."""
+    _swishlank(client)
+
+    svar = client.get("/kollekt")
+
+    assert svar.status_code == 200
+    assert "Betala med Swish" in svar.text
+    assert "100 kr" in svar.text
+
+
+def test_sidvisningen_ar_inte_ett_klick(client):
+    """Beslutet i TASK-1676: sidvisningen loggas i page_views, trycket på
+    Öppna Swish som ett klick. Räknas visningen som klick blir siffran
+    uppblåst - ett skannat anslag ger en visning utan avsikt att betala."""
+    from app.database import get_db
+
+    lank = _swishlank(client)
+
+    client.get("/kollekt")
+
+    with get_db() as db:
+        klick = db.execute("SELECT count(*) FROM clicks WHERE link_id=?", (lank,)).fetchone()[0]
+        visningar = db.execute(
+            "SELECT count(*) FROM page_views WHERE path='/kollekt'"
+        ).fetchone()[0]
+    assert klick == 0
+    assert visningar == 1
+
+
+def test_oppna_raknar_ett_klick_och_skickar_till_appen(client):
+    from app.database import get_db
+
+    lank = _swishlank(client)
+
+    svar = client.get("/kollekt/oppna")
+
+    assert svar.status_code == 303
+    assert svar.headers["location"].startswith("swish://payment?data=")
+    with get_db() as db:
+        assert db.execute(
+            "SELECT count(*) FROM clicks WHERE link_id=?", (lank,)
+        ).fetchone()[0] == 1
+
+
+def test_gava_utan_belopp_skickar_tillbaka_till_sidan(client):
+    """Applänken kan inte uttrycka en gåva med fritt belopp. Knappen visas
+    inte, men routen ska ändå inte leda till ingenting."""
+    _swishlank(client, code="gava", swish_belopp=None, swish_mask=2)
+
+    sida = client.get("/gava")
+    assert sida.status_code == 200
+    assert "Öppna Swish" not in sida.text
+    assert "Du väljer själv" in sida.text
+
+    svar = client.get("/gava/oppna")
+    assert svar.status_code == 303
+    assert svar.headers["location"] == "/gava"
+
+
+def test_qr_koden_bar_betalstrangen_inte_kortlanken(client):
+    """Koden på landningssidan ska starta en betalning, inte leda tillbaka
+    till sidan den står på."""
+    _swishlank(client)
+
+    svar = client.get("/kollekt/swish-qr.png")
+
+    assert svar.status_code == 200
+    assert svar.headers["content-type"] == "image/png"
+    assert _zxing(svar.content) == "C1231234567;100,00;Kollekt;2"
+
+
+def test_swishkoden_ar_publik(client):
+    """Landningssidan är publik, alltså måste bilden på den vara det."""
+    assert client.get("/kollekt/swish-qr.png").status_code in (200, 404)
+
+
+def test_avaktiverad_swishlank_ger_404(client):
+    from app.database import get_db
+
+    _swishlank(client, code="stangd")
+    with get_db() as db:
+        db.execute("UPDATE links SET status=3 WHERE code='stangd'")
+
+    assert client.get("/stangd").status_code == 404
+    assert client.get("/stangd/oppna").status_code == 404
+    assert client.get("/stangd/swish-qr.png").status_code == 404
