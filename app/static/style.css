@@ -389,3 +389,17 @@ tbody td             { padding: 9px 12px; vertical-align: middle; }
   }
   .site-header nav a { padding: 5px 9px; font-size: .82rem; }
 }
+
+/* Adminbaren på smal skärm. Elva länkar i en rad som inte fick brytas gav
+   1104px innehåll i ett 390px fönster - på VARJE admin-sida, inte bara den
+   som råkade lägga till en länk. E-postadressen längst till höger hör inte
+   till navigeringen och får stå kvar där den ryms. */
+@media (max-width: 700px) {
+  .admin-bar {
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    padding: 6px 14px;
+  }
+  .admin-bar .sep { display: none; }
+  .admin-bar > span:last-child { margin-left: 0 !important; width: 100%; }
+}

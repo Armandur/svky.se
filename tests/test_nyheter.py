@@ -152,3 +152,19 @@ def test_om_sidan_slipper_nyheternas_hjalptext(client, admin):
     text = client.get("/admin/om").text
 
     assert "Senaste nytt" not in text
+
+
+def test_adminbaren_far_bryta_pa_smal_skarm():
+    """Elva länkar i en rad som inte fick brytas gav 1104px innehåll i ett
+    390px fönster - på VARJE admin-sida, inte bara den som råkade lägga
+    till en länk.
+
+    Mätt i browser vid 320, 390, 700 och 1280px på /admin/nyheter,
+    /admin/links och /mina-lankar: ingen horisontell overflow.
+    """
+    css = (
+        __import__("pathlib").Path(__file__).resolve().parents[1] / "app/static/style.css"
+    ).read_text()
+    mobil = css[css.index("Adminbaren på smal skärm"):]
+
+    assert "flex-wrap: wrap" in mobil
