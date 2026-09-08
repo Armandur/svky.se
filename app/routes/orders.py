@@ -3,6 +3,7 @@ import secrets
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Form, HTTPException, Request
+from fastapi.responses import RedirectResponse
 
 from app.auth import COOKIE_NAME, create_session_cookie, get_current_user
 from app.code_generator import generate_unique_code
@@ -14,11 +15,17 @@ from app.csrf import (
     validate_csrf_token,
 )
 from app.database import get_db
-from app.deps import check_rate_limit, user_allows_any_domain, user_allows_external_urls
+from app.deps import (
+    check_rate_limit,
+    get_user_or_redirect,
+    user_allows_any_domain,
+    user_allows_external_urls,
+)
 from app.mail import (
     MailError,
     skicka_verifieringsmail,
 )
+from app.swish import Swishbetalning, Swishfel, qr_strang
 from app.templating import templates
 from app.validation import (
     MAX_TEXT_LENGTH,
@@ -512,3 +519,124 @@ async def verify_submit(request: Request, token: str, csrf_token: str = Form(...
         max_age=60 * 60 * 24 * 30,
     )
     return response
+
+
+@router.post("/bestall/swish")
+async def bestall_swish(
+    request: Request,
+    swish_mottagare: str = Form(...),
+    swish_belopp: str = Form(""),
+    swish_meddelande: str = Form(""),
+    code: str = Form(""),
+    note: str = Form(""),
+    fritt_belopp: str = Form(""),
+    fritt_meddelande: str = Form(""),
+    fri_mottagare: str = Form(""),
+    csrf_token: str = Form(...),
+):
+    """Skapar en Swish-betallänk.
+
+    Egen route och inte en gren i /bestall, av samma skäl som samlingarna
+    postar till /mina-samlingar: fälten är helt andra, och den befintliga
+    hanteraren bär redan två vägar.
+
+    Inloggning krävs. En Swish-kod pekar ut ett betalmottagarnummer, och det
+    ska gå att fråga någon om i efterhand.
+    """
+    if not validate_csrf_token(csrf_token, get_csrf_secret(request)):
+        raise HTTPException(status_code=403)
+    user = get_user_or_redirect(request)
+
+    betalning = Swishbetalning(
+        mottagare=swish_mottagare,
+        belopp=swish_belopp.strip() or None,
+        meddelande=swish_meddelande.strip() or None,
+        redigerbar_mottagare=bool(fri_mottagare),
+        redigerbart_belopp=bool(fritt_belopp),
+        redigerbart_meddelande=bool(fritt_meddelande),
+    )
+
+    errors = {}
+    try:
+        # Kodningen ÄR valideringen. Går strängen inte att bygga finns ingen
+        # kod att trycka, och felet ska mötas här och inte på anslagstavlan.
+        qr_strang(betalning)
+    except Swishfel as fel:
+        errors["swish"] = str(fel)
+
+    note_error = validate_length(note, MAX_TEXT_LENGTH, "Anteckningen")
+    if note_error:
+        errors["note"] = note_error
+
+    code = code.strip().lower()
+    if code:
+        code_error = validate_code(code)
+        if code_error:
+            errors["code"] = code_error
+
+    if errors:
+        return templates.TemplateResponse(
+            "bestall.html",
+            {
+                "request": request,
+                "user": user,
+                "errors": errors,
+                "active_tab": "swish",
+                "form": {
+                    "swish_mottagare": swish_mottagare,
+                    "swish_belopp": swish_belopp,
+                    "swish_meddelande": swish_meddelande,
+                    "code": code,
+                    "note": note,
+                },
+            },
+            status_code=400,
+        )
+
+    with get_db() as db:
+        if code:
+            if db.execute("SELECT id FROM links WHERE code=?", (code,)).fetchone():
+                errors["code"] = f"Koden '{code}' är redan tagen."
+            elif db.execute("SELECT id FROM bundles WHERE code=?", (code,)).fetchone():
+                errors["code"] = f"Koden '{code}' är redan tagen av en samling."
+        else:
+            code = generate_unique_code(db)
+
+        if errors:
+            return templates.TemplateResponse(
+                "bestall.html",
+                {
+                    "request": request,
+                    "user": user,
+                    "errors": errors,
+                    "active_tab": "swish",
+                    "form": {
+                        "swish_mottagare": swish_mottagare,
+                        "swish_belopp": swish_belopp,
+                        "swish_meddelande": swish_meddelande,
+                        "code": code,
+                        "note": note,
+                    },
+                },
+                status_code=400,
+            )
+
+        db.execute(
+            """INSERT INTO links
+               (code, target_url, owner_id, status, note, typ,
+                swish_mottagare, swish_belopp, swish_meddelande, swish_mask)
+               VALUES (?, ?, ?, ?, ?, 'swish', ?, ?, ?, ?)""",
+            (
+                code,
+                f"{BASE_URL.rstrip('/')}/{code}",
+                user["id"],
+                LinkStatus.ACTIVE,
+                note.strip(),
+                betalning.mottagare,
+                betalning.belopp,
+                betalning.meddelande,
+                betalning.mask(),
+            ),
+        )
+
+    return RedirectResponse(url=f"/mina-lankar?skapad={code}", status_code=303)

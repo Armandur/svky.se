@@ -5,6 +5,8 @@ def fetch_user_links(db, user_id: int) -> list[dict]:
     rows = db.execute(
         """SELECT l.id, l.code, l.target_url, l.status, l.note,
                   l.created_at, l.last_used_at,
+                  l.typ, l.swish_mottagare, l.swish_belopp,
+                  l.swish_meddelande, l.swish_mask,
                   (SELECT COUNT(*) FROM clicks WHERE link_id=l.id) AS click_count,
                   (SELECT b.id FROM bundles b WHERE b.code=l.code AND b.status=1 LIMIT 1) AS converted_bundle_id
              FROM links l
@@ -12,7 +14,32 @@ def fetch_user_links(db, user_id: int) -> list[dict]:
          ORDER BY l.created_at DESC""",
         (user_id,),
     ).fetchall()
-    return [dict(r) for r in rows]
+    links = [dict(r) for r in rows]
+
+    # Applänken byggs här och inte i mallen: den kräver kodningsreglerna i
+    # app/swish.py, och en mall som räknar fram en betalsträng hade lagt
+    # formatkunskapen på två ställen. None betyder att formatet inte kan
+    # uttrycka betalningen - se applank().
+    from app.swish import Swishbetalning, Swishfel, applank
+
+    for lank in links:
+        if lank.get("typ") != "swish":
+            continue
+        mask = lank.get("swish_mask") or 0
+        try:
+            lank["applank"] = applank(
+                Swishbetalning(
+                    mottagare=lank["swish_mottagare"] or "",
+                    belopp=lank["swish_belopp"] or None,
+                    meddelande=lank["swish_meddelande"] or None,
+                    redigerbar_mottagare=bool(mask & 1),
+                    redigerbart_belopp=bool(mask & 2),
+                    redigerbart_meddelande=bool(mask & 4),
+                )
+            )
+        except Swishfel:
+            lank["applank"] = None
+    return links
 
 
 def fetch_user_bundles(db, user_id: int) -> list[dict]:

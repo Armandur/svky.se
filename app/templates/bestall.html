@@ -27,6 +27,10 @@
 .type-card .tc-desc { font-size: .8rem; color: var(--muted); line-height: 1.5; }
 
 .tab-panel { display: none; }
+.kryss {
+  display: flex; align-items: center; gap: 8px; font-weight: 400;
+  margin-bottom: 6px; cursor: pointer;
+}
 .tab-panel.active { display: block; }
 
 .login-gate {
@@ -66,6 +70,12 @@
       <div class="tc-icon">📋</div>
       <div class="tc-title">Länksamling</div>
       <div class="tc-desc">En kurerad sida med flera länkar - bra för en arbetsplats, ett projekt eller ett evenemang. Kräver inloggning.</div>
+    </div>
+    <div class="type-card {% if active_tab == 'swish' %}selected{% endif %}"
+         onclick="switchTab('swish', this)">
+      <div class="tc-icon">💳</div>
+      <div class="tc-title">Swish-betalning</div>
+      <div class="tc-desc">En sida som öppnar Swish förifylld på mobil och visar en QR-kod att skanna. Kräver inloggning.</div>
     </div>
   </div>
 
@@ -160,6 +170,87 @@
   </div>
 
   <!-- ── Panel: Länksamling ── -->
+  <!-- ── Panel: Swish ── -->
+  <div id="tab-swish" class="tab-panel {% if active_tab == 'swish' %}active{% endif %}">
+
+    {% if not user %}
+    <div class="login-gate">
+      <div class="lgi">🔒</div>
+      <p><strong>Inloggning krävs</strong><br>En Swish-kod pekar ut ett betalmottagarnummer,
+         och det ska gå att fråga någon om i efterhand.</p>
+      <div class="actions">
+        <a href="/login" class="btn btn-primary">Logga in</a>
+      </div>
+    </div>
+
+    {% else %}
+    {% if errors and errors.swish %}
+    <div class="alert alert-error">{{ errors.swish }}</div>
+    {% endif %}
+
+    <form action="/bestall/swish" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div class="form-group">
+        <label for="swish_mottagare">Swish-nummer *</label>
+        <input type="text" id="swish_mottagare" name="swish_mottagare" required
+               inputmode="numeric" placeholder="123 123 45 67"
+               value="{{ form.swish_mottagare if form else '' }}">
+        <div class="hint">Tio siffror. Numret betalningen går till.</div>
+      </div>
+
+      <div class="form-group">
+        <label for="swish_belopp">Belopp i kronor</label>
+        <input type="text" id="swish_belopp" name="swish_belopp"
+               inputmode="decimal" placeholder="150"
+               value="{{ form.swish_belopp if form else '' }}">
+        <div class="hint">
+          Lämna tomt för en gåva där givaren väljer själv. Kryssa då i
+          <strong>Beloppet får ändras</strong> nedan - en tom och låst summa
+          går inte att betala.
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="swish_meddelande">Meddelande</label>
+        <input type="text" id="swish_meddelande" name="swish_meddelande" maxlength="50"
+               placeholder="Kollekt Härnösands domkyrka"
+               value="{{ form.swish_meddelande if form else '' }}">
+        <div class="hint">Syns i Swish-appen. Högst 50 tecken.</div>
+      </div>
+
+      <div class="form-group">
+        <label>Vad får betalaren ändra?</label>
+        <label class="kryss"><input type="checkbox" name="fritt_belopp" value="1"> Beloppet får ändras</label>
+        <label class="kryss"><input type="checkbox" name="fritt_meddelande" value="1"> Meddelandet får ändras</label>
+        <label class="kryss"><input type="checkbox" name="fri_mottagare" value="1"> Mottagaren får ändras</label>
+        <div class="hint">Det som inte är ikryssat låses i appen.</div>
+      </div>
+
+      <div class="form-group">
+        <label for="swish_code">Egen kortkod</label>
+        <div class="code-row">
+          <span class="code-prefix">svky.se/</span>
+          <input type="text" id="swish_code" name="code" placeholder="kollekt"
+                 value="{{ form.code if form else '' }}">
+        </div>
+        {% if errors and errors.code %}<div class="field-error">{{ errors.code }}</div>{% endif %}
+        <div class="hint">Lämna tomt så får den en slumpad kod.</div>
+      </div>
+
+      <div class="form-group">
+        <label for="swish_note">Anteckning</label>
+        <input type="text" id="swish_note" name="note"
+               value="{{ form.note if form else '' }}">
+        {% if errors and errors.note %}<div class="field-error">{{ errors.note }}</div>{% endif %}
+        <div class="hint">Bara du ser den. Bra för att minnas vad koden gäller.</div>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Skapa Swish-länk</button>
+    </form>
+    {% endif %}
+  </div>
+
   <div id="tab-bundle" class="tab-panel {% if active_tab == 'bundle' %}active{% endif %}">
 
     {% if not user %}

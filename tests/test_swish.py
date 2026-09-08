@@ -438,3 +438,119 @@ def test_avaktiverad_swishlank_ger_404(client):
     assert client.get("/stangd").status_code == 404
     assert client.get("/stangd/oppna").status_code == 404
     assert client.get("/stangd/swish-qr.png").status_code == 404
+
+
+# --------------------------------------------------------------------------
+# Beställningen och ägarvyn
+# --------------------------------------------------------------------------
+
+
+def _skapa_via_formularet(client, hamta_csrf_token, **falt):
+    data = {
+        "swish_mottagare": "1231234567",
+        "swish_belopp": "150",
+        "swish_meddelande": "Kollekt",
+        "fritt_belopp": "1",
+        "code": "provkod",
+        "note": "",
+        "csrf_token": hamta_csrf_token(client, "/bestall"),
+    }
+    data.update(falt)
+    return client.post("/bestall/swish", data={k: v for k, v in data.items() if v is not None})
+
+
+def test_utloggad_kan_inte_skapa_swishlank(client):
+    """En Swish-kod pekar ut ett betalmottagarnummer. Det ska gå att fråga
+    någon om i efterhand."""
+    svar = client.post(
+        "/bestall/swish",
+        data={"swish_mottagare": "1231234567", "swish_belopp": "10", "csrf_token": "x"},
+    )
+
+    assert svar.status_code in (303, 403)
+
+
+def test_utan_giltig_csrf_skapas_ingenting(client, inloggad_anvandare):
+    from app.database import get_db
+
+    svar = client.post(
+        "/bestall/swish",
+        data={"swish_mottagare": "1231234567", "swish_belopp": "10", "csrf_token": "fel"},
+    )
+
+    assert svar.status_code == 403
+    with get_db() as db:
+        assert db.execute("SELECT count(*) FROM links WHERE typ='swish'").fetchone()[0] == 0
+
+
+def test_inloggad_skapar_swishlank(client, inloggad_anvandare, hamta_csrf_token):
+    from app.database import get_db
+
+    svar = _skapa_via_formularet(client, hamta_csrf_token)
+
+    assert svar.status_code == 303
+    assert "skapad=provkod" in svar.headers["location"]
+    with get_db() as db:
+        rad = db.execute("SELECT * FROM links WHERE code='provkod'").fetchone()
+    assert rad["typ"] == "swish"
+    assert rad["swish_mottagare"] == "1231234567"
+    assert rad["swish_mask"] == 2  # bara beloppet fritt
+    # target_url bär sidans egen adress: kolumnen är NOT NULL, och en rad som
+    # av misstag renderas som vanlig länk ska leda rätt.
+    assert rad["target_url"].endswith("/provkod")
+
+
+def test_last_tomt_belopp_avvisas_i_formularet(client, inloggad_anvandare, hamta_csrf_token):
+    """Kodningen ÄR valideringen. En kod som inte går att betala ska mötas
+    här och inte på anslagstavlan."""
+    from app.database import get_db
+
+    svar = _skapa_via_formularet(client, hamta_csrf_token, swish_belopp="", fritt_belopp=None)
+
+    assert svar.status_code == 400
+    with get_db() as db:
+        assert db.execute("SELECT count(*) FROM links WHERE typ='swish'").fetchone()[0] == 0
+
+
+def test_upptagen_kod_avvisas(client, inloggad_anvandare, hamta_csrf_token):
+    from app.database import get_db
+
+    with get_db() as db:
+        db.execute(
+            "INSERT INTO links (code, target_url, owner_id, status) "
+            "VALUES ('provkod', 'https://x', ?, 1)",
+            (inloggad_anvandare["id"],),
+        )
+
+    svar = _skapa_via_formularet(client, hamta_csrf_token)
+
+    assert svar.status_code == 400
+    with get_db() as db:
+        assert db.execute("SELECT count(*) FROM links WHERE typ='swish'").fetchone()[0] == 0
+
+
+def test_agarvyn_visar_betalningen_och_applanken(client, inloggad_anvandare, hamta_csrf_token):
+    _skapa_via_formularet(client, hamta_csrf_token)
+
+    text = client.get("/mina-lankar").text
+
+    assert "150 kr" in text
+    assert "Kollekt" in text
+    # data-applank och inte klassnamnet: skriptet i mallen bär selektorn
+    # ".kopiera-applank" i sin text, och ett prov som letar efter den mäter
+    # att JavaScript finns - inte att knappen ritas.
+    assert 'data-applank="swish://payment?data=' in text
+
+
+def test_gava_visar_ingen_kopieraknapp(client, inloggad_anvandare, hamta_csrf_token):
+    """Applänken kan inte uttrycka fritt belopp. En knapp som kopierar
+    ingenting är sämre än ingen knapp."""
+    _skapa_via_formularet(
+        client, hamta_csrf_token, code="gavokod", swish_belopp="", fritt_belopp="1"
+    )
+
+    text = client.get("/mina-lankar").text
+
+    assert "Fritt belopp" in text
+    assert "data-applank=" not in text
+    assert "kan inte uttrycka det" in text
