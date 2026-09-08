@@ -50,9 +50,15 @@ async def index(request: Request):
         subtitle_row = db.execute(
             "SELECT value FROM site_settings WHERE key='snabblänkar_subtitle'"
         ).fetchone()
+        nyhet_row = db.execute(
+            "SELECT value FROM site_settings WHERE key='changelog_content'"
+        ).fetchone()
 
     intro_md = intro_row["value"] if intro_row else ""
     featured_intro_html = render_markdown(intro_md) if intro_md else None
+
+    senaste_md = _senaste_nyhet(nyhet_row["value"] if nyhet_row else "")
+    senaste_nyhet_html = render_markdown(senaste_md) if senaste_md else None
 
     # Saknad rad → defaulttext. Sparat tomt värde → dölj raden helt.
     featured_heading = heading_row["value"] if heading_row is not None else "Snabblänkar"
@@ -104,6 +110,7 @@ async def index(request: Request):
             "featured_intro_html": featured_intro_html,
             "featured_heading": featured_heading,
             "featured_subtitle": featured_subtitle,
+            "senaste_nyhet": senaste_nyhet_html,
         },
     )
 
@@ -117,6 +124,26 @@ async def about(request: Request):
     return templates.TemplateResponse(
         "about.html", {"request": request, "user": user, "content": content_html}
     )
+
+
+def _senaste_nyhet(md: str) -> str:
+    """Första avsnittet ur nyhetstexten, för startsidan.
+
+    Konventionen är nyast överst, så första rubriken är den senaste posten.
+    Klippet går vid nästa rubrik på samma nivå - att korta på antal tecken
+    hade delat en mening mitt itu, och en avhuggen nyhet läser man som ett
+    fel i sidan.
+
+    Saknas rubriker helt visas hela texten. Då är den skriven som ett stycke
+    och har inga poster att välja mellan.
+    """
+    rader = md.strip().splitlines()
+    ut: list[str] = []
+    for i, rad in enumerate(rader):
+        if rad.startswith("## ") and i > 0 and any(r.startswith("## ") for r in ut):
+            break
+        ut.append(rad)
+    return "\n".join(ut).strip()
 
 
 @router.get("/nyheter")

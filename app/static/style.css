@@ -367,3 +367,25 @@ tbody td             { padding: 9px 12px; vertical-align: middle; }
 @media (max-width: 600px) {
   .notisbanner { padding: 8px 14px; font-size: .84rem; }
 }
+
+/* Sidhuvudet på smal skärm (TASK-1695). Headern var en enda rad med fast
+   höjd, så navlänkarna sköt ut åt höger och sidan fick sidledes skroll -
+   redan innan Nyheter tillkom. Nu får den bryta: logotypen på egen rad,
+   länkarna under, och höjden växer med innehållet i stället för att
+   innehållet växer ur höjden. */
+@media (max-width: 600px) {
+  .site-header {
+    height: auto;
+    min-height: 56px;
+    flex-wrap: wrap;
+    padding: 8px 14px;
+    gap: 8px;
+  }
+  .site-header nav {
+    margin-left: 0;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 2px;
+  }
+  .site-header nav a { padding: 5px 9px; font-size: .82rem; }
+}

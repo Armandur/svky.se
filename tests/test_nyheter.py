@@ -70,3 +70,68 @@ def test_admin_sparar_och_texten_syns_publikt(client, admin, hamta_csrf_token):
 
 def test_admin_baren_lankar_till_nyheter(client, admin):
     assert 'href="/admin/nyheter"' in client.get("/admin/links").text
+
+
+def test_senaste_nyheten_syns_pa_startsidan(client, admin, hamta_csrf_token):
+    """Footern räckte inte. En nyhet ingen ser är samma sak som ingen nyhet."""
+    token = hamta_csrf_token(client, "/admin/nyheter")
+    client.post(
+        "/admin/nyheter",
+        data={
+            "content": "## QR-koder\n\nVarje länk har nu en QR-kod.\n\n"
+                       "## Äldre post\n\nNågot som hände förut.",
+            "csrf_token": token,
+        },
+    )
+
+    text = client.get("/").text
+
+    assert "Senaste nytt" in text
+    assert "QR-koder" in text
+    assert "Varje länk har nu en QR-kod." in text
+    # Bara den senaste. Hela listan hör hemma på /nyheter.
+    assert "Något som hände förut." not in text
+    assert 'href="/nyheter"' in text
+
+
+def test_nyheter_finns_i_navigeringen(client):
+    """Länken ska följa med på varje sida, inte bara startsidan."""
+    for sida in ("/", "/bestall", "/om"):
+        svar = client.get(sida)
+        assert svar.status_code == 200
+        assert svar.text.count('href="/nyheter"') >= 2, f"{sida} saknar navlänken"
+
+
+def test_text_utan_rubriker_visas_hel(client, admin, hamta_csrf_token):
+    """Utan rubriker finns inga poster att välja mellan - då är texten ett
+    stycke, och att klippa i den hade huggit av en mening."""
+    token = hamta_csrf_token(client, "/admin/nyheter")
+    client.post(
+        "/admin/nyheter",
+        data={"content": "Tjänsten är igång som vanligt.", "csrf_token": token},
+    )
+
+    assert "Tjänsten är igång som vanligt." in client.get("/").text
+
+
+def test_tom_nyhetstext_ger_ingen_ruta(client, admin, hamta_csrf_token):
+    token = hamta_csrf_token(client, "/admin/nyheter")
+    client.post("/admin/nyheter", data={"content": "   ", "csrf_token": token})
+
+    assert "Senaste nytt" not in client.get("/").text
+
+
+def test_sidhuvudet_far_bryta_pa_smal_skarm():
+    """Headern hade fast höjd och en enda rad, så navlänkarna sköt ut och
+    sidan fick sidledes skroll (TASK-1695). Nyhetslänken gjorde det värre.
+
+    Mätt i browser vid 320, 390, 600 och 1280px, in- och utloggad: ingen
+    horisontell overflow. Provet låser reglerna som gör det möjligt.
+    """
+    css = (
+        __import__("pathlib").Path(__file__).resolve().parents[1] / "app/static/style.css"
+    ).read_text()
+    mobil = css[css.index("Sidhuvudet på smal skärm"):]
+
+    assert "flex-wrap: wrap" in mobil
+    assert "height: auto" in mobil

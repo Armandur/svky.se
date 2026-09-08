@@ -55,6 +55,7 @@
     {% else %}
       <a href="/login">Logga in</a>
     {% endif %}
+    <a href="/nyheter" {% if request.url.path == '/nyheter' %}class="active"{% endif %}>Nyheter</a>
     {% endblock %}
   </nav>
 </header>
