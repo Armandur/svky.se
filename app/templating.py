@@ -67,6 +67,32 @@ def _qr_symboler() -> dict[str, str]:
 templates.env.globals["qr_symboler"] = _qr_symboler()
 
 
+def _vantande_domanansokningar() -> int:
+    """Jinja-global {{ vantande_domanansokningar() }} - badgen i adminbaren.
+
+    Som global och inte som kontextvärde: adminbaren renderas från ett tjugotal
+    routes, och den som glömmer skicka värdet får en vy som kraschar på ett
+    Undefined. Ett första försök smugglade räknaren i en int-subklass och föll
+    på just det - två admin-vyer skickar inget alls.
+
+    Fångar sina egna fel av samma skäl som notisbannern: en räknare får aldrig
+    vara det som fäller sidan den sitter på.
+    """
+    from app.database import get_db
+
+    try:
+        with get_db() as db:
+            return db.execute(
+                "SELECT COUNT(*) FROM domain_permission_requests WHERE status='pending'"
+            ).fetchone()[0]
+    except Exception:
+        logging.exception("Kunde inte räkna väntande domänansökningar")
+        return 0
+
+
+templates.env.globals["vantande_domanansokningar"] = _vantande_domanansokningar
+
+
 def _notisbanner() -> dict | None:
     """Jinja-global {{ notisbanner() }} - adminens meddelande till alla besökare.
 

@@ -1,0 +1,6 @@
+{% if not user.allow_external_urls %}
+<div class="alert alert-info" style="max-width:860px;">
+  Behöver du länka till en domän utanför den tillåtna listan?
+  <a href="/mina-lankar/domanansokan">Ansök om rätt att länka externt.</a>
+</div>
+{% endif %}

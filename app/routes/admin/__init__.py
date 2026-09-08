@@ -7,6 +7,7 @@ Varje submodul hanterar ett ansvarsområde:
   takeovers.py - överlåtelseförfrågningar (godkänn/avvisa via panel och e-post)
   featured.py  - snabblänkar på startsidan (featured links)
   domains.py   - tillåtna måldomäner för kortlänkar
+  domain_requests.py - ansökningar om extern länkning
   settings.py  - om-sidan och integritetssidan (markdown-redigering)
   stats.py     - klick- och sidvisningsstatistik
   helpers.py   - interna hjälpfunktioner
@@ -14,7 +15,18 @@ Varje submodul hanterar ett ansvarsområde:
 
 from fastapi import APIRouter
 
-from . import bundles, domains, featured, links, settings, stats, takeovers, transfers, users
+from . import (
+    bundles,
+    domain_requests,
+    domains,
+    featured,
+    links,
+    settings,
+    stats,
+    takeovers,
+    transfers,
+    users,
+)
 
 router = APIRouter(prefix="/admin")
 
@@ -27,3 +39,4 @@ router.include_router(domains.router)
 router.include_router(settings.router)
 router.include_router(stats.router)
 router.include_router(transfers.router)
+router.include_router(domain_requests.router)
