@@ -22,7 +22,7 @@ from app.auth import get_current_user
 from app.config import BASE_URL, RESERVED_CODES, LinkStatus
 from app.database import get_db
 from app.markdown_safe import render_markdown
-from app.swish import applank, betalning_ur_rad, qr_strang
+from app.swish import Swishfel, applank, betalning_ur_rad, qr_strang
 from app.templating import templates
 
 router = APIRouter()
@@ -203,10 +203,22 @@ async def redirect_code(request: Request, code: str):
                         (bundle["id"],),
                     ).fetchall()
                 ]
+                visbara = []
                 for post in poster:
                     betalning = betalning_ur_rad(post)
-                    post["kodstrang"] = qr_strang(betalning)
-                    post["applank"] = applank(betalning)
+                    try:
+                        post["kodstrang"] = qr_strang(betalning)
+                        post["applank"] = applank(betalning)
+                    except Swishfel:
+                        # En post som inte går att koda utelämnas här. Ett
+                        # kort som saknas är bättre än en anslagstavla som
+                        # pekar på en tom sida - och ägaren ser felet i sin
+                        # egen vy. Allt som skapas via gränssnittet är
+                        # kodbart, så det här är en rad någon ändrat i
+                        # databasen.
+                        continue
+                    visbara.append(post)
+                poster = visbara
                 db.execute("INSERT INTO bundle_views (bundle_id) VALUES (?)", (bundle["id"],))
                 return templates.TemplateResponse(
                     "swish_bundle.html",

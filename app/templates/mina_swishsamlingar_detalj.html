@@ -62,7 +62,7 @@
   <div class="sw-post-topp">
     <span class="namn">{{ post.title }}</span>
     <span class="summa">
-      {% if post.belopp %}{{ post.belopp }} kr{% else %}fritt belopp{% endif %}
+      {% if post.fel %}går inte att koda{% elif post.belopp %}{{ post.belopp }} kr{% else %}fritt belopp{% endif %}
       &middot; {{ post.mottagare }}
     </span>
     <span class="tryck">{{ post.tryck }} tryck på Öppna Swish</span>
@@ -112,6 +112,14 @@
                {% if post.fritt_meddelande %}checked{% endif %}> Fritt meddelande
       </label>
     </div>
+
+    {% if post.fel %}
+    <div class="sw-varning">
+      <strong>Den här posten går inte att koda.</strong>
+      {{ post.fel }} Rätta fälten och spara - koden visas inte på
+      samlingssidan förrän den går att betala.
+    </div>
+    {% endif %}
 
     {% if post.mottagare_gar_att_andra %}
     <div class="sw-varning">

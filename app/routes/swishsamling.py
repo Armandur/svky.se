@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 
 from app import qr
 from app.database import get_db
-from app.swish import betalning_ur_rad, qr_strang
+from app.swish import Swishfel, betalning_ur_rad, qr_strang
 
 router = APIRouter()
 
@@ -46,7 +46,13 @@ async def post_qr(item_id: int, andelse: str):
         raise HTTPException(status_code=404)
 
     with get_db() as db:
-        strang = qr_strang(betalning_ur_rad(_post_i_aktiv_samling(db, item_id)))
+        rad = _post_i_aktiv_samling(db, item_id)
+    try:
+        strang = qr_strang(betalning_ur_rad(rad))
+    except Swishfel:
+        # Posten går inte att koda. Den syns inte på samlingssidan heller,
+        # så adressen pekar på något som inte finns.
+        raise HTTPException(status_code=404) from None
 
     if andelse == "png":
         return Response(

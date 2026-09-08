@@ -61,8 +61,18 @@ def _poster(db, bundle_id: int) -> list[dict]:
     for rad in rader:
         post = dict(rad)
         betalning = betalning_ur_rad(rad)
-        post["kodstrang"] = qr_strang(betalning)
-        post["applank"] = applank(betalning)
+        try:
+            post["kodstrang"] = qr_strang(betalning)
+            post["applank"] = applank(betalning)
+            post["fel"] = None
+        except Swishfel as fel:
+            # Allt som skrivs härifrån går genom _falt() och är kodbart. En
+            # rad som ändrats direkt i databasen behöver ändå kunna visas:
+            # ÄGAREN ska se vilken post som är trasig och kunna rätta den,
+            # inte mötas av en tom sida där hela samlingen låg.
+            post["kodstrang"] = None
+            post["applank"] = None
+            post["fel"] = str(fel)
         # Sant betyder att den som öppnar applänken kan peka om betalningen
         # till ett annat nummer. Se applank(). Visas bara för ÄGAREN.
         post["mottagare_gar_att_andra"] = betalning.mask() != 0

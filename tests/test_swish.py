@@ -8,6 +8,7 @@ Källa: docs/swish-qr.md, som i sin tur bygger på Swish "Guide Swish QR code
 design specification" v1.7.2 avsnitt 6.1.
 """
 
+import html
 import json
 import re
 from urllib.parse import parse_qs, unquote, urlparse
@@ -483,8 +484,15 @@ def test_data_ger_samma_strang_som_sidan(client):
 
     assert data["lage"] == "ok"
     assert data["kodstrang"] == "C1231234567;150,00;Kollekt;2"
-    assert data["kodstrang"] in client.get(f"/swish?{fraga}").text
     assert data["applank"].startswith("swish://payment?data=")
+
+    # Sidan renderar applänken på tre ställen: knappen, det markerbara
+    # fältet och kopieringsknappens data-text. Alla tre - och kodsträngen -
+    # ska bära exakt det endpointen räknar fram, annars är det den ena
+    # varianten som klistras in och den andra som testas.
+    sida = client.get(f"/swish?{fraga}").text
+    assert data["kodstrang"] in sida
+    assert sida.count(html.escape(data["applank"], quote=True)) == 3
 
 
 def test_halvskrivet_nummer_ar_tomt_inte_fel(client):

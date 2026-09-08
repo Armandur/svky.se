@@ -511,3 +511,54 @@ def test_betalkoderna_foljer_med_vid_overlatelse(client, inloggad_anvandare):
 
     # Den gamla ägaren når inte längre redigeringsvyn.
     assert client.get(f"/mina-samlingar/{bundle_id}").status_code == 404
+
+
+# --- en rad som inte går att koda -----------------------------------------
+
+
+def _trasig_post(bundle_id: int) -> int:
+    """En rad som gränssnittet aldrig skulle skriva.
+
+    Allt som skapas via routerna går genom _falt() och normaliseras, så det
+    här är en rad någon ändrat direkt i databasen. Den ska inte fälla en
+    anslagstavla.
+    """
+    with get_db() as db:
+        db.execute(
+            """INSERT INTO swish_items
+               (bundle_id, title, mottagare, belopp, meddelande,
+                fri_mottagare, fritt_belopp, fritt_meddelande, sort_order)
+               VALUES (?,?,?,?,?,0,0,0,9)""",
+            (bundle_id, "Trasig", "123", "100,00", "Trasig"),
+        )
+        return db.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+
+def test_okodbar_post_faller_inte_samlingssidan(client, inloggad_anvandare):
+    bundle_id = _samling(inloggad_anvandare["id"])
+    _post(bundle_id, "Diakoni", belopp="100,00")
+    _trasig_post(bundle_id)
+
+    svar = client.get("/domkyrkan")
+
+    assert svar.status_code == 200
+    assert "Diakoni" in svar.text
+    assert "Trasig" not in svar.text
+
+
+def test_agaren_ser_vilken_post_som_ar_trasig(client, inloggad_anvandare):
+    """Utelämnad publikt, men synlig för den som kan rätta den."""
+    bundle_id = _samling(inloggad_anvandare["id"])
+    item_id = _trasig_post(bundle_id)
+
+    text = client.get(f"/mina-samlingar/{bundle_id}").text
+
+    assert "Trasig" in text
+    assert "går inte att koda" in text
+    assert str(item_id) in text
+
+
+def test_okodbar_posts_bild_ger_404_inte_500(client, inloggad_anvandare):
+    item_id = _trasig_post(_samling(inloggad_anvandare["id"]))
+
+    assert client.get(f"/swish-post/{item_id}/qr.png").status_code == 404
