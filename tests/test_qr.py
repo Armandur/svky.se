@@ -207,15 +207,21 @@ def test_symbolfilerna_finns():
         assert installning.sokvag.exists(), f"{namn}: {installning.sokvag} saknas"
 
 
-def test_plattan_ar_helmodulsbred():
-    """Skär plattans kant genom en modul blir svarta pixlar kvar som en tunn
-    ram runt den vita fyrkanten. Felet ser ut som en renderingsartefakt och
-    överlever en granskning med ögat."""
-    for kodmoduler in (25, 29, 33, 37):
-        bredd = qr._modulanpassad_platta(kodmoduler, 9.4, 1)
+def test_symbolfilerna_bar_egen_ljus_yta():
+    """Symbolen läggs rakt på koden, utan kontrastplatta under.
 
-        assert bredd == int(bredd), f"{kodmoduler}: plattan är inte hela moduler"
-        assert (kodmoduler - bredd) % 2 == 0, f"{kodmoduler}: plattan är inte centrerad"
+    Det håller bara så länge filen bär sin egen ljusa yta. En symbol som är
+    mest genomskinlig får QR-mönstret rakt genom sig, och då behövs plattan
+    tillbaka - se Symbolinstallning.
+    """
+    from PIL import Image
+
+    for namn, installning in qr.SYMBOLER.items():
+        alfa = Image.open(installning.sokvag).convert("RGBA").getchannel("A")
+        genomskinliga = sum(1 for p in alfa.getdata() if p < 10)
+
+        andel = genomskinliga / (alfa.size[0] * alfa.size[1])
+        assert andel < 0.25, f"{namn}: {andel:.0%} genomskinligt, för lite egen yta"
 
 
 def test_filnamnen_skiljer_symbolerna_at():
