@@ -306,3 +306,67 @@ def test_paketet_kraver_agarskap(client, inloggad_anvandare):
 
 def test_paketet_kraver_inloggning(client):
     assert client.get("/mina-lankar/1/qr.zip").status_code == 303
+
+
+def test_koden_far_en_etag(client, inloggad_anvandare):
+    """En fast max-age räckte inte. Ritningen ändras - felkorrigeringen gick
+    från H till M, och sköldarna kom dagen efter - och den som hämtat en kod
+    satt då på den gamla bilden i upp till en timme utan att veta om det."""
+    lank = _skapa_lank(inloggad_anvandare["id"])
+
+    svar = client.get(f"/mina-lankar/{lank}/qr.png")
+
+    assert svar.headers["etag"]
+    # no-cache betyder "fråga först", inte "cacha inte".
+    assert "no-cache" in svar.headers["cache-control"]
+    assert "max-age" not in svar.headers["cache-control"]
+
+
+def test_oforandrad_kod_ger_304(client, inloggad_anvandare):
+    lank = _skapa_lank(inloggad_anvandare["id"])
+    etag = client.get(f"/mina-lankar/{lank}/qr.png").headers["etag"]
+
+    svar = client.get(f"/mina-lankar/{lank}/qr.png", headers={"If-None-Match": etag})
+
+    assert svar.status_code == 304
+    assert not svar.content
+
+
+def test_gammal_etag_ger_ny_bild(client, inloggad_anvandare):
+    """Det är det här fallet som gör ETaggen värd sitt anrop."""
+    lank = _skapa_lank(inloggad_anvandare["id"])
+
+    svar = client.get(f"/mina-lankar/{lank}/qr.png", headers={"If-None-Match": '"gammal"'})
+
+    assert svar.status_code == 200
+    assert _avkoda(svar.content) == qr.lankadress("hsandkonf")
+
+
+def test_varje_variant_far_sin_egen_etag(client, inloggad_anvandare):
+    """Delade två varianter etag skulle en växling ge fel bild ur cachen."""
+    lank = _skapa_lank(inloggad_anvandare["id"])
+
+    etaggar = {
+        client.get(f"/mina-lankar/{lank}/qr.png?symbol={symbol}").headers["etag"]
+        for symbol in ("", *qr.SYMBOLER)
+    }
+
+    assert len(etaggar) == 1 + len(qr.SYMBOLER)
+
+
+def test_paketet_ar_deterministiskt(client, inloggad_anvandare):
+    """Utan fast tidsstämpel skriver zipfile klockslaget i arkivet, och två
+    paket med identiskt innehåll får olika etag - vilket gör den värdelös."""
+    lank = _skapa_lank(inloggad_anvandare["id"])
+
+    forst = client.get(f"/mina-lankar/{lank}/qr.zip")
+    igen = client.get(f"/mina-lankar/{lank}/qr.zip")
+
+    assert forst.content == igen.content
+    assert forst.headers["etag"] == igen.headers["etag"]
+    assert (
+        client.get(
+            f"/mina-lankar/{lank}/qr.zip", headers={"If-None-Match": forst.headers["etag"]}
+        ).status_code
+        == 304
+    )

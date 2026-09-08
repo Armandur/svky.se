@@ -1,3 +1,4 @@
+import hashlib
 import io
 import logging
 import urllib.parse
@@ -29,8 +30,40 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _bildsvar(kropp: bytes, typ: str, filnamn: str, request: Request | None) -> Response:
+    """Bilden med en ETag som speglar innehållet.
+
+    En fast max-age räcker inte. Kommentaren här sa förut att koden aldrig
+    ändras för en given kortkod, men ritningen ändras: felkorrigeringen gick
+    från H till M 2026-09-07, och sköldarna kom dagen efter. Vid varje sådan
+    ändring satt den som hämtat en kod med den gamla bilden i upp till en
+    timme utan att veta om det.
+
+    Med en ETag frågar webbläsaren varje gång och får 304 när inget ändrats.
+    En QR-kod tar millisekunder att rita, så valideringen kostar oss
+    ingenting - och den som skickar en kod till tryck får rätt bild.
+    """
+    etag = f'"{hashlib.sha256(kropp).hexdigest()[:32]}"'
+    huvuden = {
+        # attachment, inte inline: knappen heter Ladda ner, och en bild som
+        # öppnas i fliken i stället för att sparas är fel svar.
+        "Content-Disposition": f'attachment; filename="{filnamn}"',
+        # no-cache betyder "fråga först", inte "cacha inte". Bilden får
+        # ligga kvar i webbläsaren, men bara efter ett godkännande.
+        "Cache-Control": "private, no-cache",
+        "ETag": etag,
+    }
+    if request is not None and request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=huvuden)
+    return Response(content=kropp, media_type=typ, headers=huvuden)
+
+
 def _qr_svar(
-    link_id: int, andelse: str, agare: int | None = None, symbol: str | None = None
+    link_id: int,
+    andelse: str,
+    agare: int | None = None,
+    symbol: str | None = None,
+    request: Request | None = None,
 ) -> Response:
     """Gemensam för användarens och adminens QR-route.
 
@@ -62,23 +95,10 @@ def _qr_svar(
     else:
         kropp, typ = qr.svg(adress, symbol=vald), "image/svg+xml"
 
-    return Response(
-        content=kropp,
-        media_type=typ,
-        headers={
-            # attachment, inte inline: knappen heter Ladda ner, och en bild
-            # som öppnas i fliken i stället för att sparas är fel svar.
-            "Content-Disposition": (
-                f'attachment; filename="{qr.filnamn(rad["code"], andelse, vald)}"'
-            ),
-            # Koden ändras aldrig för en given kortkod - den bär adressen,
-            # inte målet. Men en tom cachehuvud hade lämnat det till slumpen.
-            "Cache-Control": "private, max-age=3600",
-        },
-    )
+    return _bildsvar(kropp, typ, qr.filnamn(rad["code"], andelse, vald), request)
 
 
-def _qr_paket(link_id: int, agare: int | None = None) -> Response:
+def _qr_paket(link_id: int, agare: int | None = None, request: Request | None = None) -> Response:
     """Alla varianter i en zip: PNG och SVG gånger varje symbol plus ingen.
 
     Byggs i minnet och strömmas. Sex QR-koder är inget att skriva till disk
@@ -99,20 +119,20 @@ def _qr_paket(link_id: int, agare: int | None = None) -> Response:
     with zipfile.ZipFile(buffert, "w", zipfile.ZIP_DEFLATED) as paket:
         for symbol in (None, *qr.SYMBOLER):
             for andelse, rita in (("png", qr.png), ("svg", qr.svg)):
-                paket.writestr(
-                    qr.filnamn(rad["code"], andelse, symbol),
-                    rita(adress, symbol=symbol),
+                # Fast tidsstämpel. Utan den skriver zipfile klockslaget för
+                # varje bygge in i arkivet, och två paket med identiskt
+                # innehåll får då olika ETag - vilket gör ETaggen värdelös.
+                post = zipfile.ZipInfo(
+                    qr.filnamn(rad["code"], andelse, symbol), (1980, 1, 1, 0, 0, 0)
                 )
+                post.compress_type = zipfile.ZIP_DEFLATED
+                paket.writestr(post, rita(adress, symbol=symbol))
 
-    return Response(
-        content=buffert.getvalue(),
-        media_type="application/zip",
-        headers={
-            "Content-Disposition": (
-                f'attachment; filename="svky-{qr.filnamn(rad["code"], "zip")[5:]}"'
-            ),
-            "Cache-Control": "private, max-age=3600",
-        },
+    return _bildsvar(
+        buffert.getvalue(),
+        "application/zip",
+        qr.filnamn(rad["code"], "zip"),
+        request,
     )
 
 
@@ -128,13 +148,13 @@ async def my_link_qr_paket(request: Request, link_id: int):
     och svarar 404.
     """
     user = get_user_or_redirect(request)
-    return _qr_paket(link_id, agare=user["id"])
+    return _qr_paket(link_id, agare=user["id"], request=request)
 
 
 @router.get("/mina-lankar/{link_id}/qr.{andelse}")
 async def my_link_qr(request: Request, link_id: int, andelse: str, symbol: str | None = None):
     user = get_user_or_redirect(request)
-    return _qr_svar(link_id, andelse, agare=user["id"], symbol=symbol)
+    return _qr_svar(link_id, andelse, agare=user["id"], symbol=symbol, request=request)
 
 
 @router.get("/mina-lankar")
