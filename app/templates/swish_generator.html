@@ -14,6 +14,10 @@
   border: 2px dashed var(--border); border-radius: 8px; padding: 40px 20px;
   color: var(--muted); font-size: .9rem;
 }
+.gen-fel {
+  border-color: var(--red); border-style: solid;
+  background: var(--red-bg, #fdf3f2); color: var(--red);
+}
 .gen-hamta { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 18px; }
 .gen-dela label {
   display: block; font-size: .78rem; text-transform: uppercase;
@@ -27,6 +31,15 @@
 .gen-dela .btn { margin-top: 8px; }
 .gen-prova { margin: 0 0 4px; }
 .gen-prova .btn { margin-top: 0; }
+/* Applänken är till för telefonen, och det är på telefonen knappen ska
+   vara lätt att träffa. På en dator händer ingenting när man trycker den,
+   så där får den vara liten. */
+@media (max-width: 899px) {
+  .gen-prova .btn {
+    display: block; width: 100%; padding: 15px 18px;
+    font-size: 1rem; font-weight: 700;
+  }
+}
 .kryss {
   display: flex; align-items: center; gap: 8px; font-weight: 400;
   margin-bottom: 6px; cursor: pointer;
@@ -53,8 +66,6 @@
 
 <div class="gen-layout">
   <div class="card">
-    <div class="alert alert-error" id="gen-fel" {% if not fel %}hidden{% endif %}>{{ fel or '' }}</div>
-
     <form method="get" action="/swish">
       <div class="form-group">
         <label for="mottagare">Swish-nummer *</label>
@@ -100,14 +111,16 @@
                  {% if form.fri_mottagare %}checked{% endif %}> Mottagaren får ändras
         </label>
         <div class="hint">Det som inte är ikryssat låses i appen.</div>
-        {# Mätt på telefon 2026-09-08: så fort NÅGOT fält är fritt går
-           mottagaren att ändra, oavsett vad länken säger. Den som lägger ut
-           koden ska veta det innan, inte efter. #}
+        {# Mätt på telefon 2026-09-08, docs/swish-applankens-format.md.
+           Gäller BÅDA formerna: låsmasken styr vilka fält appen öppnar,
+           men fäster inte mottagaren. Bara en helt låst betalning gör det. #}
         <div class="hint varning-fri" hidden>
-          <strong>Tänk på det här innan du trycker koden.</strong> Så fort
-          något fält är fritt går även mottagarnumret att ändra i appen. Den
-          som öppnar länken kan alltså peka om betalningen till sig själv.
-          Lås allt om koden ska sitta uppe utan uppsikt.
+          <strong>Mottagaren går inte att låsa nu.</strong> Så fort något
+          fält är fritt går mottagarnumret att ändra i appen, oavsett vad
+          koden säger. Det gäller både knappen och den skannade QR-koden.
+          Den som betalar kan alltså skicka pengarna till sig själv i
+          stället. Ska koden sitta uppe utan uppsikt: fyll i ett belopp och
+          lämna alla rutor tomma.
         </div>
       </div>
 
@@ -160,8 +173,15 @@
       </div>
     </div>
 
-    <div class="gen-tom" id="gen-tom" {% if betalning %}hidden{% endif %}>
+    {# Tomrutan och felet står på SAMMA plats. Ögat är på kodens ruta när
+       man skriver, och ett fel uppe vid formuläret hade lämnat den platsen
+       tom - det ser ut som att ingenting hände. #}
+    <div class="gen-tom" id="gen-tom" {% if betalning or fel %}hidden{% endif %}>
       Fyll i Swish-numret till vänster, så visas koden här.
+    </div>
+
+    <div class="gen-tom gen-fel" id="gen-fel" {% if not fel %}hidden{% endif %}>
+      {{ fel or '' }}
     </div>
   </div>
 </div>
@@ -176,6 +196,9 @@
 // efter att koden skapats. Den som lägger ut en kod ska veta vad den
 // tillåter innan den trycks.
 function visaVarning() {
+  // Ett enda villkor: är NÅGOT fritt går mottagaren att ändra. Vilken ruta
+  // det är spelar ingen roll, och det spelar ingen roll om koden skannas
+  // eller trycks på.
   var nagot = [...document.querySelectorAll('.kryss input')].some(function (i) {
     return i.checked;
   });
@@ -228,6 +251,7 @@ visaVarning();
     felruta.hidden = lage !== 'fel';
     felruta.textContent = svar.fel || '';
     tom.hidden = lage !== 'tom';
+
     fardig.hidden = lage !== 'ok';
     if (lage !== 'ok') return;
 

@@ -19,6 +19,10 @@ from urllib.parse import quote
 # Vad betalaren får ändra i appen efter skanning. Bit satt betyder REDIGERBAR,
 # alltså tvärtom mot vad namnet "lock" antyder. Utelämnad mask tolkas som 0,
 # vilket låser allt.
+#
+# Masken låser INTE mottagaren när något annat fält är fritt. Mätt på telefon
+# 2026-09-08: en skannad kod med mask 2 låter betalaren byta nummer, precis
+# som applänken. Bara mask 0 håller numret.
 REDIGERBAR_MOTTAGARE = 1
 REDIGERBART_BELOPP = 2
 REDIGERBART_MEDDELANDE = 4
@@ -150,8 +154,13 @@ def applank(betalning: Swishbetalning) -> str:
     VARNING: så fort något fält bär editable går MOTTAGAREN att ändra i
     appen, oavsett vad payee säger. Mätt 2026-09-08, och editable: false på
     payee hjälper inte. En applänk med fria fält låter alltså den som
-    klickar peka om betalningen till ett annat nummer. QR-koden har en egen
-    låsmask som fungerar, och är förstahandsvalet för allt som trycks.
+    klickar peka om betalningen till ett annat nummer.
+
+    Detsamma gäller den SKANNADE koden. Rättat 2026-09-08 efter mätning på
+    telefon: låsmasken i qr_strang styr vilka fält appen öppnar för
+    redigering, men den fäster inte mottagaren. Bara en betalning där alla
+    fält är låsta håller numret. Docstringen påstod tidigare att QR-koden
+    var det säkra valet för tryck - det stämde inte.
 
     En gåva med fritt belopp uttrycks genom att amount-nyckeln UTELÄMNAS
     helt. Appen öppnas då med ett tomt beloppsfält och meddelandet kvar.

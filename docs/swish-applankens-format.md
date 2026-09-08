@@ -113,12 +113,21 @@ En applänk med fritt belopp låter alltså den som öppnar den peka om
 betalningen till ett annat nummer. På en kod som trycks på en affisch eller
 en faktura är det inte en skönhetsfläck.
 
+**Rättelse 2026-09-08: den skannade QR-koden beter sig likadant.** Sidan
+påstod först att QR-kodens låsmask höll där applänkens inte gjorde det. Den
+gör inte det. Skannar man en kod med låst mottagare men fritt belopp går
+numret att byta i appen, precis som via applänken. Låsmasken styr vilka fält
+appen öppnar för redigering - den fäster inte mottagaren. Mätt på telefon.
+Det tidigare påståendet var aldrig prövat för QR-vägen utan följde med som
+antagande.
+
 Vad som följer av det:
 
-- **QR-koden har en egen låsmask, och den fungerar.** Den är förstahandsvalet
-  för allt som trycks.
-- En applänk med fria fält ska bära en varning där någon skapar den.
-- En helt låst applänk är fortfarande säker.
+- **Ingenting håller mottagaren låst utom att låsa alla fält.** Det gäller
+  den tryckta koden lika mycket som applänken.
+- Varje kod med ett fritt fält ska bära en varning där någon skapar den,
+  QR-koden inräknad.
+- En helt låst kod är säker i båda formerna.
 
 ## QR-kodens nyttolast är ett annat format
 

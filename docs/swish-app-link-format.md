@@ -114,13 +114,21 @@ So an app link with an open amount also lets whoever opens it redirect the
 payment to a different number. On a code printed on a poster or an invoice,
 that is not a cosmetic issue.
 
+**Correction 2026-09-08: the scanned QR code behaves the same way.** This page
+first claimed the QR code's lock mask held where the app link's did not.
+It does not. Scanning a code with a locked payee but an open amount lets the
+payer change the number too, exactly as the app link does. The lock mask
+governs which fields the app pre-fills as editable - it does not pin the
+payee. Measured on a phone; the earlier claim was never tested for the QR
+path and was carried over by assumption.
+
 What follows from it:
 
-- The **QR code has its own lock mask, and that one works.** Prefer it for
-  anything you print.
-- An app link with editable fields should carry a warning wherever a user
-  creates one.
-- A fully locked app link is still safe.
+- **Nothing keeps the payee locked except locking every field.** That holds
+  for the printed code and the app link alike.
+- Any code with an editable field should carry a warning wherever a user
+  creates one - the QR code included.
+- A fully locked code is safe in both forms.
 
 ## The QR code payload is a different format
 

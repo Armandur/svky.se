@@ -407,15 +407,15 @@ def test_varningen_visas_for_agaren_men_inte_for_besokaren(client, inloggad_anva
     agarvy = client.get(f"/mina-samlingar/{bundle_id}").text
     publikt = client.get("/domkyrkan").text
 
-    assert "går att peka om" in agarvy
-    assert "går att peka om" not in publikt
+    assert "går inte att låsa här" in agarvy
+    assert "går inte att låsa här" not in publikt
 
 
 def test_lasta_poster_far_ingen_varning(client, inloggad_anvandare):
     bundle_id = _samling(inloggad_anvandare["id"])
     _post(bundle_id, "Diakoni", belopp="100,00")
 
-    assert "går att peka om" not in client.get(f"/mina-samlingar/{bundle_id}").text
+    assert "går inte att låsa här" not in client.get(f"/mina-samlingar/{bundle_id}").text
 
 
 def test_trycken_visas_for_agaren(client, inloggad_anvandare):

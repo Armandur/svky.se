@@ -123,11 +123,12 @@
 
     {% if post.mottagare_gar_att_andra %}
     <div class="sw-varning">
-      <strong>Applänken går att peka om.</strong>
-      Så fort något fält är fritt kan den som öppnar länken i Swish byta
-      mottagarnummer, oavsett vad vi skickar med. Det gäller bara knappen -
-      QR-koden är låst och visar alltid {{ post.mottagare }}.
-      Betalaren ser numret innan hen skriver under med BankID.
+      <strong>Mottagaren går inte att låsa här.</strong>
+      Så fort något fält är fritt kan den som betalar byta mottagarnummer i
+      Swish, oavsett vad vi skickar med. Det gäller både knappen och den
+      skannade QR-koden - mätt på telefon 2026-09-08. Betalaren ser numret
+      innan hen skriver under med BankID. Ska posten vara låst: fyll i ett
+      belopp och kryssa ur alla rutor.
     </div>
     {% endif %}
 

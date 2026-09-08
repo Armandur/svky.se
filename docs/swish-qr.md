@@ -91,14 +91,20 @@ Det betyder att en applänk med fritt belopp eller fritt meddelande också låte
 den som klickar peka om betalningen till ett annat nummer. På en kod som sitter
 på en anslagstavla i en kyrka är det inte en skönhetsfläck.
 
+Rättat 2026-09-08 efter mätning på telefon: detta gäller den skannade
+QR-koden också. Låsmasken styr vilka fält appen öppnar för redigering, men
+den fäster inte mottagaren. En skannad kod med låst mottagare och fritt
+belopp låter betalaren byta nummer, precis som applänken. Sidan påstod
+tidigare motsatsen.
+
 Konsekvenser för oss:
 
-- QR-koden har en egen låsmask som fungerar. Den är förstahandsvalet för allt
-  som trycks.
-- Applänken med fria fält ska bära en varning i gränssnittet. Den som lägger ut
-  den ska veta vad den tillåter.
-- En helt låst applänk är fortfarande säker, och är den form som hör hemma på
-  ett anslag.
+- Ingenting håller mottagaren låst utom att låsa alla fält. Det gäller den
+  tryckta koden lika mycket som applänken.
+- Varje kod med fria fält ska bära en varning i gränssnittet. Den som lägger
+  ut den ska veta vad den tillåter.
+- En helt låst kod är säker i båda formerna, och är den form som hör hemma på
+  ett anslag utan uppsikt.
 
 ### Det officiella spåret kräver Handel-API
 

@@ -354,9 +354,14 @@ def _resultatpanel_dold(text: str) -> bool:
     """
     fardig = re.search(r'<div id="gen-fardig"([^>]*)>', text)
     tom = re.search(r'<div class="gen-tom" id="gen-tom"([^>]*)>', text)
+    fel = re.search(r'<div class="gen-tom gen-fel" id="gen-fel"([^>]*)>', text)
     assert fardig, "sidan saknar resultatpanelen #gen-fardig"
     assert tom, "sidan saknar tomrutan #gen-tom"
-    return "hidden" in fardig.group(1) and "hidden" not in tom.group(1)
+    assert fel, "sidan saknar felrutan #gen-fel"
+    # Tomrutan och felrutan står på samma plats och byter av varandra. Den
+    # ena av dem ska synas när koden inte gör det.
+    visas_i_stallet = "hidden" not in tom.group(1) or "hidden" not in fel.group(1)
+    return "hidden" in fardig.group(1) and visas_i_stallet
 
 
 def test_tom_generator_visar_inget_resultat(client):
@@ -541,3 +546,64 @@ def test_swish_data_ar_reserverad(client):
     from app.config import RESERVED_CODES
 
     assert "swish-data" in RESERVED_CODES
+
+
+# --- vad gränssnittet säger om låsen -------------------------------------
+
+
+def test_varningen_galler_bada_formerna(client):
+    """Varningen får inte lova att den tryckta koden skyddar.
+
+    Mätt på telefon 2026-09-08: låsmasken styr vilka fält appen öppnar men
+    fäster inte mottagaren, så en skannad kod med fritt belopp låter
+    betalaren byta nummer precis som applänken. Sidan påstod tidigare
+    motsatsen, och det rådet hade lett till tryckta koder någon kunde peka
+    om. Se docs/swish-applankens-format.md.
+    """
+    text = client.get("/swish").text
+
+    assert "Mottagaren går inte att låsa nu" in text
+    assert "både knappen och den skannade QR-koden" in text
+    # Det gamla, felaktiga löftet får inte komma tillbaka.
+    assert "QR-koden är däremot låst" not in text
+
+
+def test_mottagarbiten_ar_ett_i_lasmasken(client):
+    """Bit 1 är mottagaren, 2 beloppet, 4 meddelandet. Satt bit betyder
+    REDIGERBAR - tvärtom mot vad ordet lås antyder."""
+    fall = {
+        "": 0,
+        "fri_mottagare=1": 1,
+        "fritt_belopp=1": 2,
+        "fritt_meddelande=1": 4,
+        "fri_mottagare=1&fritt_belopp=1": 3,
+        "fri_mottagare=1&fritt_belopp=1&fritt_meddelande=1": 7,
+    }
+    for extra, mask in fall.items():
+        fraga = "mottagare=1231234567&belopp=150&meddelande=Kollekt"
+        if extra:
+            fraga += "&" + extra
+
+        data = client.get(f"/swish-data?{fraga}").json()
+
+        assert data["kodstrang"].endswith(f";{mask}"), extra
+
+
+def test_fri_mottagare_ger_editable_pa_payee(client):
+    """Kryssrutan ska nå applänken också, inte bara QR-strängen."""
+    fraga = "mottagare=1231234567&belopp=150&fri_mottagare=1"
+
+    data = client.get(f"/swish-data?{fraga}").json()
+    nyttolast = json.loads(unquote(data["applank"].split("data=", 1)[1]))
+
+    assert nyttolast["payee"]["editable"] is True
+
+
+def test_last_mottagare_utelamnar_nyckeln_helt(client):
+    """editable sätts bara som true, aldrig som false. Mätningen visade att
+    false är accepterat men verkningslöst, och en nyckel som inte gör något
+    ska inte skickas."""
+    data = client.get("/swish-data?mottagare=1231234567&belopp=150").json()
+    nyttolast = json.loads(unquote(data["applank"].split("data=", 1)[1]))
+
+    assert "editable" not in nyttolast["payee"]
