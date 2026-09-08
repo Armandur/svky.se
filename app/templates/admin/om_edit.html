@@ -28,6 +28,13 @@
 .preview-box hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 .preview-box strong { color: var(--text); }
 .btn-row { display: flex; gap: 10px; align-items: center; margin-top: 16px; }
+/* .alert är en flex-container för ikon plus text. Här är innehållet ett
+   enda stycke, och flex bröt det i en kolumn per ord. */
+.hjalpruta { display: block; font-size: .85rem; line-height: 1.6; margin-bottom: 18px; }
+.hjalpruta code {
+  background: rgba(0,0,0,.06); padding: 1px 5px; border-radius: 3px;
+  font-family: "SF Mono","Fira Code",monospace; font-size: .92em;
+}
 {% endblock %}
 
 {% block admin_bar %}
@@ -38,6 +45,10 @@
 <div class="om-editor">
   <h1>{{ page_title }}</h1>
   <p class="subtitle">Skriv i Markdown. Förhandsgranskning uppdateras i realtid.</p>
+
+  {% if hjalptext %}
+  <div class="alert alert-info hjalpruta">{{ hjalptext | safe }}</div>
+  {% endif %}
 
   {% if saved %}
   <div class="alert alert-success" style="margin-bottom:16px;">

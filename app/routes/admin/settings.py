@@ -76,6 +76,19 @@ async def admin_edit_nyheter(request: Request):
             "page_title": "Nyheter",
             "admin_path": "/admin/nyheter",
             "public_path": "/nyheter",
+            # Bara nyhetssidan har en klippregel att förklara. Om-sidan och
+            # integritetssidan visas i sin helhet, och en hjälptext om något
+            # som inte gäller dem hade varit brus.
+            "hjalptext": (
+                "Skriv en <code>##</code>-rubrik per post, nyast överst. "
+                "Startsidans ruta <strong>Senaste nytt</strong> visar allt fram "
+                "till nästa <code>##</code>-rubrik, så text ovanför den första "
+                "rubriken följer med. Bara <code>##</code> r\u00e4knas - "
+                "<code>#</code> och <code>###</code> bryter inte. Saknas rubriker "
+                "helt visas hela texten. Det finns inga datum bakom kulisserna: "
+                "ordningen i texten \u00e4r ordningen, s\u00e5 skriv g\u00e4rna "
+                "datumet i rubriken."
+            ),
         },
     )
 

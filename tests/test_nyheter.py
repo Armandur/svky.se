@@ -135,3 +135,20 @@ def test_sidhuvudet_far_bryta_pa_smal_skarm():
 
     assert "flex-wrap: wrap" in mobil
     assert "height: auto" in mobil
+
+
+def test_redigeraren_forklarar_klippregeln(client, admin):
+    """Regeln syns inte i texten man skriver. Utan den här raden är det bara
+    den som byggt sidan som vet varför halva nyheten hamnade på startsidan."""
+    text = client.get("/admin/nyheter").text
+
+    assert "Senaste nytt" in text
+    assert "##" in text
+
+
+def test_om_sidan_slipper_nyheternas_hjalptext(client, admin):
+    """Om-sidan visas i sin helhet. En förklaring av en klippregel som inte
+    gäller den hade bara varit brus."""
+    text = client.get("/admin/om").text
+
+    assert "Senaste nytt" not in text
