@@ -423,3 +423,21 @@ def test_generatorn_upplyser_om_oren(client):
 
     assert "ören" in text
     assert "149,50" in text
+
+
+def test_applanken_gar_att_trycka_pa(client):
+    """Att prova betalningen är det man vill göra, och att kopiera länken
+    kommer efteråt. Knappen står därför före fältet."""
+    text = client.get("/swish?mottagare=1231234567&belopp=150").text
+
+    assert 'href="swish://payment?data=' in text
+    assert "Testa i Swish" in text
+    # Upplysningen om att det kräver en telefon.
+    assert "bara på en telefon" in text
+
+
+def test_ingen_testknapp_utan_applank(client):
+    """En gåva med fritt belopp har ingen applänk att prova."""
+    text = client.get("/swish?mottagare=1231234567&fritt_belopp=1").text
+
+    assert "Testa i Swish" not in text

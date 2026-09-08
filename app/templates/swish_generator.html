@@ -25,6 +25,8 @@
   background: var(--bg); color: var(--text);
 }
 .gen-dela .btn { margin-top: 8px; }
+.gen-prova { margin: 0 0 4px; }
+.gen-prova .btn { margin-top: 0; }
 .kryss {
   display: flex; align-items: center; gap: 8px; font-weight: 400;
   margin-bottom: 6px; cursor: pointer;
@@ -117,12 +119,22 @@
     {% if applank %}
     <div class="gen-dela">
       <label for="applank">Applänk för mobil</label>
+      {# Knappen först: att prova betalningen är det man vill göra, och att
+         kopiera länken kommer efteråt. #}
+      <p class="gen-prova">
+        <a href="{{ applank }}" class="btn btn-primary btn-sm">Testa i Swish</a>
+      </p>
+      <div class="hint" style="margin-bottom:10px;">
+        Fungerar bara på en telefon eller surfplatta med Swish installerat.
+        På en dator händer ingenting. Betalningen skickas inte förrän du
+        bekräftar den i appen.
+      </div>
       <input type="text" id="applank" readonly value="{{ applank }}"
              onclick="this.select()">
       <button type="button" class="btn btn-secondary btn-sm kopiera"
               data-text="{{ applank }}">&#128203; Kopiera applänken</button>
       <div class="hint" style="margin-top:8px;">
-        Öppnar Swish direkt, men bara på en telefon med appen installerad.
+        Klistra in den bakom en egen knapp på en webbsida eller i ett utskick.
       </div>
     </div>
     {% endif %}
