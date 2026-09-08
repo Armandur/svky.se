@@ -20,7 +20,7 @@ from pathlib import Path
 
 import qrcode
 import qrcode.image.svg
-from PIL import Image
+from PIL import Image, ImageChops
 from qrcode.constants import ERROR_CORRECT_H, ERROR_CORRECT_M
 
 from app.config import BASE_URL
@@ -89,6 +89,21 @@ SYMBOLER: dict[str, Symbolinstallning] = {
 }
 
 
+# Swish-symbolen ligger UTANFÖR SYMBOLER med flit. Den hör till en
+# Swish-betalkod och ska inte gå att välja för en vanlig kortlänk, varken i
+# växeln eller genom en frågesträng.
+#
+# 25 procent är Swish eget krav, inte vårt val som sköldarnas 30. Andelen
+# räknas mot koden UTAN marginal - Swish säger inte om den tysta zonen ingår,
+# och räknat på hela bilden blir symbolen 31 procent av själva koden, vilket
+# ligger nära vad felkorrigering H klarar.
+SWISH = Symbolinstallning(
+    sokvag=_STATIC / "swish.png",
+    andel=0.25,
+    beskrivning="Swish",
+)
+
+
 def valj_symbol(namn: str | None) -> Symbolinstallning | None:
     """Slår upp en symbol ur ett värde som kommit utifrån.
 
@@ -101,24 +116,65 @@ def valj_symbol(namn: str | None) -> Symbolinstallning | None:
     return SYMBOLER.get(namn)
 
 
+def _skala(symbol: Image.Image, storlek: int) -> Image.Image:
+    """Skalar symbolen utan att kanterna smutsas ner.
+
+    PNG-filer bär ofta ett värde i färgkanalerna där de är helt genomskinliga,
+    eftersom värdet ändå inte syns. Swish-symbolen bär SVART där (mätt
+    2026-09-08), och LANCZOS interpolerar färg och alfa var för sig - så en
+    rak resize blandar in svärtan i kantpixlarna och ger en mörk frans runt
+    symbolen.
+
+    Botemedlet är att multiplicera färgen med alfa FÖRE skalningen. Då bidrar
+    en genomskinlig pixel med noll i stället för med sin dolda färg. Bilden
+    lämnas premultiplicerad, och _komponera räknar med just den formen.
+
+    Sköldarna bär vitt under alfa 0 och klarar sig utan det här steget, men
+    behandlingen är rätt för dem också: den ger samma resultat och en fil
+    mindre att hålla reda på.
+    """
+    r, g, b, a = symbol.split()
+    farg = Image.merge(
+        "RGB",
+        (
+            ImageChops.multiply(r, a),
+            ImageChops.multiply(g, a),
+            ImageChops.multiply(b, a),
+        ),
+    ).resize((storlek, storlek), Image.LANCZOS)
+    return Image.merge("RGBA", (*farg.split(), a.resize((storlek, storlek), Image.LANCZOS)))
+
+
+def _komponera(under: Image.Image, over: Image.Image, position: tuple[int, int]) -> None:
+    """Lägger en premultiplicerad bild på `under`, på plats.
+
+    En vanlig paste med alfamask förutsätter att färgen INTE är
+    premultiplicerad och räknar då in alfa två gånger - resultatet blir för
+    mörkt. Kompositeringen görs därför för hand: under * (1 - alfa) + färg.
+    """
+    x, y = position
+    yta = under.crop((x, y, x + over.width, y + over.height)).convert("RGB")
+    farg = over.convert("RGB")
+    invers = ImageChops.invert(over.split()[3])
+    kvar = Image.merge("RGB", tuple(ImageChops.multiply(kanal, invers) for kanal in yta.split()))
+    under.paste(ImageChops.add(kvar, farg), (x, y))
+
+
 def _lagg_pa_symbol(bild: Image.Image, installning: Symbolinstallning) -> Image.Image:
     """Klistrar in symbolen mitt i koden.
 
-    Ingen premultiplicering här, till skillnad från slöjda.de. Deras
-    symbolfiler bär SVART i färgkanalerna där de är genomskinliga, så LANCZOS
-    blandade in svärtan i kantpixlarna och gav en mörk frans. Sköldfilerna
-    bär vitt där alfa är noll (mätt 2026-09-08), så en vanlig paste med
-    alfamask räcker. Byts filerna ut: mät om, och porta i så fall slöjdas
-    _skala och _komponera i par - halva den lösningen ger en fel kant.
+    Ingen vit platta bakom. Symbolfilerna bär sin egen ljusa yta - sköldarna
+    hela vägen ut till konturen, Swish-logotypen som en rund bakgrund med
+    genomskinliga hörn. Swish riktlinjer förbjuder dessutom uttryckligen en
+    extra bakgrund ovanpå deras.
     """
     bredd = bild.width
     symbolstorlek = int(bredd * installning.andel)
-    symbol = Image.open(installning.sokvag).convert("RGBA")
-    symbol = symbol.resize((symbolstorlek, symbolstorlek), Image.LANCZOS)
+    symbol = _skala(Image.open(installning.sokvag).convert("RGBA"), symbolstorlek)
 
     bild = bild.convert("RGB")
     mitt = ((bredd - symbolstorlek) // 2, (bild.height - symbolstorlek) // 2)
-    bild.paste(symbol, mitt, symbol)
+    _komponera(bild, symbol, mitt)
     return bild
 
 
@@ -174,12 +230,22 @@ def _kod(data: str, marginal: int, felkorrigering: int = FELKORRIGERING_LANK) ->
     return kod
 
 
-def png(data: str, marginal: int = MARGINAL_TRYCK, symbol: str | None = None) -> bytes:
+def png(
+    data: str,
+    marginal: int = MARGINAL_TRYCK,
+    symbol: str | None = None,
+    symbol_installning: Symbolinstallning | None = None,
+) -> bytes:
     """QR-koden som PNG. Vit bakgrund, svart mönster.
 
     Med en symbol ritas matrisen tätare, se _felkorrigering.
+
+    `symbol` slås upp i SYMBOLER och kommer från en frågesträng.
+    `symbol_installning` går förbi det uppslaget och används för symboler som
+    INTE ska vara valbara utifrån - Swish-logotypen hör till en betalkod och
+    ska aldrig kunna hamna på en vanlig kortlänk.
     """
-    installning = valj_symbol(symbol)
+    installning = symbol_installning or valj_symbol(symbol)
     bild = _kod(data, marginal, _felkorrigering(installning)).make_image(
         fill_color="black", back_color="white"
     )
@@ -191,7 +257,12 @@ def png(data: str, marginal: int = MARGINAL_TRYCK, symbol: str | None = None) ->
     return buffert.getvalue()
 
 
-def svg(data: str, marginal: int = MARGINAL_TRYCK, symbol: str | None = None) -> bytes:
+def svg(
+    data: str,
+    marginal: int = MARGINAL_TRYCK,
+    symbol: str | None = None,
+    symbol_installning: Symbolinstallning | None = None,
+) -> bytes:
     """QR-koden som SVG, för tryck. Skalbar utan hackiga kanter.
 
     SvgPathImage ritar BARA den svarta banan - filen blir genomskinlig. På
@@ -199,7 +270,7 @@ def svg(data: str, marginal: int = MARGINAL_TRYCK, symbol: str | None = None) ->
     inverteras koden och blir oläsbar. Vi lägger därför in en vit rektangel
     under banan. Slöjda har inte gjort det, se docs/swish-qr.md.
     """
-    installning = valj_symbol(symbol)
+    installning = symbol_installning or valj_symbol(symbol)
     kod = _kod(data, marginal, _felkorrigering(installning))
     buffert = io.BytesIO()
     kod.make_image(image_factory=qrcode.image.svg.SvgPathImage).save(buffert)

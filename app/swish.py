@@ -1,0 +1,155 @@
+"""Swish-betallänkar: QR-strängen och applänken.
+
+Modulen bygger BARA de två strängarna. Ritningen ligger i app/qr.py, och
+inget här rör Swish Handel-API, certifikat eller betalningsuppföljning - vi
+skickar aldrig något till mpc.getswish.net.
+
+Formaten kommer från Swish "Guide Swish QR code design specification" v1.7.2
+avsnitt 6.1, och från den implementation som är i drift i slöjda.de. Se
+docs/swish-qr.md, som är den kanoniska specen och rättar två fel i det
+ursprungliga underlaget.
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from urllib.parse import quote
+
+# Vad betalaren får ändra i appen efter skanning. Bit satt betyder REDIGERBAR,
+# alltså tvärtom mot vad namnet "lock" antyder. Utelämnad mask tolkas som 0,
+# vilket låser allt.
+REDIGERBAR_MOTTAGARE = 1
+REDIGERBART_BELOPP = 2
+REDIGERBART_MEDDELANDE = 4
+
+# Swish-appen visar och sparar bara 50 tecken, medan schemat för QR-API:t
+# anger 70. Den snävare gränsen är den som gäller för det användaren ser.
+MAX_MEDDELANDE = 50
+
+
+class Swishfel(ValueError):
+    """Indata som inte går att koda."""
+
+
+@dataclass(frozen=True)
+class Swishbetalning:
+    """En betalning som ska bli en kod och en länk.
+
+    `belopp` är kronor som sträng eller None. None betyder att betalaren
+    fyller i själv, och då MÅSTE beloppet vara redigerbart - en låst tom
+    summa går inte att betala.
+    """
+
+    mottagare: str
+    belopp: str | None = None
+    meddelande: str | None = None
+    redigerbar_mottagare: bool = False
+    redigerbart_belopp: bool = False
+    redigerbart_meddelande: bool = False
+
+    def mask(self) -> int:
+        return (
+            (REDIGERBAR_MOTTAGARE if self.redigerbar_mottagare else 0)
+            + (REDIGERBART_BELOPP if self.redigerbart_belopp else 0)
+            + (REDIGERBART_MEDDELANDE if self.redigerbart_meddelande else 0)
+        )
+
+
+def _rensa_mottagare(varde: str) -> str:
+    siffror = "".join(t for t in (varde or "") if t.isdigit())
+    if len(siffror) != 10:
+        raise Swishfel("Swish-numret ska vara tio siffror.")
+    return siffror
+
+
+def _kronor(belopp: str | None) -> str:
+    """Beloppet på QR-strängens form: två decimaler och decimalkomma.
+
+    Swish vill ha 100,00 och inte 100. Applänken vill däremot ha hela kronor
+    utan komma, så de två formaten får inte blandas ihop - se applank().
+    """
+    if belopp in (None, ""):
+        return ""
+    text = str(belopp).replace(",", ".").strip()
+    try:
+        tal = round(float(text), 2)
+    except ValueError:
+        raise Swishfel("Beloppet går inte att tolka som ett tal.") from None
+    if tal <= 0:
+        raise Swishfel("Beloppet måste vara större än noll.")
+    if tal >= 1_000_000:
+        raise Swishfel("Beloppet är för stort.")
+    return f"{tal:.2f}".replace(".", ",")
+
+
+def _meddelande(text: str | None) -> str:
+    return (text or "").strip()[:MAX_MEDDELANDE]
+
+
+def _kontrollera(betalning: Swishbetalning) -> None:
+    """Det som gör en kod obetalbar, fångat före den ritas.
+
+    En tryckt kod går inte att rätta i efterhand, så felen ska mötas i
+    beställningen och inte på anslagstavlan.
+    """
+    if not betalning.belopp and not betalning.redigerbart_belopp:
+        raise Swishfel(
+            "En kod utan förifyllt belopp måste låta betalaren fylla i det själv."
+        )
+
+
+def qr_strang(betalning: Swishbetalning) -> str:
+    """Innehållet i QR-koden.
+
+    Formen är C<mottagare>;<belopp>;<meddelande>;<mask>. Tomma fält behålls
+    som tom sträng mellan semikolonen, alltså C1231234567;;;6 för en gåva.
+    """
+    _kontrollera(betalning)
+    mottagare = _rensa_mottagare(betalning.mottagare)
+    belopp = _kronor(betalning.belopp)
+    # URL-kodat enligt specen. quote lämnar bokstäver och siffror i fred och
+    # kodar mellanslag som %20, inte som plus.
+    meddelande = quote(_meddelande(betalning.meddelande), safe="")
+    return f"C{mottagare};{belopp};{meddelande};{betalning.mask()}"
+
+
+def applank(betalning: Swishbetalning) -> str | None:
+    """swish://payment?data=<URL-kodad JSON>, eller None när formatet inte räcker.
+
+    Formatet är inte dokumenterat av Swish utan härlett ur appen, därav den
+    egna funktionen: byts det ut rör ändringen bara den här koden.
+
+    None betyder att applänken inte kan uttrycka betalningen. Det gäller en
+    gåva med tomt belopp: nyckeln utelämnas helt när värdet saknas, och då
+    finns ingenstans att sätta editable. QR-koden klarar samma fall med en
+    tom sträng och en satt bit, så den ska fortfarande byggas.
+    """
+    _kontrollera(betalning)
+    data: dict[str, object] = {
+        "version": "1.0",
+        "payee": {"value": _rensa_mottagare(betalning.mottagare)},
+    }
+    if betalning.redigerbar_mottagare:
+        data["payee"]["editable"] = True  # type: ignore[index]
+
+    belopp = _kronor(betalning.belopp)
+    if belopp:
+        # Hela kronor utan decimalkomma, som STRÄNG. Skiljer sig medvetet
+        # från QR-strängens 100,00.
+        data["amount"] = {"value": belopp.split(",")[0]}
+        if betalning.redigerbart_belopp:
+            data["amount"]["editable"] = True  # type: ignore[index]
+    elif betalning.redigerbart_belopp:
+        return None
+
+    text = _meddelande(betalning.meddelande)
+    if text:
+        data["message"] = {"value": text}
+        if betalning.redigerbart_meddelande:
+            data["message"]["editable"] = True  # type: ignore[index]
+
+    # separators utan mellanslag: länken hamnar i en href och i en QR-kod,
+    # och varje tecken kostar där.
+    nyttolast = json.dumps(data, separators=(",", ":"), ensure_ascii=False)
+    return f"swish://payment?data={quote(nyttolast, safe='')}"
