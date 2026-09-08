@@ -119,16 +119,17 @@ def qr_strang(betalning: Swishbetalning) -> str:
     return f"C{mottagare};{belopp};{meddelande};{betalning.mask()}"
 
 
-def applank(betalning: Swishbetalning) -> str | None:
-    """swish://payment?data=<URL-kodad JSON>, eller None när formatet inte räcker.
+def applank(betalning: Swishbetalning) -> str:
+    """swish://payment?data=<URL-kodad JSON>.
 
     Formatet är inte dokumenterat av Swish utan härlett ur appen, därav den
     egna funktionen: byts det ut rör ändringen bara den här koden.
 
-    None betyder att applänken inte kan uttrycka betalningen. Det gäller en
-    gåva med tomt belopp: nyckeln utelämnas helt när värdet saknas, och då
-    finns ingenstans att sätta editable. QR-koden klarar samma fall med en
-    tom sträng och en satt bit, så den ska fortfarande byggas.
+    En gåva med fritt belopp uttrycks genom att amount-nyckeln UTELÄMNAS
+    helt. Appen öppnas då med ett tomt beloppsfält och meddelandet kvar.
+    Uppmätt på telefon 2026-09-08: tom sträng, noll och null fungerar alla
+    sämre eller inte alls, och strängen "0" tvingar givaren att ändra från
+    noll med en varning om att en krona är minsta belopp.
     """
     _kontrollera(betalning)
     # version är TALET 1, inte strängen "1.0". Uppmätt på telefon
@@ -152,8 +153,7 @@ def applank(betalning: Swishbetalning) -> str | None:
         data["amount"] = {"value": int(tal) if tal == int(tal) else tal}
         if betalning.redigerbart_belopp:
             data["amount"]["editable"] = True  # type: ignore[index]
-    elif betalning.redigerbart_belopp:
-        return None
+    # Utan belopp utelämnas nyckeln helt. Se docstringen.
 
     text = _meddelande(betalning.meddelande)
     if text:

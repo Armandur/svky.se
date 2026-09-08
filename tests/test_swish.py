@@ -183,18 +183,24 @@ def test_tomma_falt_utelamnas_helt():
     assert set(data) == {"version", "payee", "amount"}
 
 
-def test_gava_utan_belopp_ger_ingen_applank():
-    """Det svaga stället i formatet, och skälet till att funktionen får
-    returnera None.
+def test_gava_utelamnar_amount_helt():
+    """En gåva med fritt belopp uttrycks genom att nyckeln SAKNAS.
 
-    En gåva har tomt belopp som betalaren ska fylla i. Nyckeln amount
-    utelämnas när värdet saknas, och då finns ingenstans att sätta editable.
-    QR-koden klarar samma fall med tom sträng och satt bit.
+    Uppmätt på telefon 2026-09-08: tom sträng, noll och null fungerar alla
+    sämre eller inte alls. Strängen "0" öppnar visserligen appen, men
+    tvingar givaren att ändra från noll med en varning om att en krona är
+    minsta belopp.
+
+    Slutsatsen förut var att formatet inte kunde uttrycka en gåva alls, och
+    den byggde på en kommentar i slöjdas kod i stället för på en mätning.
     """
-    gava = Swishbetalning("1231234567", redigerbart_belopp=True)
+    gava = Swishbetalning("1231234567", redigerbart_belopp=True, meddelande="Gåva")
 
-    assert applank(gava) is None
-    assert qr_strang(gava) == "C1231234567;;;2"
+    data = _data(applank(gava))
+    assert "amount" not in data
+    assert data["message"]["value"] == "Gåva"
+    # Meddelandet är URL-kodat i QR-strängen, till skillnad från i applänken.
+    assert qr_strang(gava) == "C1231234567;;G%C3%A5va;2"
 
 
 def test_applanken_ar_url_kodad():
@@ -410,13 +416,12 @@ def test_trasigt_nummer_faller_inte_sidan(client):
     assert "tio siffror" in svar.text.lower()
 
 
-def test_gava_visar_ingen_applank(client):
-    """Applänken kan inte uttrycka fritt belopp."""
+def test_gava_visar_applank(client):
     svar = client.get("/swish?mottagare=1231234567&fritt_belopp=1")
 
     assert svar.status_code == 200
     assert "swish-kod.png" in svar.text
-    assert "Applänk för mobil" not in svar.text
+    assert "Applänk för mobil" in svar.text
 
 
 def test_oren_gar_bra_i_bada_formen():
@@ -452,8 +457,9 @@ def test_applanken_gar_att_trycka_pa(client):
     assert "bara på en telefon" in text
 
 
-def test_ingen_testknapp_utan_applank(client):
-    """En gåva med fritt belopp har ingen applänk att prova."""
+def test_gava_far_ocksa_en_testknapp(client):
+    """Kollekt utan förbestämd summa är det vanligaste fallet i en kyrka,
+    och det saknade knapp så länge gåvan troddes sakna applänk."""
     text = client.get("/swish?mottagare=1231234567&fritt_belopp=1").text
 
-    assert "Testa i Swish" not in text
+    assert "Testa i Swish" in text

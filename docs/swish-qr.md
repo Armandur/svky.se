@@ -161,17 +161,26 @@ låsmasken är alltid 7 för QR-koden. I svky.se väljer beställaren själv vil
 fält som får ändras, så låsmasken räknas fram ur tre kryssrutor och applänkens
 `editable`-nycklar måste följa samma val.
 
-## Gåvokoden är det svaga stället i applänken
+## Gåvokoden - löst 2026-09-08
 
-En gåva utan förifyllt belopp och meddelande ger QR-strängen `C1231234567;;;6`,
-alltså belopp och meddelande fria. Applänken kan inte uttrycka samma sak: när
-fälten är tomma utelämnas nycklarna `amount` och `message` helt, och då finns
-det ingenstans att sätta `editable: true`.
+En gåva utan förifyllt belopp ger QR-strängen `C1231234567;;Gåva;2`. Applänken
+uttrycker samma sak genom att **utelämna `amount`-nyckeln helt**. Appen öppnas
+då med tomt beloppsfält och meddelandet kvar.
 
-Slöjda bygger aldrig en applänk för en gåva, bara en QR-kod
-(`swish_gavokod_text`). Vi vet alltså inte om appen tolkar en utelämnad nyckel
-som fri eller som frånvarande. Prova det fallet särskilt på telefon innan
-gåvoläget släpps.
+Sex former provades på telefon:
+
+| Form | Utfall |
+| --- | --- |
+| `"amount":{"value":"","editable":true}` | fungerar inte |
+| `"amount":{"value":""}` | fungerar inte |
+| `"amount":{"value":null,"editable":true}` | fungerar inte |
+| **ingen `amount`-nyckel, `message` kvar** | **fungerar** |
+| ingen `amount`, `message` fritt | fungerar |
+| `"amount":{"value":"0","editable":true}` | öppnar, men tvingar givaren att ändra från noll och varnar att en krona är minsta belopp |
+
+Slutsatsen förut var att formatet inte kunde uttrycka en gåva alls. Den byggde
+på en kommentar i slöjdas kod och inte på en mätning, och var fel. Slöjda
+bygger fortfarande aldrig en applänk för en gåva.
 
 ## Öppna frågor
 
