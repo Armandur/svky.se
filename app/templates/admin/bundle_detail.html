@@ -79,7 +79,7 @@
       <div class="dl-row">
         <div class="dl-item"><dt>Kod</dt><dd><code>{{ bundle.code }}</code></dd></div>
         <div class="dl-item"><dt>Ägare</dt><dd>{{ bundle.owner_email or '-' }}</dd></div>
-        <div class="dl-item"><dt>Tema</dt><dd><span class="theme-pill">{{ 'Rikt' if bundle.theme == 'rich' else 'Kompakt' }}</span></dd></div>
+        <div class="dl-item"><dt>Tema</dt><dd><span class="theme-pill">{{ {'rich':'Rikt','compact':'Kompakt','swish':'Swish'}.get(bundle.theme, bundle.theme) }}</span></dd></div>
         <div class="dl-item"><dt>Skapad</dt><dd>{{ bundle.created_at | sthlm }}</dd></div>
         <div class="dl-item"><dt>Uppdaterad</dt><dd>{{ bundle.updated_at | sthlm }}</dd></div>
       </div>
@@ -102,6 +102,7 @@
           <select name="theme">
             <option value="rich" {% if bundle.theme == 'rich' %}selected{% endif %}>Rikt</option>
             <option value="compact" {% if bundle.theme == 'compact' %}selected{% endif %}>Kompakt</option>
+            <option value="swish" {% if bundle.theme == 'swish' %}selected{% endif %}>Swish</option>
           </select>
         </div>
         <button type="submit" class="btn btn-primary btn-sm">Spara</button>

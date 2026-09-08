@@ -455,3 +455,59 @@ def test_okant_tema_faller_tillbaka_pa_rich(client, inloggad_anvandare, hamta_cs
         assert (
             db.execute("SELECT theme FROM bundles WHERE code='test'").fetchone()["theme"] == "rich"
         )
+
+
+# --- admin och överlåtelse ------------------------------------------------
+
+
+def test_admin_far_inte_bryta_swishtemat(client, admin, hamta_csrf_token):
+    """Ett tema-val som saknar swish skickar 'rich' och slår tyst ut alla
+    betalkoder. Samlingen finns kvar men visar ingenting."""
+    bundle_id = _samling(admin["id"])
+    _post(bundle_id)
+    token = hamta_csrf_token(client, f"/admin/bundles/{bundle_id}")
+
+    svar = client.post(
+        f"/admin/bundles/{bundle_id}/update",
+        data={"name": "Ge en gåva", "theme": "swish", "csrf_token": token},
+    )
+
+    assert svar.status_code == 303
+    with get_db() as db:
+        assert (
+            db.execute("SELECT theme FROM bundles WHERE id=?", (bundle_id,)).fetchone()["theme"]
+            == "swish"
+        )
+    assert "Diakoni" in client.get("/domkyrkan").text
+
+
+def test_admins_temaval_bar_swish(client, admin):
+    bundle_id = _samling(admin["id"])
+
+    text = client.get(f"/admin/bundles/{bundle_id}").text
+
+    assert '<option value="swish"' in text
+
+
+def test_betalkoderna_foljer_med_vid_overlatelse(client, inloggad_anvandare):
+    """Överlåtelsen flyttar samlingen. Betalkoderna sitter på samlingen och
+    ska följa med oförändrade - ett Swish-nummer får aldrig bytas i en
+    ägarflytt."""
+    from app.ownership import move_twin_rows
+
+    bundle_id = _samling(inloggad_anvandare["id"])
+    item_id = _post(bundle_id, "Diakoni", belopp="100,00")
+    ny_agare = _annan_anvandare()
+
+    with get_db() as db:
+        move_twin_rows(db, "domkyrkan", inloggad_anvandare["id"], ny_agare)
+        bundle = db.execute("SELECT owner_id FROM bundles WHERE id=?", (bundle_id,)).fetchone()
+        post = db.execute("SELECT * FROM swish_items WHERE id=?", (item_id,)).fetchone()
+
+    assert bundle["owner_id"] == ny_agare
+    assert post["bundle_id"] == bundle_id
+    assert post["mottagare"] == MOTTAGARE
+    assert post["belopp"] == "100,00"
+
+    # Den gamla ägaren når inte längre redigeringsvyn.
+    assert client.get(f"/mina-samlingar/{bundle_id}").status_code == 404

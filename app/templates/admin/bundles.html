@@ -97,8 +97,8 @@
         {% if b.description %}<div class="bundle-desc">{{ b.description }}</div>{% endif %}
       </td>
       <td style="font-size:.82rem; color:var(--muted);">{{ b.owner_email or '-' }}</td>
-      <td><span class="theme-pill">{{ 'Rikt' if b.theme == 'rich' else 'Kompakt' }}</span></td>
-      <td style="text-align:right; font-size:.85rem;">{{ b.item_count }}</td>
+      <td><span class="theme-pill">{{ {'rich':'Rikt','compact':'Kompakt','swish':'Swish'}.get(b.theme, b.theme) }}</span></td>
+      <td style="text-align:right; font-size:.85rem;">{{ b.swish_count if b.theme == 'swish' else b.item_count }}</td>
       <td>
         {% if b.status == 1 %}
         <span class="badge badge-active">Aktiv</span>

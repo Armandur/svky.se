@@ -67,7 +67,8 @@ async def admin_bundles(request: Request, q: str = "", status_filter: str = ""):
         bundles = db.execute(
             f"""SELECT b.id, b.code, b.name, b.description, b.theme, b.status,
                        b.created_at, b.updated_at, u.email AS owner_email,
-                       (SELECT COUNT(*) FROM bundle_items WHERE bundle_id=b.id) AS item_count
+                       (SELECT COUNT(*) FROM bundle_items WHERE bundle_id=b.id) AS item_count,
+                       (SELECT COUNT(*) FROM swish_items WHERE bundle_id=b.id) AS swish_count
                 FROM bundles b LEFT JOIN users u ON b.owner_id=u.id
                 {where}
                 ORDER BY b.created_at DESC""",
@@ -170,7 +171,7 @@ async def admin_update_bundle(
     if not validate_csrf_token(csrf_token, get_csrf_secret(request)):
         raise HTTPException(status_code=403)
     admin = get_admin_or_redirect(request)
-    theme = theme if theme in ("rich", "compact") else "rich"
+    theme = theme if theme in ("rich", "compact", "swish") else "rich"
 
     for varde, maxlangd, faltnamn in (
         (name, MAX_NAME_LENGTH, "Namnet"),
