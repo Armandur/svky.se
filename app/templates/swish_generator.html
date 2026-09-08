@@ -35,9 +35,11 @@
   background: var(--orange-bg); color: #7a3f00; padding: 8px 12px;
   border-radius: var(--radius); margin-top: 8px; line-height: 1.5;
 }
+/* Strängen står direkt under koden. .gen-kod bär redan sin undermarginal,
+   så den här behöver bara luft nedåt mot nedladdningsknapparna. */
 .gen-strang {
   font-family: "SF Mono","Fira Code",monospace; font-size: .78rem;
-  color: var(--muted); overflow-wrap: anywhere; margin-top: 14px;
+  color: var(--muted); overflow-wrap: anywhere; margin: 0 0 16px;
 }
 {% endblock %}
 
@@ -51,9 +53,7 @@
 
 <div class="gen-layout">
   <div class="card">
-    {% if fel %}
-    <div class="alert alert-error">{{ fel }}</div>
-    {% endif %}
+    <div class="alert alert-error" id="gen-fel" {% if not fel %}hidden{% endif %}>{{ fel or '' }}</div>
 
     <form method="get" action="/swish">
       <div class="form-group">
@@ -111,52 +111,58 @@
         </div>
       </div>
 
-      <button type="submit" class="btn btn-primary">Visa koden</button>
+      {# Knappen är kvar för den som har JavaScript avstängt. Med JS på
+         räknas koden om medan man skriver, och då döljs den. #}
+      <button type="submit" class="btn btn-primary" id="gen-knapp">Visa koden</button>
     </form>
   </div>
 
-  <div class="gen-resultat">
-    {% if betalning %}
-    <div class="gen-kod">
-      <img src="/swish-kod.png?{{ request.url.query }}" width="240" height="240"
-           alt="Swish-QR-kod för betalning till {{ betalning.mottagare }}">
-    </div>
+  <div class="gen-resultat" id="resultat">
+    <div id="gen-fardig" {% if not betalning %}hidden{% endif %}>
+      <div class="gen-kod">
+        <img id="gen-bild" width="240" height="240"
+             {% if betalning %}src="/swish-kod.png?{{ request.url.query }}"{% endif %}
+             alt="Swish-QR-kod för betalningen">
+      </div>
 
-    <p class="gen-hamta">
-      <a href="/swish-kod.svg?{{ request.url.query }}" class="btn btn-secondary btn-sm">
-        &#11015; SVG för tryck</a>
-      <a href="/swish-kod.png?{{ request.url.query }}" class="btn btn-secondary btn-sm">
-        &#11015; PNG</a>
-    </p>
+      {# Strängen står direkt under koden: det är den koden BÄR, och den som
+         kontrollerar en tryckt lapp läser de två tillsammans. #}
+      <p class="gen-strang" id="gen-strang">{{ kodstrang or '' }}</p>
 
-    <div class="gen-dela">
-      <label for="applank">Applänk för mobil</label>
-      {# Knappen först: att prova betalningen är det man vill göra, och att
-         kopiera länken kommer efteråt. #}
-      <p class="gen-prova">
-        <a href="{{ applank }}" class="btn btn-primary btn-sm">Testa i Swish</a>
+      <p class="gen-hamta">
+        <a id="gen-svg" class="btn btn-secondary btn-sm"
+           {% if betalning %}href="/swish-kod.svg?{{ request.url.query }}"{% endif %}>
+          &#11015; SVG för tryck</a>
+        <a id="gen-png" class="btn btn-secondary btn-sm"
+           {% if betalning %}href="/swish-kod.png?{{ request.url.query }}"{% endif %}>
+          &#11015; PNG</a>
       </p>
-      <div class="hint" style="margin-bottom:10px;">
-        Fungerar bara på en telefon eller surfplatta med Swish installerat.
-        På en dator händer ingenting. Betalningen skickas inte förrän du
-        bekräftar den i appen.
-      </div>
-      <input type="text" id="applank" readonly value="{{ applank }}"
-             onclick="this.select()">
-      <button type="button" class="btn btn-secondary btn-sm kopiera"
-              data-text="{{ applank }}">&#128203; Kopiera applänken</button>
-      <div class="hint" style="margin-top:8px;">
-        Klistra in den bakom en egen knapp på en webbsida eller i ett utskick.
+
+      <div class="gen-dela">
+        <label for="applank">Applänk för mobil</label>
+        {# Knappen först: att prova betalningen är det man vill göra, och att
+           kopiera länken kommer efteråt. #}
+        <p class="gen-prova">
+          <a id="gen-prova" href="{{ applank or '' }}" class="btn btn-primary btn-sm">Testa i Swish</a>
+        </p>
+        <div class="hint" style="margin-bottom:10px;">
+          Fungerar bara på en telefon eller surfplatta med Swish installerat.
+          På en dator händer ingenting. Betalningen skickas inte förrän du
+          bekräftar den i appen.
+        </div>
+        <input type="text" id="applank" readonly value="{{ applank or '' }}"
+               onclick="this.select()">
+        <button type="button" class="btn btn-secondary btn-sm kopiera"
+                data-text="{{ applank or '' }}">&#128203; Kopiera applänken</button>
+        <div class="hint" style="margin-top:8px;">
+          Klistra in den bakom en egen knapp på en webbsida eller i ett utskick.
+        </div>
       </div>
     </div>
 
-    <p class="gen-strang">{{ kodstrang }}</p>
-
-    {% else %}
-    <div class="gen-tom">
+    <div class="gen-tom" id="gen-tom" {% if betalning %}hidden{% endif %}>
       Fyll i Swish-numret till vänster, så visas koden här.
     </div>
-    {% endif %}
   </div>
 </div>
 {% endblock %}
@@ -180,6 +186,94 @@ document.addEventListener('change', function (e) {
   if (e.target.closest('.kryss')) visaVarning();
 });
 visaVarning();
+
+// ── Räkna om medan man skriver ────────────────────────────────────────────
+// Ingen knapp att trycka på: fälten ändras, och koden följer efter. Kodens
+// INNEHÅLL räknas alltid på servern - hade webbläsaren byggt strängen själv
+// hade formatet funnits på två ställen, och app/swish.py är det enda som
+// får äga det.
+(function () {
+  var form = document.querySelector('form[action="/swish"]');
+  var knapp = document.getElementById('gen-knapp');
+  if (!form || !window.fetch) return;
+
+  var fardig = document.getElementById('gen-fardig');
+  var tom = document.getElementById('gen-tom');
+  var felruta = document.getElementById('gen-fel');
+  var bild = document.getElementById('gen-bild');
+  var strang = document.getElementById('gen-strang');
+
+  form.addEventListener('submit', function (e) { e.preventDefault(); rakna(); });
+  knapp.hidden = true;
+
+  // Vänta tills skrivandet stannar. 400 ms är långt nog att ett Swish-nummer
+  // skrivs färdigt utan tio halva anrop på vägen, kort nog att kännas direkt.
+  var timer = null;
+  var senaste = 0;
+
+  function fraga() {
+    var data = new FormData(form);
+    var delar = new URLSearchParams();
+    ['mottagare', 'belopp', 'meddelande'].forEach(function (namn) {
+      var varde = (data.get(namn) || '').trim();
+      if (varde) delar.set(namn, varde);
+    });
+    ['fri_mottagare', 'fritt_belopp', 'fritt_meddelande'].forEach(function (namn) {
+      if (data.get(namn)) delar.set(namn, '1');
+    });
+    return delar.toString();
+  }
+
+  function visa(lage, svar, q) {
+    felruta.hidden = lage !== 'fel';
+    felruta.textContent = svar.fel || '';
+    tom.hidden = lage !== 'tom';
+    fardig.hidden = lage !== 'ok';
+    if (lage !== 'ok') return;
+
+    bild.src = '/swish-kod.png?' + q;
+    bild.alt = 'Swish-QR-kod för betalning till ' + svar.mottagare;
+    strang.textContent = svar.kodstrang;
+    document.getElementById('gen-svg').href = '/swish-kod.svg?' + q;
+    document.getElementById('gen-png').href = '/swish-kod.png?' + q;
+    document.getElementById('gen-prova').href = svar.applank;
+    document.getElementById('applank').value = svar.applank;
+    document.querySelector('.kopiera').dataset.text = svar.applank;
+  }
+
+  async function rakna() {
+    var q = fraga();
+    // Adressen är produkten här: den som bokmärker sidan ska få tillbaka
+    // sin kod. replaceState och inte pushState - varje tangenttryck ska
+    // inte bli ett steg bakåt i historiken.
+    history.replaceState(null, '', q ? '?' + q : location.pathname);
+
+    var mitt = ++senaste;
+    try {
+      var res = await fetch('/swish-data?' + q, { headers: { Accept: 'application/json' } });
+      var svar = await res.json();
+      // Ett långsamt svar på en gammal fråga får inte skriva över ett
+      // färskare. Räknaren avgör, inte i vilken ordning nätet svarar.
+      if (mitt !== senaste) return;
+      visa(svar.lage, svar, q);
+    } catch (fel) {
+      if (mitt !== senaste) return;
+      felruta.hidden = false;
+      felruta.textContent = 'Koden gick inte att räkna fram just nu. Försök igen.';
+    }
+  }
+
+  form.addEventListener('input', function () {
+    clearTimeout(timer);
+    timer = setTimeout(rakna, 400);
+  });
+  // Kryssrutorna är ett beslut, inte ett skrivande - de behöver ingen paus.
+  form.addEventListener('change', function (e) {
+    if (e.target.type !== 'checkbox') return;
+    clearTimeout(timer);
+    rakna();
+  });
+})();
 
 document.addEventListener('click', async function (e) {
   var knapp = e.target.closest('.kopiera');

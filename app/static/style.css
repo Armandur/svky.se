@@ -169,6 +169,11 @@ input.error    { border-color: var(--red); }
 
 /* ── Buttons ── */
 
+/* hidden ska betyda dold, också på det som har egen display. Utan !important
+   vinner .btn { display: inline-flex } över webbläsarens [hidden]-regel, och
+   en knapp som JavaScript gömt blir kvar på skärmen. */
+[hidden] { display: none !important; }
+
 .btn {
   display: inline-flex;
   align-items: center;

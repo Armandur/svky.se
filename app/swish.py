@@ -116,7 +116,12 @@ def _kontrollera(betalning: Swishbetalning) -> None:
 
     En tryckt kod går inte att rätta i efterhand, så felen ska mötas i
     beställningen och inte på anslagstavlan.
+
+    Mottagaren prövas FÖRST. Är numret fel är det numret man vill höra om,
+    inte beloppet - ett elvasiffrigt nummer och en tom summa gav förut ett
+    felmeddelande om beloppet, och den som läste det letade på fel rad.
     """
+    _rensa_mottagare(betalning.mottagare)
     if not betalning.belopp and not betalning.redigerbart_belopp:
         raise Swishfel("En kod utan förifyllt belopp måste låta betalaren fylla i det själv.")
 

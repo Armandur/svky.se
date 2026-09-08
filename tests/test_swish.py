@@ -9,6 +9,7 @@ design specification" v1.7.2 avsnitt 6.1.
 """
 
 import json
+import re
 from urllib.parse import parse_qs, unquote, urlparse
 
 import pytest
@@ -24,9 +25,7 @@ from app.swish import (
 
 def test_specens_eget_exempel():
     """Det enda facit vi har utifrån. Ändras den här raden är formatet fel."""
-    betalning = Swishbetalning(
-        mottagare="1237856901", belopp="100", meddelande="12229445"
-    )
+    betalning = Swishbetalning(mottagare="1237856901", belopp="100", meddelande="12229445")
 
     assert qr_strang(betalning) == "C1237856901;100,00;12229445;0"
 
@@ -40,9 +39,7 @@ def test_beloppet_far_tva_decimaler_och_komma():
 
 def test_tomma_falt_behalls_som_tomma_stringar():
     """En gåva är C<nummer>;;;<mask>. Fälten försvinner inte, de blir tomma."""
-    gava = Swishbetalning(
-        "1231234567", redigerbart_belopp=True, redigerbart_meddelande=True
-    )
+    gava = Swishbetalning("1231234567", redigerbart_belopp=True, redigerbart_meddelande=True)
 
     assert qr_strang(gava) == "C1231234567;;;6"
 
@@ -78,9 +75,7 @@ def test_masken_raknas_ur_kryssrutorna(falt, vantad):
 
 def test_meddelandet_ar_url_kodat():
     """Mellanslag blir %20, inte plus, och svenska tecken överlever."""
-    betalning = Swishbetalning(
-        "1231234567", "100", "Kollekt Härnösands domkyrka"
-    )
+    betalning = Swishbetalning("1231234567", "100", "Kollekt Härnösands domkyrka")
 
     strang = qr_strang(betalning)
 
@@ -166,9 +161,7 @@ def test_oren_foljer_med_in_i_applanken():
 
 def test_editable_satts_bara_som_true():
     """Det finns ingen editable: false. Nyckeln utelämnas för låsta fält."""
-    lank = applank(
-        Swishbetalning("1231234567", "100", "Kollekt", redigerbart_belopp=True)
-    )
+    lank = applank(Swishbetalning("1231234567", "100", "Kollekt", redigerbart_belopp=True))
 
     data = _data(lank)
     assert data["amount"]["editable"] is True
@@ -327,8 +320,7 @@ def test_klick_raknas_for_vanlig_lank(client):
 
     with get_db() as db:
         antal = db.execute(
-            "SELECT count(*) FROM clicks c JOIN links l ON l.id = c.link_id "
-            "WHERE l.code = 'raknas'"
+            "SELECT count(*) FROM clicks c JOIN links l ON l.id = c.link_id WHERE l.code = 'raknas'"
         ).fetchone()[0]
     assert antal == 1
 
@@ -351,21 +343,35 @@ def test_generatorn_ar_publik_pa_bada_adresserna(client):
         assert "Skapa en Swish-kod" in svar.text
 
 
+def _resultatpanel_dold(text: str) -> bool:
+    """Sant när resultatpanelen är dold och tomrutan visas.
+
+    Mäts på taggarna, inte på om strängen "swish-kod.png" finns någonstans i
+    svaret: adresserna står numera också i sidans JavaScript, som räknar om
+    koden medan man skriver. Ett prov som letar efter texten hade fallit på
+    manuset i stället för på det den påstår sig mäta.
+    """
+    fardig = re.search(r'<div id="gen-fardig"([^>]*)>', text)
+    tom = re.search(r'<div class="gen-tom" id="gen-tom"([^>]*)>', text)
+    assert fardig, "sidan saknar resultatpanelen #gen-fardig"
+    assert tom, "sidan saknar tomrutan #gen-tom"
+    return "hidden" in fardig.group(1) and "hidden" not in tom.group(1)
+
+
 def test_tom_generator_visar_inget_resultat(client):
     text = client.get("/swish").text
 
     assert "Fyll i Swish-numret" in text
-    assert "swish-kod.png" not in text
+    assert _resultatpanel_dold(text)
 
 
 def test_ifylld_generator_visar_kod_och_lankar(client):
-    svar = client.get(
-        "/swish?mottagare=1231234567&belopp=150&meddelande=Kollekt&fritt_belopp=1"
-    )
+    svar = client.get("/swish?mottagare=1231234567&belopp=150&meddelande=Kollekt&fritt_belopp=1")
 
     assert svar.status_code == 200
-    assert "swish-kod.png" in svar.text
-    assert "swish-kod.svg" in svar.text
+    assert not _resultatpanel_dold(svar.text)
+    assert "/swish-kod.png?" in svar.text
+    assert "/swish-kod.svg?" in svar.text
     # Betalsträngen visas som text, så det går att kontrollera med ögat.
     assert "C1231234567;150,00;Kollekt;2" in svar.text
 
@@ -403,7 +409,7 @@ def test_omojlig_betalning_ger_fel_i_stallet_for_kod(client):
     svar = client.get("/swish?mottagare=1231234567")
 
     assert svar.status_code == 200
-    assert "swish-kod.png" not in svar.text
+    assert _resultatpanel_dold(svar.text)
     assert "belopp" in svar.text.lower()
 
     assert client.get("/swish-kod.png?mottagare=1231234567").status_code == 404
@@ -463,3 +469,67 @@ def test_gava_far_ocksa_en_testknapp(client):
     text = client.get("/swish?mottagare=1231234567&fritt_belopp=1").text
 
     assert "Testa i Swish" in text
+
+
+# --- /swish-data: koden räknas om medan man skriver ----------------------
+
+
+def test_data_ger_samma_strang_som_sidan(client):
+    """Sidan och manuset måste ge samma kod. Går de isär blir det den ena
+    som trycks och den andra som testas."""
+    fraga = "mottagare=1231234567&belopp=150&meddelande=Kollekt&fritt_belopp=1"
+
+    data = client.get(f"/swish-data?{fraga}").json()
+
+    assert data["lage"] == "ok"
+    assert data["kodstrang"] == "C1231234567;150,00;Kollekt;2"
+    assert data["kodstrang"] in client.get(f"/swish?{fraga}").text
+    assert data["applank"].startswith("swish://payment?data=")
+
+
+def test_halvskrivet_nummer_ar_tomt_inte_fel(client):
+    """Den som skrivit tre siffror skriver fortfarande. Ett felmeddelande
+    där är en tillrättavisning mitt i en mening."""
+    for siffror in ("1", "123", "123123456"):
+        data = client.get(f"/swish-data?mottagare={siffror}").json()
+
+        assert data["lage"] == "tom", siffror
+        assert data["fel"] is None, siffror
+
+
+def test_for_langt_nummer_ar_ett_fel(client):
+    """Elva siffror är inte ett halvskrivet nummer, det är ett fel nummer."""
+    data = client.get("/swish-data?mottagare=12312345678&belopp=100").json()
+
+    assert data["lage"] == "fel"
+    assert "tio siffror" in data["fel"]
+
+
+def test_felet_pekar_pa_numret_och_inte_pa_beloppet(client):
+    """Ett fel nummer OCH en tom summa är två fel. Numret är det man skrev
+    senast och det man vill höra om."""
+    data = client.get("/swish-data?mottagare=12312345678").json()
+
+    assert "tio siffror" in data["fel"]
+
+
+def test_tom_fraga_ger_tomt_lage(client):
+    data = client.get("/swish-data").json()
+
+    assert data["lage"] == "tom"
+    assert data["kodstrang"] is None
+
+
+def test_last_tom_summa_ger_fel_ocksa_har(client):
+    data = client.get("/swish-data?mottagare=1231234567").json()
+
+    assert data["lage"] == "fel"
+    assert "belopp" in data["fel"].lower()
+
+
+def test_swish_data_ar_reserverad(client):
+    """Adressen ligger före catch-all. En kortlänk med samma kod hade blivit
+    oåtkomlig utan att någon förstod varför."""
+    from app.config import RESERVED_CODES
+
+    assert "swish-data" in RESERVED_CODES

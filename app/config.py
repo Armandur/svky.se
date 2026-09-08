@@ -60,4 +60,8 @@ RESERVED_CODES = {
     # kortkod någon redan tryckt på ett anslag kostar desto mer.
     "swish",
     "swishqr",
+    # Generatorn räknar om medan man skriver och hämtar därifrån. Adressen
+    # ligger före catch-all i routingen, så en kortlänk med samma kod hade
+    # blivit oåtkomlig utan att någon förstod varför.
+    "swish-data",
 }

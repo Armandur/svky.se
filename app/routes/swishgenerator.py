@@ -15,6 +15,7 @@ den som fyller i redan känner till.
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 
 from app import qr
 from app.auth import get_current_user
@@ -92,6 +93,44 @@ async def swish_kod_svg(request: Request):
             "Content-Disposition": 'attachment; filename="swish-qr.svg"',
             "Cache-Control": "public, no-cache",
         },
+    )
+
+
+@router.get("/swish-data")
+async def swish_data(request: Request):
+    """Betalningen som JSON, för generatorn som räknar om medan man skriver.
+
+    Samma frågesträng som sidan själv, samma _ur_fragan() under. Sidan får
+    aldrig räkna fram en kodsträng i webbläsaren: gör den det finns formatet
+    på två ställen, och den dagen app/swish.py rättas glider de isär.
+
+    `lage` säger vad panelen ska visa. "tom" är inte ett fel - det är en
+    halvifylld blankett, och den ska inte skälla på någon som skriver.
+
+    Ett halvskrivet Swish-nummer är därför alltid "tom", aldrig "fel". Utan
+    den regeln möts den som skrivit sin första siffra av ett felmeddelande
+    om beloppet, eftersom kontrollen av beloppet ligger före rensningen av
+    numret. Fler än tio siffror är däremot ett riktigt fel: då har man
+    skrivit färdigt och skrivit fel.
+    """
+    siffror = "".join(t for t in request.query_params.get("mottagare", "") if t.isdigit())
+    if len(siffror) < 10:
+        return JSONResponse({"lage": "tom", "fel": None, "kodstrang": None, "applank": None})
+
+    betalning, fel = _ur_fragan(request)
+    if betalning is None:
+        return JSONResponse(
+            {"lage": "fel" if fel else "tom", "fel": fel, "kodstrang": None, "applank": None}
+        )
+
+    return JSONResponse(
+        {
+            "lage": "ok",
+            "fel": None,
+            "kodstrang": qr_strang(betalning),
+            "applank": applank(betalning),
+            "mottagare": betalning.mottagare,
+        }
     )
 
 
