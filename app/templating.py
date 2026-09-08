@@ -46,6 +46,27 @@ def _allowed_domains() -> list[str]:
 templates.env.globals["allowed_domains"] = _allowed_domains
 
 
+def _qr_symboler() -> dict[str, str]:
+    """Jinja-global {{ qr_symboler }} - växelns lägen, i visningsordning.
+
+    Tom nyckel först: ingen sköld är standard. En kod utan symbol ritas med
+    lägre felkorrigering och blir glesare, alltså lättare att läsa av.
+
+    Kommer ur registret i app/qr.py och inte ur en handskriven lista i
+    mallen. Två uppräkningar av samma sak glider isär.
+    """
+    from app import qr
+
+    lagen = {"": "Ingen sköld"}
+    # Registrets egen ordning, inte alfabetisk. Den svarta skölden står
+    # först: den håller koden enfärgad och är det val som passar flest tryck.
+    lagen.update({namn: inst.beskrivning for namn, inst in qr.SYMBOLER.items()})
+    return lagen
+
+
+templates.env.globals["qr_symboler"] = _qr_symboler()
+
+
 def _notisbanner() -> dict | None:
     """Jinja-global {{ notisbanner() }} - adminens meddelande till alla besökare.
 

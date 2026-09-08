@@ -25,6 +25,13 @@
 .qr-text { flex: 1; min-width: 200px; font-size: .85rem; color: var(--muted); }
 .qr-text p { margin: 0 0 10px; }
 .qr-lankar { display: flex; gap: 8px; flex-wrap: wrap; }
+.qr-symbolval { display: flex; gap: 14px; flex-wrap: wrap; margin: 0 0 8px; }
+.qr-symbolval label {
+  display: flex; align-items: center; gap: 5px; cursor: pointer;
+  font-size: .85rem; color: var(--text);
+}
+.qr-notis { font-size: .8rem; color: #7a3f00; background: var(--orange-bg);
+            padding: 6px 10px; border-radius: var(--radius); margin: 0 0 10px; }
 .edit-form {
   background: var(--blue-pale); border: 1px solid var(--blue-light);
   border-radius: var(--radius); padding: 16px; margin-top: 14px; display: none;
@@ -192,9 +199,26 @@
       <div class="qr-text">
         <p>Koden bär <strong>svky.se/{{ link.code }}</strong>, inte måladressen.
            Byter du mål fortsätter en tryckt kod att fungera.</p>
+        <p class="qr-symbolval" data-qr-val>
+          {% for varde, text in qr_symboler.items() %}
+          <label>
+            <input type="radio" name="qr-symbol-{{ link.id }}" value="{{ varde }}"
+                   {% if not varde %}checked{% endif %}>
+            {{ text }}
+          </label>
+          {% endfor %}
+        </p>
+        <p class="qr-notis" data-qr-notis hidden>
+          Färgskölden gör koden tvåfärgad. Den kostar vid svartvit utskrift
+          och kopiering.
+        </p>
         <p class="qr-lankar">
-          <a href="/mina-lankar/{{ link.id }}/qr.svg" class="btn btn-secondary btn-sm">&#11015; SVG för tryck</a>
-          <a href="/mina-lankar/{{ link.id }}/qr.png" class="btn btn-secondary btn-sm">&#11015; PNG</a>
+          <a href="/mina-lankar/{{ link.id }}/qr.svg" data-qr-lank
+             class="btn btn-secondary btn-sm">&#11015; SVG för tryck</a>
+          <a href="/mina-lankar/{{ link.id }}/qr.png" data-qr-lank
+             class="btn btn-secondary btn-sm">&#11015; PNG</a>
+          <a href="/mina-lankar/{{ link.id }}/qr.zip"
+             class="btn btn-secondary btn-sm">&#11015; Alla varianter (zip)</a>
         </p>
       </div>
     </div>
@@ -528,4 +552,35 @@
   </div>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+// QR-växeln. Byter bilden och nedladdningslänkarna utan omladdning - en
+// växel som uppdaterar förhandsvisningen men lämnar PNG-länken på fel
+// variant är det troliga halvfelet här.
+document.addEventListener('change', function (e) {
+  var val = e.target.closest('[data-qr-val]');
+  if (!val || e.target.type !== 'radio') return;
+  var ruta = val.closest('.qr-ruta');
+  var symbol = e.target.value;
+
+  // Frågesträngen sätts om från grunden varje gång. Att lägga till en
+  // parameter på en adress som redan bär en ger ?symbol=a&symbol=b.
+  function medSymbol(adress) {
+    var bas = adress.split('?')[0];
+    return symbol ? bas + '?symbol=' + encodeURIComponent(symbol) : bas;
+  }
+
+  var bild = ruta.querySelector('img');
+  bild.src = medSymbol(bild.dataset.src);
+  ruta.querySelectorAll('[data-qr-lank]').forEach(function (a) {
+    a.href = medSymbol(a.getAttribute('href'));
+  });
+
+  // Notisen gäller bara färgskölden. Den svarta håller koden enfärgad.
+  var notis = ruta.querySelector('[data-qr-notis]');
+  if (notis) notis.hidden = symbol !== 'skold-farg';
+});
+</script>
 {% endblock %}

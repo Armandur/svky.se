@@ -1,4 +1,6 @@
+import io
 import logging
+import zipfile
 import urllib.parse
 from datetime import UTC, datetime
 
@@ -27,7 +29,9 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _qr_svar(link_id: int, andelse: str, agare: int | None = None) -> Response:
+def _qr_svar(
+    link_id: int, andelse: str, agare: int | None = None, symbol: str | None = None
+) -> Response:
     """Gemensam för användarens och adminens QR-route.
 
     Ligger i app/qr.py-anropet och inte i mallen: en QR-kod är en bild med
@@ -47,11 +51,16 @@ def _qr_svar(link_id: int, andelse: str, agare: int | None = None) -> Response:
     if not rad:
         raise HTTPException(status_code=404)
 
+    # Symbolen kommer ur frågesträngen. valj_symbol matchar mot registret och
+    # ger None för allt okänt, så namnet når aldrig en sökväg. Ett felstavat
+    # värde ger en kod utan sköld, inte ett fel - koden ska ritas ändå.
+    vald = symbol if qr.valj_symbol(symbol) else None
+
     adress = qr.lankadress(rad["code"])
     if andelse == "png":
-        kropp, typ = qr.png(adress), "image/png"
+        kropp, typ = qr.png(adress, symbol=vald), "image/png"
     else:
-        kropp, typ = qr.svg(adress), "image/svg+xml"
+        kropp, typ = qr.svg(adress, symbol=vald), "image/svg+xml"
 
     return Response(
         content=kropp,
@@ -59,9 +68,49 @@ def _qr_svar(link_id: int, andelse: str, agare: int | None = None) -> Response:
         headers={
             # attachment, inte inline: knappen heter Ladda ner, och en bild
             # som öppnas i fliken i stället för att sparas är fel svar.
-            "Content-Disposition": f'attachment; filename="{qr.filnamn(rad["code"], andelse)}"',
+            "Content-Disposition": (
+                f'attachment; filename="{qr.filnamn(rad["code"], andelse, vald)}"'
+            ),
             # Koden ändras aldrig för en given kortkod - den bär adressen,
             # inte målet. Men en tom cachehuvud hade lämnat det till slumpen.
+            "Cache-Control": "private, max-age=3600",
+        },
+    )
+
+
+def _qr_paket(link_id: int, agare: int | None = None) -> Response:
+    """Alla varianter i en zip: PNG och SVG gånger varje symbol plus ingen.
+
+    Byggs i minnet och strömmas. Sex QR-koder är inget att skriva till disk
+    för, och en temporärfil hade behövt städas av någon.
+    """
+    with get_db() as db:
+        if agare is None:
+            rad = db.execute("SELECT code FROM links WHERE id=?", (link_id,)).fetchone()
+        else:
+            rad = db.execute(
+                "SELECT code FROM links WHERE id=? AND owner_id=?", (link_id, agare)
+            ).fetchone()
+    if not rad:
+        raise HTTPException(status_code=404)
+
+    adress = qr.lankadress(rad["code"])
+    buffert = io.BytesIO()
+    with zipfile.ZipFile(buffert, "w", zipfile.ZIP_DEFLATED) as paket:
+        for symbol in (None, *qr.SYMBOLER):
+            for andelse, rita in (("png", qr.png), ("svg", qr.svg)):
+                paket.writestr(
+                    qr.filnamn(rad["code"], andelse, symbol),
+                    rita(adress, symbol=symbol),
+                )
+
+    return Response(
+        content=buffert.getvalue(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="svky-{qr.filnamn(rad["code"], "zip")[5:]}"'
+            ),
             "Cache-Control": "private, max-age=3600",
         },
     )
@@ -71,10 +120,21 @@ def _qr_svar(link_id: int, andelse: str, agare: int | None = None) -> Response:
 # den publika kortlänken och alltså ingen hemlighet, men en öppen route hade
 # gjort det möjligt att räkna upp vilka id som finns - och att hämta koder
 # för länkar som ännu väntar på verifiering.
-@router.get("/mina-lankar/{link_id}/qr.{andelse}")
-async def my_link_qr(request: Request, link_id: int, andelse: str):
+@router.get("/mina-lankar/{link_id}/qr.zip")
+async def my_link_qr_paket(request: Request, link_id: int):
+    """Alla varianter i ett paket.
+
+    Ligger FÖRE qr.{andelse}, annars fångar den routen zip som en ändelse
+    och svarar 404.
+    """
     user = get_user_or_redirect(request)
-    return _qr_svar(link_id, andelse, agare=user["id"])
+    return _qr_paket(link_id, agare=user["id"])
+
+
+@router.get("/mina-lankar/{link_id}/qr.{andelse}")
+async def my_link_qr(request: Request, link_id: int, andelse: str, symbol: str | None = None):
+    user = get_user_or_redirect(request)
+    return _qr_svar(link_id, andelse, agare=user["id"], symbol=symbol)
 
 
 @router.get("/mina-lankar")

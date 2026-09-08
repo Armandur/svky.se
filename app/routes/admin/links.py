@@ -28,9 +28,9 @@ router = APIRouter()
 # länkar ändå - att duplicera renderingen hade gett två ställen att glömma
 # rätta när formatet ändras.
 @router.get("/links/{link_id}/qr.{andelse}")
-async def admin_link_qr(request: Request, link_id: int, andelse: str):
+async def admin_link_qr(request: Request, link_id: int, andelse: str, symbol: str | None = None):
     get_admin_or_redirect(request)
-    return _qr_svar(link_id, andelse)
+    return _qr_svar(link_id, andelse, symbol=symbol)
 
 
 @router.get("/links")

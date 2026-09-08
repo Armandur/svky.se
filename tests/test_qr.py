@@ -228,3 +228,75 @@ def test_filnamnen_skiljer_symbolerna_at():
     }
 
     assert len(namn) == 2 * (1 + len(qr.SYMBOLER))
+
+
+@pytest.mark.parametrize("symbol", sorted(qr.SYMBOLER))
+def test_routen_ger_koden_med_symbol(client, inloggad_anvandare, symbol):
+    """Provet anropar ROUTEN. Att qr.png kan rita en sköld säger ingenting
+    om att frågesträngen når fram."""
+    lank = _skapa_lank(inloggad_anvandare["id"])
+
+    svar = client.get(f"/mina-lankar/{lank}/qr.png?symbol={symbol}")
+
+    assert svar.status_code == 200
+    assert _avkoda(svar.content) == qr.lankadress("hsandkonf")
+    assert symbol in svar.headers["content-disposition"]
+
+
+def test_okand_symbol_ger_koden_utan_skold(client, inloggad_anvandare):
+    """Värdet kommer utifrån. Ett okänt namn ska ge en kod, inte ett fel -
+    och namnet får aldrig nå en sökväg."""
+    lank = _skapa_lank(inloggad_anvandare["id"])
+
+    svar = client.get(f"/mina-lankar/{lank}/qr.png?symbol=../../etc/passwd")
+
+    assert svar.status_code == 200
+    assert svar.content == qr.png(qr.lankadress("hsandkonf"))
+    assert "passwd" not in svar.headers["content-disposition"]
+
+
+def test_paketet_bar_alla_varianter(client, inloggad_anvandare):
+    """Sex filer med sex OLIKA namn. Två poster med samma namn i en zip
+    behåller tyst bara den ena."""
+    import io
+    import zipfile
+
+    lank = _skapa_lank(inloggad_anvandare["id"])
+
+    svar = client.get(f"/mina-lankar/{lank}/qr.zip")
+
+    assert svar.status_code == 200
+    assert svar.headers["content-type"] == "application/zip"
+    namn = zipfile.ZipFile(io.BytesIO(svar.content)).namelist()
+    assert len(namn) == len(set(namn)) == 2 * (1 + len(qr.SYMBOLER))
+    for symbol in qr.SYMBOLER:
+        assert any(symbol in n and n.endswith(".png") for n in namn)
+        assert any(symbol in n and n.endswith(".svg") for n in namn)
+
+
+def test_paketet_avkodas(client, inloggad_anvandare):
+    """En zip som bär oläsbara koder är sämre än ingen zip."""
+    import io
+    import zipfile
+
+    lank = _skapa_lank(inloggad_anvandare["id"])
+
+    paket = zipfile.ZipFile(io.BytesIO(client.get(f"/mina-lankar/{lank}/qr.zip").content))
+
+    for namn in paket.namelist():
+        if namn.endswith(".png"):
+            assert _avkoda(paket.read(namn)) == qr.lankadress("hsandkonf"), namn
+
+
+def test_paketet_kraver_agarskap(client, inloggad_anvandare):
+    """Samma spärr som de enskilda koderna. En zip vore annars vägen förbi."""
+    with get_db() as db:
+        db.execute("INSERT INTO users (email) VALUES ('nagon@svenskakyrkan.se')")
+        nagon = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+    lank = _skapa_lank(nagon)
+
+    assert client.get(f"/mina-lankar/{lank}/qr.zip").status_code == 404
+
+
+def test_paketet_kraver_inloggning(client):
+    assert client.get("/mina-lankar/1/qr.zip").status_code == 303
