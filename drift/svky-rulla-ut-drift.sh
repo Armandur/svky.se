@@ -37,6 +37,20 @@ svky-begaran-hamta-driftkod.path
 svky-begaran-hamta-driftkod.service
 svky-begaran-rulla-ut.path
 svky-begaran-rulla-ut.service
+svky-begaran-inloggningslankar.path
+svky-begaran-inloggningslankar.service
+"
+
+# Path-enheterna, som måste vara ENABLE:ade för att plocka upp något efter en
+# omstart av servern. daemon-reload räcker inte, och restart nedan startar dem
+# bara den här gången - en ny enhet hade fungerat tills servern bootade om och
+# sedan varit en tyst död knapp. enable är idempotent, så listan får stå kvar.
+PATHENHETER="
+svky-begaran-uppdatera.path
+svky-begaran-promotera.path
+svky-begaran-hamta-driftkod.path
+svky-begaran-rulla-ut.path
+svky-begaran-inloggningslankar.path
 "
 
 install -m 755 drift/svky-driftyta.py /usr/local/bin/svky-driftyta
@@ -49,6 +63,8 @@ done
 logga "Installerade $(echo "$ENHETER" | grep -c .) enheter"
 
 systemctl daemon-reload
+# shellcheck disable=SC2086
+systemctl enable $PATHENHETER >/dev/null 2>&1 || logga "VARNING: kunde inte enable:a alla path-enheter"
 
 # Skriv ner vad som rullades ut. Utan den här filen går det inte att svara
 # på "vilken kod kör de rotägda kopiorna" annat än genom att jämföra filer -
@@ -70,8 +86,8 @@ chmod 644 /var/lib/svky/utrullat
 # en synkron omstart klipper anslutningen mitt i medan skriptet väntar på att
 # den kommer upp igen. Med --no-block hinner jobbet skriva klart sitt sista
 # loggmeddelande och avsluta först.
-systemctl restart svky-begaran-uppdatera.path svky-begaran-promotera.path \
-    svky-begaran-hamta-driftkod.path svky-begaran-rulla-ut.path 2>/dev/null || true
+# shellcheck disable=SC2086
+systemctl restart $PATHENHETER 2>/dev/null || true
 systemctl restart --no-block svky-driftyta.service
 
 logga "Utrullat från $(git_ rev-parse --short=8 HEAD)"

@@ -37,6 +37,10 @@ KORANDE = Path(os.environ.get("SVKY_KORANDE", "/var/lib/svky/korande"))
 # inte var i kedjan det är - och en promotering som stoppas på steg tre ser
 # likadan ut som en som hänger på steg sju.
 STEGKATALOG = Path(os.environ.get("SVKY_STEGKATALOG", "/var/lib/svky/steg"))
+# Färska inloggningslänkar till staging, skrivna av begäran-jobbet. Ytan
+# LÄSER den, som allt annat - den kan inte skapa en bricka själv.
+INLOGGNINGSFIL = Path(os.environ.get(
+    "SVKY_INLOGGNINGSFIL", "/var/lib/svky/inloggningslankar.json"))
 PORT = int(os.environ.get("SVKY_DRIFTYTA_PORT", "8002"))
 
 # Adresserna till miljöerna. Förvalen är serverns, men de står i miljön så
@@ -57,6 +61,7 @@ OPERATIONER = {
     "promotera": "Befordra staging till produktionen",
     "hamta-driftkod": "Hämta driftkod",
     "rulla-ut": "Rulla ut drift/",
+    "inloggningslankar": "Nya inloggningslänkar till staging",
 }
 
 # Äldre än så och läget kallas okänt. En frusen fil som säger "allt är bra" är
@@ -122,6 +127,20 @@ def korande() -> set[str]:
     return _markorer(KORANDE)
 
 
+def inloggningslankar() -> dict | None:
+    """Färska staginglänkar, eller None om jobbet aldrig körts.
+
+    Samma hållning som forlopp(): en halvskriven eller trasig fil behandlas
+    som ingen fil. Två inloggningslänkar som inte går att lita på är sämre än
+    en knapp som ber dig trycka igen.
+    """
+    try:
+        rad = json.loads(INLOGGNINGSFIL.read_text())
+    except (OSError, ValueError):
+        return None
+    return rad if isinstance(rad, dict) and rad.get("lankar") else None
+
+
 def forlopp(operation: str) -> dict | None:
     """Jobbets steglista, eller None om jobbet inte rapporterar någon.
 
@@ -162,6 +181,17 @@ def _forloppslista(rad: dict) -> str:
     felrad = f'<p class="stegfel">{esc(fel)}</p>' if fel else ""
     return (f'<div class="forlopp"><p class="stegrubrik">{esc(rubrik)}</p>'
             f'<ol class="steglista">{"".join(punkter)}</ol>{felrad}</div>')
+
+
+def _alderstext(sekunder: float | None) -> str:
+    """Åldern som en mening någon kan handla på."""
+    if sekunder is None:
+        return "okänd ålder"
+    if sekunder < 90:
+        return "nyss"
+    if sekunder < 5400:
+        return f"{round(sekunder / 60)} minuter gamla"
+    return f"{round(sekunder / 3600)} timmar gamla"
 
 
 def esc(x) -> str:
@@ -377,6 +407,12 @@ def fragment(besked: str = "", beskedklass: str = "") -> str:
     <span class="hjalp">Kopierar till /usr/local/bin och /etc/systemd/system,
       laddar om systemd. Bara ett jobb åt gången kan köra.</span>
   </form>
+  <form method="post" action="/begar/inloggningslankar">
+    <button type="submit">{esc(OPERATIONER['inloggningslankar'])}</button>
+    <span class="hjalp">En admin och en vanlig användare, giltiga i ett dygn.
+      Genvägen, inte ersättningen - vanliga vägen in är fortfarande att
+      beställa en magic link och läsa den i Mailpit.</span>
+  </form>
   <form onsubmit="return false" class="kopiera">
     <button type="button" id="kopiera">&#128203; Kopiera felsökningsdata</button>
     <span class="hjalp">Läget och alla synliga meddelanden som text att klistra
@@ -469,6 +505,30 @@ def fragment(besked: str = "", beskedklass: str = "") -> str:
     lankrader = "".join(
         f'<li><a href="{esc(u)}">{esc(n)}</a></li>' for n, u in LANKAR)
 
+    # Inloggningslänkarna till staging. ENGÅNGSBRICKOR, så åldern står
+    # bredvid dem - två länkar utan ålder är samma frusna fil som las_lage()
+    # vägrar visa. Har jobbet aldrig körts säger rutan var knappen finns i
+    # stället för att stå tom.
+    inlogg = inloggningslankar()
+    if inlogg:
+        inloggposter = "".join(
+            f'<li><a href="{esc(p.get("url"))}">{esc(p.get("roll"))}</a>'
+            f' <span class="hjalp">{esc(p.get("epost"))}</span></li>'
+            for p in inlogg["lankar"] if isinstance(p, dict))
+        alder = _alder(inlogg.get("skapad"))
+        # En bränd länk ser likadan ut som en färsk. Säg det rakt ut, och
+        # säg det hårdare när de hunnit bli gamla.
+        klass = "varning" if alder is not None and alder > 43200 else "hjalp"
+        inloggrader = (
+            f'<ul class="lankar">{inloggposter}</ul>'
+            f'<p class="{klass}">Skapade {esc(_alderstext(alder))}, giltiga i '
+            f'{esc(inlogg.get("giltiga_timmar", "?"))} timmar. Varje länk går '
+            'att använda EN gång - tryck på knappen igen för nya.</p>')
+    else:
+        inloggrader = ('<p class="hjalp">Inga skapade än. Tryck '
+                       f'<em>{esc(OPERATIONER["inloggningslankar"])}</em> '
+                       'under Åtgärder.</p>')
+
     ures = upp.get("resultat")
     ukl = "ok" if ures == "success" else "fel"
     # "kör just nu" är ett svar, inte en lucka. Utan det här sa sidan okänt
@@ -509,6 +569,10 @@ def fragment(besked: str = "", beskedklass: str = "") -> str:
 <section class="kort">
   <h2>Miljöerna</h2>
   <ul class="lankar">{lankrader}</ul>
+</section>
+<section class="kort">
+  <h2>Logga in i staging</h2>
+  {inloggrader}
 </section>
 </div>
 </div>

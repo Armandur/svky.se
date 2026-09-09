@@ -1,0 +1,31 @@
+[Unit]
+StartLimitIntervalSec=0
+Description=Skapa färska inloggningslänkar till staging
+
+[Service]
+Type=oneshot
+# + kör steget med fulla rättigheter, oavsett User=. Markören ägs av
+# svky-ops i en katalog svky-ops äger, så en enhet som kör som rasmus
+# får Permission denied - och fastnar i rm, med markören kvar och
+# knappen tyst död. Gäller de enheter som INTE kör som root, men sätts
+# på alla fem: en enhet som senare byter användare ska inte tysta
+# knappen som bieffekt.
+# En KÖRMARKÖR, inte bara en raderad begäran. Markören i begaran/ försvinner
+# innan jobbet ens börjat, och sidan hade då inget sätt att se att något
+# pågick.
+# Ytan får läsa filen, aldrig skriva den. 644 uttryckligen: enheten kör som
+# root, och en markör ytan inte kan läsa är samma sak som ingen markör.
+ExecStartPre=+/bin/sh -c 'install -d -m 755 /var/lib/svky/korande && install -m 644 /dev/null /var/lib/svky/korande/inloggningslankar && rm -f /var/lib/svky/begaran/inloggningslankar'
+
+# Som root: jobbet talar med dockersocketen och skriver i /var/lib/svky.
+#
+# Skriptet får inte peka om sig till produktionen. Spärren ligger i skriptet
+# självt, som kontrollerar att containern monterar en katalog som slutar på
+# data-staging innan det skriver en enda bricka - inte här, för en spärr i
+# en enhetsfil skyddar bara den vägen in.
+WorkingDirectory=/home/rasmus/svk-short
+ExecStart=/home/rasmus/svk-short/drift/svky-inloggningslankar.sh
+TimeoutStartSec=60
+# Städa markören OCH be samlaren läsa om läget direkt. Utan det andra steget
+# jämför sidan mot en lägesfil som kan vara en minut gammal.
+ExecStopPost=+/bin/sh -c 'rm -f /var/lib/svky/korande/inloggningslankar; systemctl start --no-block svky-samla-lage.service'
