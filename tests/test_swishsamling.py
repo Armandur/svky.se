@@ -769,3 +769,83 @@ def test_avaktiverad_samling_erbjuder_att_slas_pa_igen(client, inloggad_anvandar
 
     assert f'action="/mina-samlingar/{bundle_id}/reactivate"' in text
     assert f'action="/mina-samlingar/{bundle_id}/deactivate"' not in text
+
+
+# --- admins detaljvy ------------------------------------------------------
+
+
+def test_admin_ser_swishsamlingens_koder(client, admin):
+    """En admin som modererar måste se VAD samlingen betalar till.
+
+    Vyn hämtade bara bundle_items och sade '0 länkar' för en Swish-samling
+    med flera koder. Numret, beloppet och låsmasken är just det som skulle
+    granskas om någon anmäler en kod - och de syntes inte alls.
+    """
+    bundle_id = _samling(admin["id"])
+    _post(bundle_id, "Diakoni", belopp="100,00")
+    _post(bundle_id, "Dagens kollekt", belopp=None)
+
+    text = client.get(f"/admin/bundles/{bundle_id}").text
+
+    assert "Diakoni" in text
+    assert "Dagens kollekt" in text
+    assert MOTTAGARE in text
+    assert "100,00" in text
+    assert "Samlingen är tom" not in text
+
+
+def test_admin_ser_vad_betalaren_far_andra(client, admin):
+    """Låsmasken är det en moderator behöver för att bedöma en kod."""
+    bundle_id = _samling(admin["id"])
+    _post(bundle_id, "Dagens kollekt", belopp=None)
+
+    text = client.get(f"/admin/bundles/{bundle_id}").text
+
+    assert "Betalaren kan ändra" in text
+
+
+def test_vanlig_samling_visar_fortfarande_sina_lankar(client, admin):
+    """Fixen får inte ta bort det som redan fungerade."""
+    with get_db() as db:
+        db.execute(
+            "INSERT INTO bundles (code, name, owner_id, status, theme) "
+            "VALUES ('vanlig','Vanlig','%d',1,'rich')" % admin["id"]
+        )
+        bid = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+        db.execute(
+            "INSERT INTO bundle_items (bundle_id, title, url) VALUES (?,?,?)",
+            (bid, "Kyrkoval", "https://www.svenskakyrkan.se/kyrkoval"),
+        )
+
+    text = client.get(f"/admin/bundles/{bid}").text
+
+    assert "Kyrkoval" in text
+
+
+def test_admin_ser_aven_en_kod_som_inte_gar_att_koda(client, admin):
+    """En rad som inte går att koda ska SYNAS för admin, inte utelämnas.
+
+    Publikt hoppas den över - en anslagstavla ska inte visa ett kort som
+    inte går att betala. Men det är precis en sådan rad någon anmäler, och
+    då måste den gå att hitta.
+    """
+    bundle_id = _samling(admin["id"])
+    _trasig_post(bundle_id)
+
+    text = client.get(f"/admin/bundles/{bundle_id}").text
+
+    assert "Trasig" in text
+    assert "Går inte att koda" in text
+
+
+def test_mina_lankar_raknar_swishkoderna(client, inloggad_anvandare):
+    """Listan över egna samlingar räknade bara bundle_items, så en
+    Swish-samling stod som '0 länkar' oavsett hur många koder den bar."""
+    bundle_id = _samling(inloggad_anvandare["id"])
+    _post(bundle_id, "Diakoni", belopp="100,00")
+    _post(bundle_id, "Musik", belopp="150,00")
+
+    text = client.get("/mina-lankar").text
+
+    assert "2 Swish-koder" in text
+    assert "0 länkar" not in text

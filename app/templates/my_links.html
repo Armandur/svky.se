@@ -407,7 +407,11 @@
       {% if bundle.view_count %}
       <span>&#128070; {{ bundle.view_count }} visning{{ 'ar' if bundle.view_count != 1 else '' }}</span>
       {% endif %}
+      {% if bundle.theme == 'swish' %}
+      <span>{{ bundle.swish_count }} Swish-kod{{ 'er' if bundle.swish_count != 1 else '' }}</span>
+      {% else %}
       <span>{{ bundle.item_count }} länk{{ 'ar' if bundle.item_count != 1 else '' }}</span>
+      {% endif %}
       <span>{{ 'Rikt' if bundle.theme == 'rich' else 'Kompakt' }}</span>
     </div>
 

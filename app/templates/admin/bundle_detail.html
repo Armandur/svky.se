@@ -33,6 +33,10 @@
 .item-body { flex:1; min-width:0; }
 .item-title { font-weight:600; font-size:.85rem; color:var(--blue-dark); }
 .item-url { font-size:.72rem; color:var(--muted); font-family:"SF Mono",monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.swish-rad { display:flex; gap:12px; flex-wrap:wrap; font-size:.78rem; color:var(--muted); margin-top:3px; }
+.swish-nr { font-family:"SF Mono",monospace; color:var(--text); }
+.swish-las { font-size:.75rem; color:var(--muted); margin-top:5px; border-left:2px solid var(--border); padding-left:8px; line-height:1.5; }
+.swish-fel { font-size:.75rem; color:var(--red); margin-top:5px; border-left:2px solid var(--red); padding-left:8px; }
 .item-source { font-size:.7rem; padding:2px 7px; border-radius:10px; background:var(--bg); color:var(--muted); flex-shrink:0; }
 {% endblock %}
 
@@ -196,14 +200,43 @@
 
 <!-- Items (read-only) -->
 <div class="items-panel">
+  {% set ar_swish = bundle.theme == 'swish' %}
   <div class="items-panel-header">
     <h2>Innehåll</h2>
-    <span style="font-size:.8rem; color:var(--muted);">{{ items | length }} länk{{ 'ar' if items | length != 1 else '' }} - redigeras av ägaren</span>
+    <span style="font-size:.8rem; color:var(--muted);">
+      {% if ar_swish %}
+        {{ swishposter | length }} Swish-kod{{ 'er' if swishposter | length != 1 else '' }}
+      {% else %}
+        {{ items | length }} länk{{ 'ar' if items | length != 1 else '' }}
+      {% endif %}
+      - redigeras av ägaren
+    </span>
   </div>
 
-  {% if not items %}
+  {% if ar_swish and not swishposter or not ar_swish and not items %}
   <div style="padding:24px; text-align:center; color:var(--muted); font-size:.85rem;">Samlingen är tom.</div>
   {% endif %}
+
+  {# En Swish-kod bär en betalning, inte en adress. Det en moderator behöver
+     se är mottagarnumret, beloppet och vad betalaren får ändra - det är den
+     informationen en anmälan handlar om. #}
+  {% for post in swishposter %}
+  <div class="item-row">
+    <div class="item-body">
+      <div class="item-title">{{ post.title }}</div>
+      <div class="swish-rad">
+        <span class="swish-nr">{{ post.mottagare }}</span>
+        <span>{% if post.belopp %}{{ post.belopp }} kr{% else %}fritt belopp{% endif %}</span>
+        {% if post.meddelande %}<span>&bdquo;{{ post.meddelande }}&rdquo;</span>{% endif %}
+      </div>
+      {% if post.fel %}
+      <div class="swish-fel">Går inte att koda: {{ post.fel }}</div>
+      {% elif post.lastext %}
+      <div class="swish-las">{{ post.lastext }}</div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
 
   {% for section in sections %}
   {% set sec_items = items | selectattr('section_id', 'equalto', section.id) | list %}

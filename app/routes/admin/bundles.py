@@ -7,6 +7,8 @@ from fastapi.responses import RedirectResponse
 
 from app.csrf import get_csrf_secret, validate_csrf_token
 from app.database import get_db
+from app.swish import Swishfel, betalning_ur_rad
+from app.swishtext import lastext
 from app.deps import get_admin_or_redirect
 from app.ownership import move_twin_rows
 from app.routes.user.links import _qr_paket, _qr_svar
@@ -79,7 +81,8 @@ async def admin_bundles(request: Request, q: str = "", status_filter: str = ""):
             """SELECT COUNT(*) AS total,
                       SUM(status=1) AS active,
                       SUM(status!=1) AS disabled,
-                      (SELECT COUNT(*) FROM bundle_items) AS total_items
+                      (SELECT COUNT(*) FROM bundle_items)
+                        + (SELECT COUNT(*) FROM swish_items) AS total_items
                FROM bundles"""
         ).fetchone()
 
@@ -127,6 +130,26 @@ async def admin_bundle_detail(request: Request, bundle_id: int):
                 (bundle_id,),
             ).fetchall()
         ]
+
+        # En Swish-samling bär sina poster i swish_items, inte i
+        # bundle_items. Utan det här sade vyn "0 länkar" om en samling med
+        # flera koder - och en moderator som fått en anmälan kunde inte se
+        # vilket nummer pengarna gick till.
+        swishposter = []
+        if bundle["theme"] == "swish":
+            for rad in db.execute(
+                "SELECT * FROM swish_items WHERE bundle_id=? ORDER BY sort_order, id",
+                (bundle_id,),
+            ).fetchall():
+                post = dict(rad)
+                try:
+                    post["lastext"] = lastext(betalning_ur_rad(rad))
+                except Swishfel as fel:
+                    # En rad som inte går att koda ska SYNAS för admin, inte
+                    # utelämnas. Det är precis en sådan rad någon anmäler.
+                    post["lastext"] = None
+                    post["fel"] = str(fel)
+                swishposter.append(post)
         audit = [
             dict(r)
             for r in db.execute(
@@ -151,6 +174,7 @@ async def admin_bundle_detail(request: Request, bundle_id: int):
             "bundle": dict(bundle),
             "sections": sections,
             "items": items,
+            "swishposter": swishposter,
             "audit": audit,
             "assoc_link": dict(assoc_link) if assoc_link else None,
             "pending_takeovers": takeovers,
