@@ -474,7 +474,7 @@ kontrollerna i `validate_code` om du ändå är inne i `bundles.py`.
 
 ---
 
-## [P3][todo] [svky] Val att lägga Svenska kyrkans sköld i mitten av QR-koden
+## [P3][done] [svky] Val att lägga Svenska kyrkans sköld i mitten av QR-koden
 
 En växel på QR-kod-vyn som lägger skölden i mitten av koden, utan omladdning av sidan. Samma mekanik som Swish-symbolen ska få (TASK-1673), och samma ritväg.
 
