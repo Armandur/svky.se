@@ -137,13 +137,18 @@ Mönstret sitter i `style.css:140-168` och upprepas konsekvent:
   etikett (placeholder används som exempel-text, t.ex.
   `bestall.html`: "fornamn.efternamn@svenskakyrkan.se").
 
-  Prövat 2026-09-09: sex fält bryter mot det. Fyra är sökrutor
-  (`admin/links.html`, `admin/users.html`, `admin/bundles.html`,
-  `admin/snabblänkar.html`) där en ensam placeholder är etablerad konvention
-  och får vara undantag - **skriv en `aria-label` på dem** så den som lyssnar
-  också vet vad fältet är. Två är riktiga inmatningsfält och ska ha etikett:
-  `admin/users.html` (`new_email`) och `mina_samlingar_detalj.html`
-  (`shortcode`).
+  Prövat och åtgärdat 2026-09-09: sex fält bröt mot regeln.
+
+  **Sökrutor är undantaget** - en synlig etikett hade sagt "Sök" bredvid en
+  knapp som säger "Sök". De bär i stället sin etikett som `aria-label`, så
+  den som lyssnar vet vad fältet är: `admin/links.html`, `admin/users.html`,
+  `admin/bundles.html`, `admin/snabblänkar.html`.
+
+  `admin/users.html` (`new_email`) hade en `<h4>` över sig men ingen etikett -
+  en rubrik är inte en etikett, och den kopplas inte till fältet. Den fick
+  `aria-label`. `mina_samlingar_detalj.html` (`shortcode`) hade en riktig
+  `<label>` men utan `for`, så texten gick inte att klicka på och ingen
+  koppling nådde skärmläsaren. Den fick `for`/`id`.
 - **Hjälptext** (`.hint`) direkt under fältet, innan felet, muted-färg,
   permanent text som förklarar formatet - inte ett fel.
 - **Fel** (`.field-error`, röd) står **under fältet det gäller**, inte

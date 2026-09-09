@@ -63,7 +63,7 @@
 </div>
 
 <form method="get" action="/admin/bundles" class="filter-bar">
-  <input type="text" name="q" value="{{ q }}" placeholder="Sök kod, namn eller ägare…" autocomplete="off">
+  <input type="text" name="q" aria-label="Sök bland samlingar" value="{{ q }}" placeholder="Sök kod, namn eller ägare…" autocomplete="off">
   <select name="status_filter">
     <option value="" {% if not status_filter %}selected{% endif %}>Alla statusar</option>
     <option value="1" {% if status_filter == '1' %}selected{% endif %}>Aktiva</option>

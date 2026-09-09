@@ -201,7 +201,7 @@
       </div>
       <div class="add-section">
         <form method="get" action="/admin/snabblänkar" style="display:flex; gap:8px; margin-bottom:0;">
-          <input type="text" name="q" value="{{ q }}" placeholder="Sök kod eller beskrivning…"
+          <input type="text" name="q" aria-label="Sök bland snabblänkar" value="{{ q }}" placeholder="Sök kod eller beskrivning…"
                  style="flex:1;" autocomplete="off">
           <button type="submit" class="btn btn-secondary btn-sm">Sök</button>
           {% if q %}<a href="/admin/snabblänkar" class="btn btn-secondary btn-sm">Rensa</a>{% endif %}

@@ -86,7 +86,7 @@ td.actions { white-space: nowrap; }
 
 <form method="get" action="/admin/links">
   <div class="filter-bar">
-    <input type="text" name="q" value="{{ q }}" placeholder="Sök kod, URL eller ägare…" style="min-width:240px;">
+    <input type="text" name="q" aria-label="Sök bland kortlänkar" value="{{ q }}" placeholder="Sök kod, URL eller ägare…" style="min-width:240px;">
     <select name="status_filter" onchange="this.form.submit()">
       <option value="" {% if not status_filter %}selected{% endif %}>Alla statusar</option>
       <option value="1" {% if status_filter=='1' %}selected{% endif %}>Aktiva</option>

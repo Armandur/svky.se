@@ -66,31 +66,36 @@ def test_confirm_ligger_inte_i_fler_mallar_an_specen_sager():
     assert forekomster <= 22, forekomster
 
 
-def test_bara_sokrutor_har_placeholder_utan_etikett():
-    """§4: aldrig placeholder som enda etikett. Sökrutor är undantaget."""
-    utan_etikett = []
+def test_inget_falt_har_placeholder_som_enda_etikett():
+    """§4: aldrig placeholder som enda etikett.
+
+    En placeholder försvinner så fort någon börjar skriva, och den som
+    lyssnar hör den inte alls. Sökrutor får bära sin etikett som
+    `aria-label` - där är en ensam placeholder etablerad konvention och en
+    synlig etikett hade sagt "Sök" bredvid en knapp som säger "Sök" - men
+    märkta ska de vara.
+
+    Provet faller om ett fält varken har <label for=...>, en <label> i sin
+    form-group, eller en aria-label.
+    """
+    omarkta = []
     for f in _mallar():
         text = f.read_text(encoding="utf-8")
         for m in re.finditer(r'<input[^>]*placeholder="[^"]+"[^>]*>', text):
             tagg = m.group(0)
             if 'type="hidden"' in tagg:
                 continue
+            if "aria-label=" in tagg:
+                continue
             ident = re.search(r'id="([^"]+)"', tagg)
-            har = bool(ident and f'for="{ident.group(1)}"' in text)
-            if not har:
-                har = "<label" in text[max(0, m.start() - 260) : m.start()]
-            if not har:
-                namn = re.search(r'name="([^"]+)"', tagg)
-                utan_etikett.append(f"{f.name}:{namn.group(1) if namn else '?'}")
+            if ident and f'for="{ident.group(1)}"' in text:
+                continue
+            if "<label" in text[max(0, m.start() - 300) : m.start()]:
+                continue
+            namn = re.search(r'name="([^"]+)"', tagg)
+            omarkta.append(f"{f.name}:{namn.group(1) if namn else '?'}")
 
-    assert sorted(utan_etikett) == [
-        "bundles.html:q",
-        "links.html:q",
-        "mina_samlingar_detalj.html:shortcode",
-        "snabblänkar.html:q",
-        "users.html:new_email",
-        "users.html:q",
-    ], utan_etikett
+    assert omarkta == [], omarkta
 
 
 def test_specens_radhanvisningar_pekar_pa_det_de_pastar():

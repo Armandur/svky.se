@@ -184,7 +184,7 @@
 
 <form method="get" action="/admin/users">
   <div class="search-bar">
-    <input type="text" name="q" value="{{ q }}" placeholder="Sök e-postadress…">
+    <input type="text" name="q" aria-label="Sök bland användare" value="{{ q }}" placeholder="Sök e-postadress…">
     <button type="submit" class="btn btn-secondary btn-sm">Sök</button>
   </div>
 </form>
@@ -293,7 +293,8 @@
     <form action="/admin/users/{{ u.id }}/transfer-all" method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="row">
-        <input type="email" name="new_email" placeholder="ny.agare@svenskakyrkan.se" required>
+        <input type="email" name="new_email" aria-label="E-postadress att flytta allt till"
+               placeholder="ny.agare@svenskakyrkan.se" required>
         <button type="submit" class="btn btn-secondary btn-sm">Flytta allt</button>
         <button type="button" class="btn btn-secondary btn-sm"
                 onclick="this.closest('.transfer-panel').style.display='none'; this.closest('.user-card').querySelector('[onclick*=transfer-panel]').style.display='';">
