@@ -783,7 +783,7 @@ Klart när / Verifiera:
 
 ---
 
-## [P3][todo] [svky] QR-kod för varje kortlänk, nedladdningsbar från Mina länkar
+## [P3][done] [svky] QR-kod för varje kortlänk, nedladdningsbar från Mina länkar
 
 Varje kortlänk ska kunna visa och ladda ner en QR-kod direkt i verktyget, så att en användare kan sätta både QR-kod och klickbar länk på en hemsida eller ett anslag.
 
