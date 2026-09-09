@@ -263,10 +263,22 @@ Allt annat är flex-wrap eller flödande text som klarar sig utan egen
 brytpunkt - `.stats-row`, `.link-actions`, `.qr-symbolval` wrappar redan via
 `flex-wrap:wrap`. **Regel: lägg inte till en ny numerisk brytpunkt för ett
 enskilt element om `flex-wrap` eller `grid-template-columns: repeat(auto-fit,
-minmax(...))` löser samma problem utan att hårdkoda en skärmbredd.** De tre
-brytpunkter som finns löser var sitt konkret uppmätt haveri (sidledes
-scroll), inte en allmän "mobilanpassning" - lägg en ny bara när du kan peka
-på samma sorts trasigt läge.
+minmax(...))` löser samma problem utan att hårdkoda en skärmbredd.** Lägg en ny bara när du kan peka på samma sorts trasigt läge.
+
+**Prövat 2026-09-09**, genom att ta bort varje regel i webbläsaren och mäta
+om något faktiskt går sönder. Sidan påstod att alla tre löser var sitt
+uppmätt haveri. Två gör det:
+
+| Brytpunkt | Utan regeln | Håller påståendet |
+|---|---|---|
+| 700px `.admin-bar` | sidbredd 1167 px i en 690 px vid vy - sidledes scroll | ja |
+| 600px `.site-header` | sidbredd 518 px vid 390 px vy - sidledes scroll | ja, men haveriet inträffar först runt 390 px, inte vid 600 |
+| 480px `.miljobanner` | ingen skillnad i sidbredd. Texten går från 12,5 till 13,6 px och bannern blir 4 px högre | **nej** |
+
+480px-regeln är alltså finputsning och inte en räddning. Den får stå kvar -
+en mindre banner på en liten skärm är rimligt - men den duger inte som
+prejudikat för nästa brytpunkt någon vill lägga till. Kravet står kvar:
+**visa det trasiga läget innan du hårdkodar en skärmbredd.**
 
 **Rättat 2026-09-09.** Den här sidan påstod att inga sidor fick sidledes
 scroll, och att `admin/links.html`s tabell "smalnar av korrekt" så att
@@ -301,9 +313,12 @@ Efter att avsnitt 10 tillämpats, samma data och samma bredder:
 
 | Sida | 1280 px | Högsta radhöjd, 1280 px | Högsta radhöjd, 390 px |
 |---|---|---|---|
-| `/admin/links` | ryms (1152/1152) | 44 px (var 62) | - |
+| `/admin/links` | ryms (1152/1152) | 44 px (var 64) | 64 px (oförändrad) |
 | `/admin/bundles` | ryms | oförändrad | oförändrad |
 | `/admin/domaner` | ryms (852/852) | 62 px (var 103) | 84 px (var 166) |
+
+`/admin/links` behåller sin radhöjd på 390 px: kodkolumnen bryter fortfarande
+där, och det är rätt - en kortkod ska gå att läsa hel.
 
 Sidledes svep står kvar på telefonen, nu med synlig toning. Radhöjden är den
 stora vinsten: en cell som slutar brytas till två rader ger tillbaka mer på
@@ -390,6 +405,13 @@ läggs på, och tabellen fungerar som förut.
 
 Skriptet laddas globalt från `base.html`. Det gör ingenting på en sida utan
 `.table-wrap`, och det är billigare än att komma ihåg det i varje ny mall.
+
+**Fälla att känna till:** en mask klipper mot elementets box oavsett
+`overflow`. Lägger någon en meny, popover eller tooltip i en cell som ska
+sticka ut ur wrapen, tonas den ut mot kanten eller försvinner - och orsaken
+är inte uppenbar. slöjda.de har en `:has(...)`-regel som stänger av masken
+just då. Den är medvetet inte portad hit, för ingenting sticker ut i dag.
+Behövs den, kopiera den därifrån i stället för att gissa.
 
 Sidledes svep är alltså svaret på telefonen, inte en nödlösning på väg mot
 något annat. Ett kort per rad (avsnitt 3) hör hit först när raden behöver
