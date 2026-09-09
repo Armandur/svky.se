@@ -22,24 +22,22 @@
 }
 .btn-row { display: flex; gap: 10px; align-items: center; margin-top: 16px; }
 
-/* Förhandsvisningen. Ramen är medvetet enkel och grå: det som ska synas är
-   bannern inuti, och en dekorerad ram hade tävlat med den om blicken. */
-.notisprov { margin-top: 22px; }
-.notisprov > .rubrik {
-  font-size: .78rem; text-transform: uppercase; letter-spacing: .4px;
-  color: var(--muted); font-weight: 600; display: block; margin-bottom: 8px;
+.provbesked {
+  font-size: .84rem; color: var(--muted); margin: 18px 0 0;
 }
-.notisprov .ram {
-  border: 1px dashed var(--border); border-radius: var(--radius);
-  padding: 10px; background: var(--bg);
+
+/* Bannern högst upp ÄR förhandsvisningen, ritad av samma .notisbanner-regler
+   som varje annan sida. Den streckade kanten är det enda som skiljer ett
+   osparat utkast från det som faktiskt gått ut - utan den går det inte att
+   se vilket man tittar på. */
+.notisbanner[data-prov] {
+  border-bottom: 2px dashed currentColor;
 }
-/* Bannern inuti provet ritas av samma .notisbanner-regler som riktiga
-   sidor. Bara marginalen nollas - på en riktig sida sitter den mot
-   sidhuvudet, här ligger den i en ruta. */
-.notisprov .notisbanner { margin: 0; }
-.notisprov .tom {
-  color: var(--muted); font-size: .88rem; font-style: italic;
-  padding: 8px 2px; margin: 0;
+.notisbanner[data-prov]::after {
+  content: "Förhandsvisning - inte sparad";
+  display: block; margin-top: 4px;
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .5px;
+  opacity: .75; font-weight: 600;
 }
 {% endblock %}
 
@@ -80,16 +78,12 @@
       {% endfor %}
     </div>
 
-    {# Visar bannern som den blir, INNAN den sparas. Servern renderar
-       markdown, se /admin/notis/forhandsvisning - webbläsaren ritar aldrig
-       markdown själv, för då kan rutan visa något som saneringen sedan
-       stryper. #}
-    <div class="notisprov">
-      <span class="rubrik">Så här kommer den att se ut</span>
-      <div class="ram" id="notisprov" aria-live="polite">
-        <p class="tom">Ingen banner visas. Rutan är tom.</p>
-      </div>
-    </div>
+    {# Bannern förhandsvisas HÖGST UPP på sidan, på sin riktiga plats, inte i
+       en ruta här. En banner sedd i en låda under formuläret säger inget om
+       hur den tar plats ovanför sidhuvudet. Se skriptet längst ner. #}
+    <p class="provbesked" id="provbesked" aria-live="polite">
+      Bannern högst upp på sidan visar din text medan du skriver.
+    </p>
 
     <div class="btn-row">
       <button type="submit" class="btn btn-primary">Spara</button>
@@ -113,8 +107,8 @@
     toolbar: ['bold', 'italic', 'link', '|', 'preview']
   });
 
-  var ruta = document.getElementById('notisprov');
-  if (!ruta || !window.fetch) return;
+  var besked = document.getElementById('provbesked');
+  if (!window.fetch) return;
 
   var timer = null;
   var senaste = 0;
@@ -122,6 +116,19 @@
   function niva() {
     var vald = document.querySelector('input[name="niva"]:checked');
     return vald ? vald.value : 'info';
+  }
+
+  // Bannern ligger FÖRE sidhuvudet i base.html. Finns ingen sparad banner
+  // finns inget element alls, och då skapar vi ett på samma plats - annars
+  // hade förhandsvisningen bara fungerat när det redan fanns en notis.
+  function bannerelement() {
+    var b = document.querySelector('.notisbanner');
+    if (!b) {
+      b = document.createElement('div');
+      b.setAttribute('role', 'status');
+      document.body.insertBefore(b, document.body.firstElementChild);
+    }
+    return b;
   }
 
   function rita() {
@@ -137,22 +144,28 @@
       .then(function (svar) { return svar.ok ? svar.json() : null; })
       .then(function (data) {
         if (!data || mitt !== senaste) return;
+        var b = bannerelement();
         if (!data.visas) {
-          ruta.innerHTML = '<p class="tom">Ingen banner visas. Rutan är tom.</p>';
+          // Tom text betyder ingen banner. Elementet töms och göms hellre än
+          // tas bort: nästa tangenttryckning ska fylla samma plats, inte
+          // knuffa hela sidan nedåt igen.
+          b.hidden = true;
+          b.innerHTML = '';
+          besked.textContent = 'Rutan är tom, så ingen banner visas.';
           return;
         }
+        b.hidden = false;
+        b.setAttribute('data-prov', '');
+        b.className = 'notisbanner notisbanner-' + data.niva;
         // Servern har redan sanerat med nh3, alltså samma HTML som sidan
         // får. Klassen byggs av ett värde servern validerat mot NOTISNIVAER.
-        var banner = document.createElement('div');
-        banner.className = 'notisbanner notisbanner-' + data.niva;
-        banner.setAttribute('role', 'status');
-        banner.innerHTML = data.html;
-        ruta.replaceChildren(banner);
+        b.innerHTML = data.html;
+        besked.textContent = 'Bannern högst upp visar din text. Den är inte sparad än.';
       })
       .catch(function () {
-        // Nätet svarade inte. Lämna det som står kvar - en tömd ruta hade
-        // sett ut som att texten inte ger någon banner, vilket är ett svar
-        // och inte ett uteblivet svar.
+        // Nätet svarade inte. Lämna bannern som den står - en tömd banner
+        // hade sett ut som att texten inte ger någon, vilket är ett svar och
+        // inte ett uteblivet svar.
       });
   }
 

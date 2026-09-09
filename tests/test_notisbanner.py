@@ -215,8 +215,15 @@ def test_utloggad_nekas_forhandsvisningen(client):
     assert svar.status_code in (302, 303)
 
 
-def test_redigeraren_bar_forhandsvisningsrutan(client, admin):
+def test_redigeraren_kopplar_forhandsvisningen_till_bannerplatsen(client, admin):
+    """Bannern förhandsvisas på sin RIKTIGA plats, högst upp, inte i en låda.
+
+    Det som skulle ändras om felet fanns: mallen skulle rita en egen ruta i
+    stället för att skriva i .notisbanner-elementet, och provet skulle inte
+    hitta väljaren.
+    """
     text = client.get("/admin/notis").text
 
-    assert 'id="notisprov"' in text
     assert FORHANDS in text
+    assert ".notisbanner" in text, "skriptet ska skriva i bannerelementet"
+    assert 'id="provbesked"' in text
