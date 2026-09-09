@@ -21,9 +21,7 @@ def _skapa_bundle(owner_id: int) -> int:
 
 
 # Om URL-gränsen har off-by-one lagras ingen gräns-URL eller en överlång URL.
-def test_url_langdgranser_mats_via_bestall_route(
-    client, inloggad_anvandare, hamta_csrf_token
-):
+def test_url_langdgranser_mats_via_bestall_route(client, inloggad_anvandare, hamta_csrf_token):
     prefix = "https://x.se/"
     at_limit = prefix + "a" * (MAX_URL_LENGTH - len(prefix))
     too_long = at_limit + "a"
@@ -46,9 +44,7 @@ def test_url_langdgranser_mats_via_bestall_route(
 
 
 # Om textgränsen har off-by-one lagras ingen gränsnotering eller en överlång notering.
-def test_text_langdgranser_mats_via_bestall_route(
-    client, inloggad_anvandare, hamta_csrf_token
-):
+def test_text_langdgranser_mats_via_bestall_route(client, inloggad_anvandare, hamta_csrf_token):
     csrf_token = hamta_csrf_token(client, "/bestall")
     accepted = client.post(
         "/bestall",
@@ -132,10 +128,27 @@ def test_samlingsfaltens_langdgranser_mats_via_route(
     assert value == "a" * limit
 
 
-# Om ikongränsen har off-by-one lagras ingen gränsikon eller den överlånga ikonen.
-def test_ikonens_langdgrans_mats_via_item_route(
+def test_brodtextredigeraren_sparar_markdown_i_databasen(
     client, inloggad_anvandare, hamta_csrf_token
 ):
+    bundle_id = _skapa_bundle(inloggad_anvandare["id"])
+    token = hamta_csrf_token(client, f"/mina-samlingar/{bundle_id}")
+    markdown = "## Välkommen\n\nHär finns **viktiga länkar**."
+
+    svar = client.post(
+        f"/mina-samlingar/{bundle_id}/update-body",
+        data={"body_md": markdown, "csrf_token": token},
+    )
+
+    assert svar.status_code == 303
+    with database.get_db() as db:
+        sparat = db.execute("SELECT body_md FROM bundles WHERE id=?", (bundle_id,)).fetchone()
+    assert sparat is not None
+    assert sparat["body_md"] == markdown
+
+
+# Om ikongränsen har off-by-one lagras ingen gränsikon eller den överlånga ikonen.
+def test_ikonens_langdgrans_mats_via_item_route(client, inloggad_anvandare, hamta_csrf_token):
     bundle_id = _skapa_bundle(inloggad_anvandare["id"])
     csrf_token = hamta_csrf_token(client, f"/mina-samlingar/{bundle_id}")
     base = {"title": "Titel", "url": "https://example.test", "csrf_token": csrf_token}

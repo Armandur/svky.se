@@ -2,6 +2,11 @@
 {% block title %}svky.se Admin - Snabblänkar{% endblock %}
 {% block main_class %}class="wide"{% endblock %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="/static/easymde.min.css">
+<link rel="stylesheet" href="/static/fontawesome-easymde.css">
+{% endblock %}
+
 {% block extra_style %}
 .detail-layout {
   display: grid;
@@ -111,19 +116,11 @@
 }
 .emoji-btn:hover { background: var(--blue-pale); }
 
-.md-intro-editor { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-@media (max-width: 720px) { .md-intro-editor { grid-template-columns: 1fr; } }
-.md-intro-editor label { font-size: .75rem; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); font-weight: 600; display: block; margin-bottom: 5px; }
-.md-intro-editor textarea {
-  font-family: "SF Mono","Fira Code",monospace; font-size: .85rem; line-height: 1.6;
-  resize: vertical; min-height: 120px; width: 100%;
-  border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 10px; background: var(--white); color: var(--text);
+.md-intro-editor label {
+  font-size: .75rem; text-transform: uppercase; letter-spacing: .4px;
+  color: var(--muted); font-weight: 600; display: block; margin-bottom: 5px;
 }
-.md-intro-preview {
-  min-height: 120px; border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 10px 14px; background: var(--bg); font-size: .88rem; line-height: 1.7; overflow-y: auto;
-}
+
 
 .add-section {
   padding: 14px 16px;
@@ -477,15 +474,9 @@
       </div>
 
       <div class="md-intro-editor">
-        <div>
-          <label>Markdown</label>
-          <textarea name="intro_md" id="snabb-intro-md"
-                    placeholder="Skriv en kort text om snabblänkarna…">{{ intro_md }}</textarea>
-        </div>
-        <div>
-          <label>Förhandsgranskning</label>
-          <div class="md-intro-preview" id="snabb-intro-preview"></div>
-        </div>
+        <label>Markdown</label>
+        <textarea name="intro_md" id="snabb-intro-md"
+                  placeholder="Skriv en kort text om snabblänkarna…">{{ intro_md }}</textarea>
       </div>
       <div style="margin-top:10px; display:flex; gap:8px;">
         <button type="submit" class="btn btn-primary btn-sm">Spara</button>
@@ -547,18 +538,19 @@ document.addEventListener('click', e => {
   }
 });
 </script>
-<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+<script src="/static/easymde.min.js"></script>
 <script>
-(function() {
-  const ta = document.getElementById('snabb-intro-md');
-  const preview = document.getElementById('snabb-intro-preview');
-  if (!ta || !preview) return;
-  function render() {
-    const html = marked.parse(ta.value);
-    preview.innerHTML = html || '<span style="color:var(--muted);font-style:italic;font-size:.82rem;">Inget innehåll ännu.</span>';
-  }
-  ta.addEventListener('input', render);
-  render();
-})();
+new EasyMDE({
+  element: document.getElementById('snabb-intro-md'),
+  forceSync: true,
+  minHeight: '120px',
+  spellChecker: false,
+  shortcuts: { toggleFullScreen: null, toggleSideBySide: null },
+  status: false,
+  toolbar: [
+    'bold', 'italic', 'heading-2', 'heading-3', '|',
+    'unordered-list', 'ordered-list', '|', 'link', 'preview'
+  ]
+});
 </script>
 {% endblock %}

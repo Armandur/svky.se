@@ -2,6 +2,11 @@
 {% block title %}svky.se - {{ bundle.name }}{% endblock %}
 {% block main_class %}class="wide"{% endblock %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="/static/easymde.min.css">
+<link rel="stylesheet" href="/static/fontawesome-easymde.css">
+{% endblock %}
+
 {% block extra_style %}
 .detail-layout { display: grid; grid-template-columns: 300px 1fr; gap: 24px; align-items: start; }
 @media (max-width: 720px) { .detail-layout { grid-template-columns: 1fr; } }
@@ -716,19 +721,10 @@ select:focus {
   <div style="padding:16px 18px;">
     <form method="post" action="/mina-samlingar/{{ bundle.id }}/update-body">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-        <div>
-          <label style="font-size:.75rem; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; display:block; margin-bottom:5px;">Markdown</label>
-          <textarea name="body_md" id="bundle-body-md"
-                    style="font-family:'SF Mono','Fira Code',monospace; font-size:.85rem; line-height:1.6; resize:vertical; min-height:160px; width:100%; border:1px solid var(--border); border-radius:var(--radius); padding:10px; background:var(--white); color:var(--text);"
-                    placeholder="Skriv en kort introduktion till samlingen…">{{ bundle.body_md or '' }}</textarea>
-        </div>
-        <div>
-          <label style="font-size:.75rem; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; display:block; margin-bottom:5px;">Förhandsgranskning</label>
-          <div id="bundle-body-preview"
-               style="min-height:160px; border:1px solid var(--border); border-radius:var(--radius); padding:10px 14px; background:var(--bg); font-size:.88rem; line-height:1.7; overflow-y:auto;">
-          </div>
-        </div>
+      <div>
+        <label style="font-size:.75rem; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; display:block; margin-bottom:5px;">Markdown</label>
+        <textarea name="body_md" id="bundle-body-md"
+                  placeholder="Skriv en kort introduktion till samlingen…">{{ bundle.body_md or '' }}</textarea>
       </div>
       <div style="margin-top:10px; display:flex; gap:8px; align-items:center;">
         <button type="submit" class="btn btn-primary btn-sm">Spara brödtext</button>
@@ -880,18 +876,19 @@ function toggleCheatsheet() {
   });
 })();
 </script>
-<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+<script src="/static/easymde.min.js"></script>
 <script>
-(function() {
-  const ta = document.getElementById('bundle-body-md');
-  const preview = document.getElementById('bundle-body-preview');
-  if (!ta || !preview) return;
-  function render() {
-    const html = marked.parse(ta.value);
-    preview.innerHTML = html || '<span style="color:var(--muted);font-style:italic;font-size:.82rem;">Inget innehåll ännu.</span>';
-  }
-  ta.addEventListener('input', render);
-  render();
-})();
+new EasyMDE({
+  element: document.getElementById('bundle-body-md'),
+  forceSync: true,
+  minHeight: '160px',
+  spellChecker: false,
+  shortcuts: { toggleFullScreen: null, toggleSideBySide: null },
+  status: false,
+  toolbar: [
+    'bold', 'italic', 'heading-2', 'heading-3', '|',
+    'unordered-list', 'ordered-list', '|', 'link', 'preview'
+  ]
+});
 </script>
 {% endblock %}

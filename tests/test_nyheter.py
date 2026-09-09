@@ -5,6 +5,7 @@ säger ingenting om vem som släpps in, och det är behörighetsspärren som är
 värd att mäta här.
 """
 
+from app import database
 from app.config import RESERVED_CODES
 
 
@@ -68,6 +69,22 @@ def test_admin_sparar_och_texten_syns_publikt(client, admin, hamta_csrf_token):
     assert "QR-koder finns nu." in publikt
 
 
+def test_om_redigeraren_sparar_markdown_i_databasen(client, admin, hamta_csrf_token):
+    token = hamta_csrf_token(client, "/admin/om")
+    markdown = "## Om tjänsten\n\nText med **fetstil** och [länk](/integritet)."
+
+    svar = client.post(
+        "/admin/om",
+        data={"content": markdown, "csrf_token": token},
+    )
+
+    assert svar.status_code == 303
+    with database.get_db() as db:
+        sparat = db.execute("SELECT value FROM site_settings WHERE key='about_content'").fetchone()
+    assert sparat is not None
+    assert sparat["value"] == markdown
+
+
 def test_admin_baren_lankar_till_nyheter(client, admin):
     assert 'href="/admin/nyheter"' in client.get("/admin/links").text
 
@@ -79,7 +96,7 @@ def test_senaste_nyheten_syns_pa_startsidan(client, admin, hamta_csrf_token):
         "/admin/nyheter",
         data={
             "content": "## QR-koder\n\nVarje länk har nu en QR-kod.\n\n"
-                       "## Äldre post\n\nNågot som hände förut.",
+            "## Äldre post\n\nNågot som hände förut.",
             "csrf_token": token,
         },
     )
@@ -131,7 +148,7 @@ def test_sidhuvudet_far_bryta_pa_smal_skarm():
     css = (
         __import__("pathlib").Path(__file__).resolve().parents[1] / "app/static/style.css"
     ).read_text()
-    mobil = css[css.index("Sidhuvudet på smal skärm"):]
+    mobil = css[css.index("Sidhuvudet på smal skärm") :]
 
     assert "flex-wrap: wrap" in mobil
     assert "height: auto" in mobil
@@ -165,6 +182,6 @@ def test_adminbaren_far_bryta_pa_smal_skarm():
     css = (
         __import__("pathlib").Path(__file__).resolve().parents[1] / "app/static/style.css"
     ).read_text()
-    mobil = css[css.index("Adminbaren på smal skärm"):]
+    mobil = css[css.index("Adminbaren på smal skärm") :]
 
     assert "flex-wrap: wrap" in mobil

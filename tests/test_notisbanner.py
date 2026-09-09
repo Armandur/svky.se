@@ -12,9 +12,7 @@ from app import database, templating
 
 def _spara(client, hamta_csrf_token, text, niva="info"):
     token = hamta_csrf_token(client, "/admin/notis")
-    return client.post(
-        "/admin/notis", data={"content": text, "niva": niva, "csrf_token": token}
-    )
+    return client.post("/admin/notis", data={"content": text, "niva": niva, "csrf_token": token})
 
 
 def test_ingen_banner_nar_texten_saknas(client):
@@ -121,6 +119,18 @@ def test_markdown_lanken_blir_klickbar(client, admin, hamta_csrf_token):
     _spara(client, hamta_csrf_token, "Se [nyheterna](/nyheter).")
 
     assert 'href="/nyheter"' in client.get("/").text
+
+
+def test_notisredigeraren_sparar_markdown_i_databasen(client, admin, hamta_csrf_token):
+    markdown = "**Viktigt:** Läs [nyheterna](/nyheter)."
+
+    svar = _spara(client, hamta_csrf_token, markdown)
+
+    assert svar.status_code == 303
+    with database.get_db() as db:
+        sparat = db.execute("SELECT value FROM site_settings WHERE key='notice_content'").fetchone()
+    assert sparat is not None
+    assert sparat["value"] == markdown
 
 
 def test_trasig_uppslagning_falller_inte_sidan(client, monkeypatch, caplog):
