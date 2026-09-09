@@ -564,3 +564,64 @@ def test_okodbar_posts_bild_ger_404_inte_500(client, inloggad_anvandare):
     item_id = _trasig_post(_samling(inloggad_anvandare["id"]))
 
     assert client.get(f"/swish-post/{item_id}/qr.png").status_code == 404
+
+
+# --- samlingens egen QR-kod -----------------------------------------------
+
+
+def test_swishvyn_har_samma_qr_ruta_som_vanliga_samlingar(client, inloggad_anvandare):
+    """Samlingsvyn delades i två mallar 2026-09-08, och QR-rutan följde inte
+    med till swish-halvan. Routerna var gemensamma hela tiden - det var bara
+    mallen som blev tunnare, och det syns inte förrän någon letar efter
+    knappen.
+    """
+    bundle_id = _samling(inloggad_anvandare["id"])
+
+    text = client.get(f"/mina-samlingar/{bundle_id}").text
+
+    # qr.js hänger på de här kroknamnen.
+    assert f'data-qr-open="qr-bundle-{bundle_id}"' in text
+    assert "data-qr-val" in text
+    assert text.count("data-qr-lank") == 2
+    assert f"/mina-samlingar/{bundle_id}/qr.zip" in text
+    assert '<script src="/static/qr.js">' in text
+
+
+def test_symbolvalen_finns_i_swishvyn(client, inloggad_anvandare):
+    bundle_id = _samling(inloggad_anvandare["id"])
+
+    text = client.get(f"/mina-samlingar/{bundle_id}").text
+
+    for varde in ("skold-svart", "skold-farg"):
+        assert f'value="{varde}"' in text, varde
+
+
+@pytest.mark.parametrize("andelse", ["png", "svg", "zip"])
+def test_samlingens_egen_kod_gar_att_hamta(client, inloggad_anvandare, andelse):
+    """Routen gäller alla samlingar oavsett tema - provet ser till att den
+    fortsätter göra det."""
+    bundle_id = _samling(inloggad_anvandare["id"])
+
+    svar = client.get(f"/mina-samlingar/{bundle_id}/qr.{andelse}")
+
+    assert svar.status_code == 200
+
+
+def test_samlingens_kod_bar_kortlanken_inte_en_betalning(client, inloggad_anvandare):
+    """Två sorters koder lever på samma sida. Den här bär adressen till
+    sidan med alla ändamål, postens egen bär betalningen."""
+    from app import qr
+
+    bundle_id = _samling(inloggad_anvandare["id"])
+    _post(bundle_id, "Diakoni", belopp="100,00")
+
+    samlingen = _zxing(client.get(f"/mina-samlingar/{bundle_id}/qr.png").content)
+    posten = _zxing(
+        client.get(
+            f"/mina-samlingar/{bundle_id}/swish-poster/"
+            f"{_post(bundle_id, 'Musik', belopp='150,00')}/qr.png"
+        ).content
+    )
+
+    assert samlingen == qr.lankadress("domkyrkan")
+    assert posten.startswith(f"C{MOTTAGARE};150,00;")
