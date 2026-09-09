@@ -1,0 +1,43 @@
+/* Font Awesome 4.7.0, BARA de 19 ikoner EasyMDE:s toolbar använder.
+ *
+ * Hela font-awesome.min.css är 31 kB och definierar 675 ikonklasser. Vi
+ * använder nitton. Urvalet är klippt ur källan, inte skrivet för hand, så att
+ * tecknen inte kan glida isär från typsnittet de pekar in i.
+ *
+ * Typsnittet MÅSTE finnas lokalt. EasyMDE ritar sin toolbar med klasserna
+ * nedan och bär inget eget typsnitt - utan den här filen är knapparna
+ * osynliga, inte fula.
+ *
+ * Bara woff2. Alla webbläsare som kör appen läser det formatet, och de fem
+ * andra formaten i originalet är där för webbläsare som inte finns kvar.
+ *
+ * Uppgradering: hämta font-awesome@<version> css och woff2, kör om urvalet.
+ */
+@font-face {
+  font-family: 'FontAwesome';
+  src: url('/static/fontawesome-webfont.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+
+.fa{display:inline-block;font:normal normal normal 14px/1 FontAwesome;font-size:inherit;text-rendering:auto;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.fa-arrows-alt:before{content:"\f0b2"}
+.fa-bold:before{content:"\f032"}
+.fa-code:before{content:"\f121"}
+.fa-columns:before{content:"\f0db"}
+.fa-eraser:before{content:"\f12d"}
+.fa-eye:before{content:"\f06e"}
+.fa-header:before{content:"\f1dc"}
+.fa-image:before{content:"\f03e"}
+.fa-italic:before{content:"\f033"}
+.fa-link:before{content:"\f0c1"}
+.fa-list-ol:before{content:"\f0cb"}
+.fa-list-ul:before{content:"\f0ca"}
+.fa-minus:before{content:"\f068"}
+.fa-question-circle:before{content:"\f059"}
+.fa-quote-left:before{content:"\f10d"}
+.fa-repeat:before{content:"\f01e"}
+.fa-strikethrough:before{content:"\f0cc"}
+.fa-table:before{content:"\f0ce"}
+.fa-undo:before{content:"\f0e2"}
