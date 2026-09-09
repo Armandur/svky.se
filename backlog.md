@@ -223,6 +223,34 @@ Kontrollera samma sak för produktionsstacken - 80 och 443 ska vara publicerade,
 
 ---
 
+## [P3][todo] [svky] Admins detaljvy visar en Swish-samling som tom - den hämtar bara bundle_items
+
+GET /admin/bundles/<id> för en Swish-samling säger '0 länkar - redigeras av ägaren', även när samlingen har flera Swish-koder. Kontrollerat 2026-09-09 mot en samling med tre koder.
+
+Orsak: routen hämtar bundle_items och bundle_sections men aldrig swish_items. En Swish-samling bär sina poster i den egna tabellen (migration 11), och adminvyn känner inte till den.
+
+Följden är värre än ett tomt antal: en admin som modererar kan inte se VAD samlingen betalar till. Swish-numret, beloppet och låsmasken är just det en admin skulle behöva granska om någon anmäler en kod - och de syns inte alls.
+
+Listan /admin/bundles räknar redan rätt: den fick swish_count 2026-09-09 i commit ae9fd86. Detaljvyn missades i samma omgång.
+
+DET HÄR ÄR FJÄRDE GÅNGEN samma mönster. Swish-samlingen glöms i en vy som byggdes när alla samlingar bar länkar:
+1. QR-rutan i ägarvyn (TASK-1719, rättad)
+2. Samlingens namn, beskrivning, statistik och avaktivering i ägarvyn (rättad samma dag)
+3. Postens nedladdningsformat (rättad samma dag)
+4. Den här
+
+Värt att fråga sig om det finns fler. En genomgång av varje ställe som gör SELECT mot bundle_items vore billigare än att hitta dem en i taget.
+
+Klart när: adminvyn visar Swish-samlingens koder med rubrik, mottagare, belopp och vad betalaren får ändra - alltså det en moderator behöver för att bedöma dem.
+
+Verifiera: prov som anropar ROUTEN med en swishsamling och kontrollerar att en kods rubrik och mottagare står i svaret. Provet ska falla mot dagens kod - kör det före fixen och se att det gör det. shot vid 390px och 1280px.
+
+- ID: `01M2366H9XY74Z8X559YD249S6`
+- Type: bug
+- Actor: ai:claude-code
+
+---
+
 ## [P3][todo] [svky] Val per swishpost om mottagarnumret ska visas i klartext på samlingssidan
 
 I dag står mottagarnumret bara i ÄGARENS vy. Den publika sidan visar ändamål, belopp, knapp och QR-kod, men aldrig numret som text.
