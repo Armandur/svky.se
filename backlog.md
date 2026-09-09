@@ -223,6 +223,78 @@ Kontrollera samma sak för produktionsstacken - 80 och 443 ska vara publicerade,
 
 ---
 
+## [P3][todo] [svky] Hämta hem Chart.js och Sortable lokalt i stället för från jsDelivr
+
+## Context
+
+Efter TASK-1703 ligger EasyMDE och dess ikontypsnitt lokalt, men två
+bibliotek hämtas fortfarande från jsDelivr. Går CDN:et ner ritas ingen
+statistikgraf och länkarna i en samling går inte att sortera - utan att
+något i appen säger varför.
+
+Samma beslut som i TASK-1703 (Rasmus, 2026-09-09): lokal fil, inte CDN.
+
+## Nuläge
+
+| Fil | Rad | Bibliotek |
+|---|---|---|
+| `app/templates/my_link_detail.html` | 111 | chart.js@4.4.0 |
+| `app/templates/admin/stats.html` | 165 | chart.js@4.4.0 |
+| `app/templates/bundle_stats.html` | 63 | chart.js@4.4.0 |
+| `app/templates/admin/link_detail.html` | 241 | chart.js@4.4.0 |
+| `app/templates/mina_samlingar_detalj.html` | 845 | sortablejs@1 |
+
+Chart.js är versionslåst till 4.4.0 på alla fyra ställena. Sortable pekar
+på rörliga `@1`, alltså kan den byta beteende utan att något i repot ändras
+- den bör pinnas till en känd version när den hämtas hem.
+
+Chart.js UMD-bygget är cirka 200 kB minifierat. Det är stort men laddas
+bara på de fyra statistikvyerna, inte på varje sida.
+
+## Acceptance criteria
+
+- [ ] Chart.js och Sortable ligger i `app/static/` och laddas därifrån.
+- [ ] `grep -rn "cdn.jsdelivr\|unpkg" app/templates/` ger noll träffar.
+- [ ] Versionen står i en kommentar där filen laddas, som för EasyMDE.
+- [ ] Graferna ritas på alla fyra statistikvyerna.
+- [ ] Dra-och-släpp fungerar fortfarande i en samling med flera länkar.
+- [ ] Ett prov som läser mallarna och faller om en CDN-adress smyger sig
+      tillbaka. Utan det upptäcks nästa återfall först i drift.
+
+## Implementation hints
+
+Följ mönstret från TASK-1703: `app/static/`, laddad med `/static/<fil>` i
+`{% block scripts %}`, versionen i en kommentar.
+
+Sortable behöver ingen CSS. Chart.js behöver ingen heller.
+
+Fundera på om de fyra Chart.js-mallarna ska dela ett `{% include %}` för
+skripttaggen. Fyra kopior av samma rad är fyra ställen att glömma vid
+nästa uppgradering - men fyra rader är också lite, så väg det mot att
+lägga till ett lager.
+
+Hämta filerna FÖRE eventuell delegering: en Codex-sandbox har inget
+nätverk.
+
+## Verification
+
+- `grep -rn "cdn.jsdelivr\|unpkg" app/templates/` -> tomt.
+- `ls -la app/static/` visar båda filerna.
+- `python3 -m pytest tests/ -q --ignore=tests/test_qr.py` - alla passerar.
+- Browser: `shot` vid 390px och 1280px på alla fyra statistikvyerna, och
+  kontrollera att en graf FAKTISKT ritas - att sidan svarar 200 säger
+  ingenting, canvas kan vara tom. Läs `document.querySelectorAll('canvas')`
+  och kontrollera att elementet har höjd.
+- Browser: dra en länk i en samling med minst två länkar och kontrollera
+  att ordningen ändras OCH överlever en omladdning. Att biblioteket laddar
+  bevisar inte att sorteringen sparas.
+
+- ID: `01M23RKBB8QJN5QT7YEQ9A65AH`
+- Type: improvement
+- Actor: ai:claude-code
+
+---
+
 ## [P3][done] [svky] Admins detaljvy visar en Swish-samling som tom - den hämtar bara bundle_items
 
 GET /admin/bundles/<id> för en Swish-samling säger '0 länkar - redigeras av ägaren', även när samlingen har flera Swish-koder. Kontrollerat 2026-09-09 mot en samling med tre koder.
