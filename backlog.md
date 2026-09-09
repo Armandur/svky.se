@@ -223,6 +223,33 @@ Kontrollera samma sak för produktionsstacken - 80 och 443 ska vara publicerade,
 
 ---
 
+## [P3][todo] [svky] Utred om Swish-länkarna ska gå via ett domännamn i stället för swish://
+
+Vi bygger i dag swish://payment?data=<URL-kodad JSON>. En egen URI-scheme har kända svagheter som ett vanligt https-domännamn inte har - frågan är om Swish erbjuder en sådan väg, och om den beter sig bättre.
+
+VAD SOM TALAR FÖR ATT UTREDA:
+- En swish://-länk gör ingenting alls när Swish inte är installerat. Ingen sida, inget besked, ingen hjälp att komma vidare. En https-adress kan åtminstone visa något.
+- Flera appar och webbvyer vägrar öppna okända scheman. Länken i ett e-postutskick eller i ett CMS kan alltså vara död utan att avsändaren ser det.
+- Formatet är odokumenterat och härlett ur appen, se docs/swish-applankens-format.md. Ett publikt dokumenterat format vore mindre bräckligt.
+- Universal Links (iOS) och App Links (Android) öppnar appen direkt från en https-adress och faller tillbaka på webbsidan när appen saknas. Det är mönstret frågan handlar om.
+
+VAD SOM SKA TAS REDA PÅ:
+1. Publicerar Swish någon https-form alls, och i så fall var den är dokumenterad? Vår befintliga spec (Guide Swish QR code design specification v1.7.2) täcker QR-strängen, inte länkar.
+2. Om den finns: bär den samma fält (mottagare, belopp, meddelande, låsmask) och beter den sig likadant på telefon? Mätning på riktig telefon krävs, som för swish:// - allt vi vet i dag kommer från mätning, inte från dokumentation.
+3. Gäller mätning 4 även där, alltså att mottagaren går att ändra så fort något fält är fritt? Antag inte att den inte gör det.
+
+OM SVARET ÄR NEJ är utredningen ändå värd något: skriv ner i docs att vi kollat och varför swish:// står kvar, så nästa person slipper ställa frågan igen.
+
+BERÖRS: app/swish.py (applank), och de fyra ställen som visar länken - swish_generator.html, swish_bundle.html, swishsamlingar.py och public.py. Byts formen ut ska det ske på ETT ställe, i applank(), precis som docstringen där redan säger.
+
+Klart när: docs/swish-applankens-format.md har ett avsnitt som svarar ja eller nej med källa, och vid ja en task för bytet.
+
+- ID: `01M22S2VF7NY0ZNNP149KMD18Y`
+- Type: spike
+- Actor: ai:claude-code
+
+---
+
 ## [P3][todo] [svky] Swish-samlingens ägarvy saknar QR-väljaren och zip som andra samlingar har
 
 Gäller samlingens EGEN kortkod, alltså svky.se/dk-swish - inte betalkoderna i posterna.
