@@ -22,36 +22,41 @@ def _mallar():
     return sorted(MALLAR.rglob("*.html"))
 
 
-def test_farliga_knappar_ar_rena_ord():
-    """§1: en farlig knapp bär inga ikoner - inget som drar blicken åt en
-    annan riktning från det som tar bort något.
+def test_farliga_och_primara_knappar_ar_rena_ord():
+    """§1 och §6: en primär eller farlig knapp bär inga ikoner.
 
-    admin/users.html:283 är ett känt undantag som står kvar tills någon rör
-    den knappen. Provet låser antalet så att det inte blir två.
+    Den ska vara entydig utan att en font behöver rendera rätt glyf, och
+    inget ska dra blicken åt en annan riktning från det som tar bort något.
+    Emoji-som-prefix hör till sekundärknappar.
     """
     med_ikon = []
     for f in _mallar():
         text = f.read_text(encoding="utf-8")
-        for m in re.finditer(r'class="btn btn-danger[^"]*"(.*?)</(?:button|a)>', text, re.S):
-            inre = m.group(1)
-            synligt = inre.split(">", 1)[1] if ">" in inre else inre
-            if re.search(r"&#\d+;|&#x[0-9a-fA-F]+;|[\U0001F300-\U0001FAFF]", synligt):
-                med_ikon.append(f"{f.relative_to(MALLAR)}: {synligt.strip()[:40]}")
+        for klass in ("btn-primary", "btn-danger"):
+            for m in re.finditer(rf'class="btn {klass}[^"]*"(.*?)</(?:button|a)>', text, re.S):
+                inre = m.group(1)
+                synligt = inre.split(">", 1)[1] if ">" in inre else inre
+                if re.search(r"&#\d+;|&#x[0-9a-fA-F]+;|[\U0001F300-\U0001FAFF]", synligt):
+                    med_ikon.append(f"{f.relative_to(MALLAR)} ({klass}): {synligt.strip()[:40]}")
 
-    assert med_ikon == ["admin/users.html: &#128465; Radera"], med_ikon
+    assert med_ikon == [], med_ikon
 
 
-def test_specen_namner_confirm_overlays_enda_hemvist():
-    """§8: panelen fanns påstått i två mallar, i verkligheten i en.
+def test_specen_raknar_upp_alla_mallar_med_panel():
+    """§8: sidan påstod att panelen fanns i två mallar när den fanns i en.
 
-    Provet fäster verkligheten: står panelen plötsligt i fler mallar är det
-    goda nyheter och specens siffra ska uppdateras - men den ska aldrig
-    tystna om att de gått isär.
+    Provet håller uppräkningen ärlig åt båda håll: sprids panelen till fler
+    mallar är det goda nyheter, men specen ska uppdateras samtidigt i
+    stället för att tystna om att de gått isär.
     """
-    med_panel = [f.name for f in _mallar() if "confirm-overlay" in f.read_text(encoding="utf-8")]
+    spec = SPEC.read_text(encoding="utf-8")
+    med_panel = sorted(
+        f.name for f in _mallar() if "confirm-overlay" in f.read_text(encoding="utf-8")
+    )
 
-    assert med_panel == ["my_links.html"], med_panel
-    assert "`.confirm-overlay` finns bara i `my_links.html`" in SPEC.read_text(encoding="utf-8")
+    assert med_panel == ["mina_swishsamlingar_detalj.html", "my_links.html"], med_panel
+    for mall in med_panel:
+        assert mall.removesuffix(".html") in spec, f"{mall} nämns inte i avsnitt 8"
 
 
 def test_confirm_ligger_inte_i_fler_mallar_an_specen_sager():
@@ -62,8 +67,10 @@ def test_confirm_ligger_inte_i_fler_mallar_an_specen_sager():
     mallar = [f for f in _mallar() if "return confirm(" in f.read_text(encoding="utf-8")]
     forekomster = sum(f.read_text(encoding="utf-8").count("return confirm(") for f in mallar)
 
-    assert len(mallar) <= 9, [f.name for f in mallar]
-    assert forekomster <= 22, forekomster
+    # Taket sänks varje gång en mall konverteras, aldrig höjs. Just nu:
+    # 21 förekomster i 8 mallar.
+    assert len(mallar) <= 8, [f.name for f in mallar]
+    assert forekomster <= 21, forekomster
 
 
 def test_inget_falt_har_placeholder_som_enda_etikett():
@@ -105,7 +112,7 @@ def test_specens_radhanvisningar_pekar_pa_det_de_pastar():
         ("app/static/style.css", 46, "main.wide"),
         ("app/static/style.css", 140, ".form-group"),
         ("app/templates/_ansok_upplysning.html", 4, "Ansök om rätt att länka"),
-        ("app/templates/admin/users.html", 283, "btn-danger"),
+        ("app/templates/admin/users.html", 285, "btn-danger"),
     ]
     for fil, rad, vantat in fall:
         rader = (ROT / fil).read_text(encoding="utf-8").splitlines()

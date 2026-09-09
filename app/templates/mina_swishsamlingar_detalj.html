@@ -28,6 +28,12 @@
   font-size: .82rem; color: var(--muted); margin: 10px 0 0; line-height: 1.6;
   border-left: 3px solid var(--border); padding-left: 10px;
 }
+/* Samma panel som my_links.html, den standard avsnitt 8 pekar ut. */
+.confirm-overlay {
+  display: none; background: var(--red-bg); border: 1px solid #f5c6c2;
+  border-radius: var(--radius); padding: 14px 16px; margin-top: 12px; font-size: .88rem;
+}
+.confirm-overlay .btn-row { display: flex; gap: 8px; margin-top: 10px; }
 .sw-ny { border: 1px dashed var(--border); background: var(--bg); }
 .sw-hjalp { font-size: .78rem; color: var(--muted); margin-top: 3px; }
 {% endblock %}
@@ -151,12 +157,32 @@
         <button type="submit" class="btn btn-secondary btn-sm"
                 {% if loop.last %}disabled{% endif %}>&#8595;</button>
       </form>
-      <form method="post" action="/mina-samlingar/{{ bundle.id }}/swish-poster/{{ post.id }}/delete"
-            onsubmit="return confirm('Ta bort {{ post.title }}?');">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="btn btn-danger btn-sm">Ta bort</button>
-      </form>
+      {# Panel och inte confirm(): en webbläsardialog går inte att styla, är
+         lika lätt att OK:a bort av vana som att läsa, och kan inte förklara
+         att koden slutar fungera. Se docs/design.md avsnitt 8. #}
+      <button type="button" class="btn btn-danger btn-sm"
+              onclick="this.closest('.sw-post').querySelector('.confirm-overlay').style.display='block'; this.style.display='none';">
+        Ta bort
+      </button>
     </div>
+
+  <div class="confirm-overlay">
+    <strong>Ta bort {{ post.title }}?</strong>
+    Ändamålet försvinner från samlingssidan direkt, och en tryckt kod som
+    bär just den betalningen slutar leda någonstans. Trycken som räknats
+    upp för det här ändamålet försvinner också.
+    <div class="btn-row">
+      <form method="post" action="/mina-samlingar/{{ bundle.id }}/swish-poster/{{ post.id }}/delete"
+            style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-danger btn-sm">Ja, ta bort</button>
+      </form>
+      <button type="button" class="btn btn-secondary btn-sm"
+              onclick="var p=this.closest('.confirm-overlay'); p.style.display='none'; p.closest('.sw-post').querySelector('.sw-knappar .btn-danger').style.display='';">
+        Avbryt
+      </button>
+    </div>
+  </div>
 </div>
 {% endfor %}
 

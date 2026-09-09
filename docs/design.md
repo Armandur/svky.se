@@ -34,10 +34,9 @@ lägger på mindre padding ovanpå någon av de tre.
   rena ord, inget som drar blicken åt en annan riktning.
 
   Sidan påstod här "Kontrollerat: `.btn-danger` har **aldrig** en
-  emoji-ikon". Prövat 2026-09-09: `admin/users.html:283` bär
-  `&#128465; Radera`, alltså en papperskorg. Regeln är rätt, kontrollen var
-  det inte. Undantaget står kvar i koden tills någon rör den knappen - men
-  det är ett undantag, inte ett mönster att följa.
+  emoji-ikon". Prövat 2026-09-09: `admin/users.html` bar `&#128465; Radera`,
+  alltså en papperskorg. Regeln var rätt, kontrollen var det inte.
+  Papperskorgen är borttagen, så nu stämmer de överens.
 - **Textlänk** (ingen btn-klass) = navigation som inte är sidans
   primäruppgift och inte radbrytande viktig: `Logga in` i sidfoten av ett
   formulär, `Mina länkar` i brödsmulor, länkar i löptext.
@@ -191,9 +190,13 @@ Emoji används på två helt olika sätt - avsiktligt olika, håll isär dem:
 1. **Fasta UI-ikoner, hårdkodade som HTML-entiteter** i sekundärknappar:
    `&#128202;` (📊) framför "Statistik", `&#9998;` (✎) framför "Ändra
    mål-URL", `&#128203;` (📋) framför "Gör om till samling", `&#11015;`
-   (⇩) framför "Exportera"/"PNG"/"SVG" (alla i `my_links.html`). Kontrollerat:
-   **noll förekomster på `.btn-primary` eller `.btn-danger`** - emoji-ikon
-   hör bara till `.btn-secondary`. Regel: **en ny sekundärknapp med ett
+   (⇩) framför "Exportera"/"PNG"/"SVG" (alla i `my_links.html`). Emoji-ikon
+   hör bara till `.btn-secondary`.
+
+   Sidan påstod "Kontrollerat: noll förekomster på `.btn-primary` eller
+   `.btn-danger`". Prövat 2026-09-09: `.btn-primary` stämde, `.btn-danger`
+   hade en papperskorg i `admin/users.html`. Den är borttagen, och
+   `tests/test_designspec.py` håller nollan sann framåt. Regel: **en ny sekundärknapp med ett
    tydligt piktogram-koncept (statistik, nedladdning, redigera, flytta) får
    samma emoji-som-prefix-mönster. En primär- eller farlig knapp får aldrig
    en emoji** - den ska vara entydig utan att en font behöver rendera rätt
@@ -243,8 +246,12 @@ Två mönster lever parallellt idag:
    (4), `admin/domains.html` (1), `admin/snabblänkar.html` (3),
    `admin/transfers.html` (2), `admin/users.html` (2),
    `delete_account_confirm.html` (1), `mina_samlingar_detalj.html` (6),
-   `mina_swishsamlingar_detalj.html` (1), `my_links.html` (2).
-2. **Inline bekräftelsepanel** (`.confirm-overlay`, `my_links.html:39-42`) -
+   `my_links.html` (2). Rättat samma dag: `mina_swishsamlingar_detalj.html`
+   låg också här med sin `confirm()` - byggd tidigare under dagen, alltså en
+   ny knapp mot ett mönster den här sidan kallar utfasat. Den använder nu
+   panelen.
+2. **Inline bekräftelsepanel** (`.confirm-overlay`, `my_links.html:39-42`,
+   `mina_swishsamlingar_detalj.html`) -
    en dold ruta som visas vid klick,
    med egen förklarande text och två knappar: farlig "Ja, avaktivera" och
    sekundär "Avbryt".
@@ -261,7 +268,7 @@ sätt en `confirm()`-sträng inte kan formatera. Det här är en ändring mot nu
 **Rättat 2026-09-09.** Här stod att `.confirm-overlay` fanns även i
 `mina_samlingar_detalj.html`, och att "bara `my_links.html` och
 `mina_samlingar_detalj.html` har redan gjort jobbet". Båda är fel:
-`.confirm-overlay` finns bara i `my_links.html`. `mina_samlingar_detalj.html`
+`.confirm-overlay` fanns bara i `my_links.html`. `mina_samlingar_detalj.html`
 lutar sig tvärtom HÅRDAST av alla mot det gamla mönstret med sina sex
 `confirm()` - alltså utpekad som föredöme när den är motsatsen.
 

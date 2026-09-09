@@ -280,9 +280,11 @@
             onclick="var p=this.closest('.user-card').querySelector('.transfer-panel'); p.style.display='block'; this.style.display='none';">
       &#8594; Flytta allt
     </button>
+    {# Ingen papperskorg. En farlig knapp ska vara entydig utan att en font
+       behöver rendera rätt glyf - se docs/design.md avsnitt 1 och 6. #}
     <button class="btn btn-danger btn-sm"
             onclick="var p=this.closest('.user-card').querySelector('.delete-panel'); p.style.display='block'; this.style.display='none';">
-      &#128465; Radera
+      Radera
     </button>
     {% endif %}
   </div>
