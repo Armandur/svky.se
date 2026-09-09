@@ -11,7 +11,11 @@ import re
 import pytest
 from PIL import Image
 
+from pathlib import Path
+
 from app.database import get_db
+
+MALLAR = Path(__file__).resolve().parents[1] / "app" / "templates" / "admin"
 
 MOTTAGARE = "1231234567"
 
@@ -850,3 +854,23 @@ def test_mina_lankar_raknar_swishkoderna(client, inloggad_anvandare):
 
     assert "2 Swish-koder" in text
     assert "0 länkar" not in text
+
+
+# --- mobilbredden på Mina länkar ------------------------------------------
+
+
+def test_kortrubriken_far_bryta_till_flera_rader():
+    """Statuspillret "Avaktiverad av admin" är 141 px och .badge bär
+    white-space: nowrap, så raden sprängde en 390 px-skärm med 31 px.
+
+    Mätt i browser vid 320, 390 och 1280 px efter fixen: ingen overflow,
+    inget element utanför clientWidth. Provet låser reglerna som gör det
+    möjligt - en brytpunkt behövdes inte, vilket docs/design.md avsnitt 9
+    föreskriver att man ska pröva först.
+    """
+    mall = (MALLAR.parent / "my_links.html").read_text(encoding="utf-8")
+    rubrik = mall[mall.index(".link-card-header") : mall.index(".link-meta")]
+
+    assert "flex-wrap: wrap" in rubrik
+    # Utan overflow-wrap kan en tillräckligt lång kortkod spränga ensam.
+    assert "overflow-wrap: anywhere" in rubrik
