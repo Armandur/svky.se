@@ -652,3 +652,22 @@ def test_lasraden_utelamnar_ett_meddelande_som_inte_finns(client):
     text = client.get("/swish?mottagare=1231234567&belopp=150&fritt_belopp=1").text
 
     assert "Låst: meddelandet" not in text
+
+
+# --- generatorn ska gå att hitta -----------------------------------------
+
+
+def test_startsidan_lankar_till_generatorn(client):
+    """Verktyget låg på /swish utan att något pekade dit, alltså osynligt
+    för alla som inte redan visste om det."""
+    text = client.get("/").text
+
+    assert 'href="/swish"' in text
+    assert "Swish-kod att trycka" in text
+
+
+def test_sidfoten_lankar_till_generatorn_overallt(client):
+    """Sidfoten och inte navet: navet wrappar redan till två rader på mobil
+    för en inloggad användare."""
+    for vag in ("/", "/login", "/om", "/nyheter"):
+        assert 'href="/swish"' in client.get(vag).text, vag

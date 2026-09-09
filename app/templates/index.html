@@ -99,6 +99,20 @@
 .nyhetsruta-text p { color: var(--muted); font-size: .88rem; line-height: 1.6; margin: 0 0 8px; }
 .nyhetsruta-text ul { color: var(--muted); font-size: .88rem; margin: 0 0 8px 18px; }
 .nyhetsruta-text > :last-child { margin-bottom: 0; }
+.verktygsruta {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 18px 22px; margin-top: 28px;
+}
+.verktygsruta-text { flex: 1; min-width: 230px; }
+.verktygsruta h2 { font-size: 1rem; color: var(--blue-dark); margin: 0 0 4px; }
+.verktygsruta p { font-size: .85rem; color: var(--muted); margin: 0; line-height: 1.6; }
+.verktygsruta .btn { white-space: nowrap; }
+@media (max-width: 520px) {
+  .verktygsruta .btn { width: 100%; justify-content: center; }
+}
+
 .section-divider {
   display: flex;
   align-items: center;
@@ -175,6 +189,21 @@
     <a href="/login" style="color:var(--blue);">Logga in</a>
     för att hantera dina kortlänkar och samlingar.
   </p>
+</div>
+
+{# Generatorn är ett VERKTYG och inte en kortlänk: den kräver ingen
+   inloggning, sparar ingenting och tar ingen kod. Den låg tidigare bara på
+   /swish utan att något pekade dit, alltså osynlig för alla som inte redan
+   visste om den. #}
+<div class="verktygsruta">
+  <div class="verktygsruta-text">
+    <h2>Swish-kod att trycka</h2>
+    <p>
+      Fyll i mottagare, belopp och meddelande, och ladda ner en QR-kod för
+      anslaget eller kollektlappen. Inget konto behövs och ingenting sparas.
+    </p>
+  </div>
+  <a href="/swish" class="btn btn-secondary">Skapa en Swish-kod &rarr;</a>
 </div>
 
 {% if senaste_nyhet %}
