@@ -7,11 +7,10 @@ brister om något gått fel.
 
 import io
 import re
+from pathlib import Path
 
 import pytest
 from PIL import Image
-
-from pathlib import Path
 
 from app.database import get_db
 
