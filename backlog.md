@@ -223,7 +223,25 @@ Kontrollera samma sak för produktionsstacken - 80 och 443 ska vara publicerade,
 
 ---
 
-## [P3][todo] [svky] Bygg Swish-samlingen: flera betalkoder på en sida med en kortkod
+## [P3][done] [svky] Tabellen på /admin/links är bredare än containern - åtgärdsknapparna kapas
+
+Kolumnen ÅTGÄRDER hamnar utanför containern och knapparna klipps mitt i. Rasmus skärmdump 2026-09-09 visar det vid full desktopbredd, alltså inte bara ett mobilproblem: Detalj och QR syns, resten av knapparna skärs av vid högerkanten.
+
+Tabellen har nio kolumner (Kod, Mål-URL, Ägare, Status, Klick, Senast använd, Skapad, Åtgärder). Flera av dem bär text som inte kortas: ägarens hela e-postadress bryts på två rader, och SKAPAD bryter datum och tid på var sin rad, medan SENAST ANVÄND får plats på en. Måladressen kortas redan med ellips - det gör inte de andra.
+
+Rasmus vill ha en genomgång av listan från ui/ux-håll, inte bara en overflow-fix. Frågan är vad admin faktiskt behöver se i en lista över 34 kortlänkar, och vad som hör hemma på detaljsidan. Kandidater att väga: slå ihop de två datumkolumnerna, korta ägaren till användarnamnet med hela adressen i title, och göra åtgärderna till en meny i stället för fyra knappar per rad.
+
+Klart när: åtgärdsknapparna går att träffa i sin helhet, och tabellen inte spränger sin container.
+
+Verifiera: shot vid 390px OCH 1280px med en admin-session och minst 20 rader i listan, båda gånger med document.documentElement.scrollWidth lika med viewportbredden. Klicka varje åtgärd i en rad och bekräfta att den gör det den heter - en knapp som renderas är inte en knapp som fungerar. Se browser-verify-skillen.
+
+- ID: `01M22ED8XCQZH2K4SKH0D6ME44`
+- Type: bug
+- Actor: ai:claude-code
+
+---
+
+## [P3][doing] [svky] Bygg Swish-samlingen: flera betalkoder på en sida med en kortkod
 
 Den starkaste delen av Rasmus ursprungliga idé, och den enda som inte är byggd.
 
@@ -249,7 +267,7 @@ Verifiera: prov som anropar ROUTEN, avkodning med zxing som resten av QR-proven,
 
 ---
 
-## [P3][doing] [svky] Designspecifikation som avgör komponentval i gränssnittet
+## [P3][done] [svky] Designspecifikation som avgör komponentval i gränssnittet
 
 Genomgång av hela gränssnittet, och en spec som AVGÖR val i stället för att beskriva nuläget.
 
