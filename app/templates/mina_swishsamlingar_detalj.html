@@ -269,9 +269,16 @@
 
   <div class="sw-knappar">
       <button type="submit" form="uppd-{{ post.id }}" class="btn btn-primary btn-sm">Spara</button>
+      {# Samma två format som generatorn erbjuder, och samma ord för dem.
+         Koden bär den här betalningen - samlingens egen kod ligger i
+         QR-rutan högst upp. #}
       <a class="btn btn-secondary btn-sm"
          href="/mina-samlingar/{{ bundle.id }}/swish-poster/{{ post.id }}/qr.svg">
-        &#11015; Egen QR (SVG)
+        &#11015; SVG för tryck
+      </a>
+      <a class="btn btn-secondary btn-sm"
+         href="/mina-samlingar/{{ bundle.id }}/swish-poster/{{ post.id }}/qr.png">
+        &#11015; PNG
       </a>
       <form method="post" action="/mina-samlingar/{{ bundle.id }}/swish-poster/{{ post.id }}/move">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

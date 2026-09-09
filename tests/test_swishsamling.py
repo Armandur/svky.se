@@ -398,6 +398,21 @@ def test_agaren_far_hamta_postens_egen_kod(client, inloggad_anvandare, andelse):
     assert "attachment" in svar.headers["content-disposition"]
 
 
+def test_bada_formaten_erbjuds_per_post(client, inloggad_anvandare):
+    """Samma två val som generatorn ger. Posten hade bara SVG, vilket
+    tvingade den som ville ha en PNG att gissa adressen."""
+    bundle_id = _samling(inloggad_anvandare["id"])
+    item_id = _post(bundle_id, "Diakoni", belopp="100,00")
+
+    text = client.get(f"/mina-samlingar/{bundle_id}").text
+    rad = f"/mina-samlingar/{bundle_id}/swish-poster/{item_id}/qr."
+
+    assert f'href="{rad}svg"' in text
+    assert f'href="{rad}png"' in text
+    # Samma ord som generatorn använder, så de inte glider isär.
+    assert "SVG för tryck" in text
+
+
 def test_lasraden_visas_for_agaren_men_inte_for_besokaren(client, inloggad_anvandare):
     """Ägaren väljer låsen och ska se vad de ger. Besökaren ska betala."""
     bundle_id = _samling(inloggad_anvandare["id"])
