@@ -148,10 +148,39 @@ sqlite3 data/links.db "UPDATE users SET is_admin=1 WHERE email='din@epost.se';"
 
 ## Deployment
 
-**Produktion (Hetzner):**
-```bash
-docker compose pull && docker compose up -d
-```
+Kedjan är push → staging → promotion. Kör INTE `docker compose pull` mot
+produktionen för hand - det hoppar över signaturkontrollen, backupen och
+krockkontrollen nedan. Skripten ligger i `drift/`, arbetskatalogen på
+servern är `~/svk-short`.
+
+**1. Push till `main`** bygger `:latest` och en SHA-tagg.
+
+**2. Staging uppdaterar sig själv** från `:latest` via en systemd-timer
+(`drift/svky-uppdatera-staging.sh`). Servern HÄMTAR - GitHub har ingen
+åtkomst till värden alls, inget deploykonto och ingen inkommande ssh.
+Förtroendeankaret är cosign-signaturen, inte transporten. Staging har
+produktionens säkerhet men fångar all e-post i Mailpit.
+
+**3. Promotion flyttar den version staging KÖR** till produktionen, via
+driftytan eller `drift/svky-promotera.sh --ja`. Fyra kontroller som en
+vanlig deploy saknar:
+- Signaturen verifieras PÅ SERVERN mot vår workflow på `main`
+  (`drift/svky-verifiera.sh`). CI som intygar åt sig självt är ingen grind.
+- Kandidatens `RESERVED_CODES` jämförs mot befintliga kortkoder. Krock
+  stoppar bytet - annars hade en reserverad kod tyst tagit över en länk
+  någon redan delat ut.
+- Färsk backup som måste gå att LÄSA, tagen före bytet.
+- Villkorad rollback till föregående digest om hälsokontrollen faller.
+
+**Adresser (bara över tailnet, ingen publik DNS):**
+| Yta | Adress |
+|-----|--------|
+| Staging | `https://svky-server.ussuri-tawny.ts.net:8443` |
+| Mailpit | `https://svky-server.ussuri-tawny.ts.net:8444` |
+| Driftytan | `https://svky-server.ussuri-tawny.ts.net:8445` |
+
+Portarna är 844x och inte 443: produktionens Caddy binder `443:443` på
+ALLA gränssnitt, tailnet inräknat. Detaljerna står i `docs/staging.md`.
 
 **Lokal dev:**
 ```bash
