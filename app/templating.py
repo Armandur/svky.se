@@ -33,6 +33,20 @@ def sthlm_datetime(value) -> str:
 templates.env.filters["sthlm"] = sthlm_datetime
 
 
+def _swishnummer(varde) -> str:
+    """Jinja2-filter: {{ post.mottagare | swishnummer }} - numret grupperat.
+
+    Regeln bor i app/swish.py och inte här. Filtret är bara vägen in i
+    mallen, för samma gruppering ska gälla varje ställe som visar ett nummer.
+    """
+    from app.swish import formatera_mottagare
+
+    return formatera_mottagare(varde)
+
+
+templates.env.filters["swishnummer"] = _swishnummer
+
+
 def _allowed_domains() -> list[str]:
     """Jinja-global {{ allowed_domains() }} - lista över godkända måldomäner.
 

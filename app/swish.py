@@ -111,6 +111,27 @@ def _kronor(belopp: str | None) -> str:
     return f"{tal:.2f}".replace(".", ",")
 
 
+def formatera_mottagare(varde: str | None) -> str:
+    """Numret grupperat för läsning: 1231234567 blir 123 123 45 67.
+
+    Swish egen gruppering, 3-3-2-2, och samma för mobilnummer: 0701234567
+    blir 070 123 45 67. Ett format och inte två - den som ska knappa in tio
+    siffror behöver dem uppdelade, inte veta vilken sorts nummer det är.
+
+    Bara för VISNING. Det som sparas och kodas är tio siffror utan
+    mellanslag, se _rensa_mottagare().
+
+    Något annat än tio siffror lämnas orört i stället för att grupperas fel.
+    Allt som skrivs via gränssnittet är normaliserat, men en rad som ändrats
+    direkt i databasen ska visas som den står och inte i en gruppering som
+    ljuger om innehållet.
+    """
+    siffror = "".join(t for t in (varde or "") if t.isdigit())
+    if len(siffror) != 10 or siffror != (varde or ""):
+        return varde or ""
+    return f"{siffror[:3]} {siffror[3:6]} {siffror[6:8]} {siffror[8:]}"
+
+
 def _meddelande(text: str | None) -> str:
     return (text or "").strip()[:MAX_MEDDELANDE]
 

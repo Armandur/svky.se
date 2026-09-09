@@ -133,7 +133,7 @@ body[data-lage="skanna"] .swish-medel { flex-direction: column-reverse; }
         {% if post.visa_mottagare %}
         <p class="swish-nummer" data-mottagare>
           Eller knappa in numret:
-          <strong>{{ post.mottagare }}</strong>
+          <strong>{{ post.mottagare | swishnummer }}</strong>
         </p>
         {% endif %}
       </div>

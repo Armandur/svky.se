@@ -17,6 +17,7 @@ from app.database import get_db
 MALLAR = Path(__file__).resolve().parents[1] / "app" / "templates" / "admin"
 
 MOTTAGARE = "1231234567"
+MOTTAGARE_LASBAR = "123 123 45 67"
 
 
 def _zxing(png: bytes) -> str | None:
@@ -910,7 +911,7 @@ def test_numret_visas_bara_for_posten_som_har_valet_pa(client, inloggad_anvandar
 
     rutor = _nummerrutor(text)
     assert len(rutor) == 1, f"exakt en post har valet på, hittade {len(rutor)}"
-    assert MOTTAGARE in rutor[0]
+    assert MOTTAGARE_LASBAR in rutor[0]
 
 
 def test_numret_saknas_helt_nar_ingen_post_har_valet_pa(client, inloggad_anvandare):
@@ -1069,3 +1070,30 @@ def test_agarvyn_erbjuder_bade_kryssrutan_och_knapparna(client, inloggad_anvanda
     assert 'name="visa_mottagare"' in text
     assert f"/mina-samlingar/{bundle_id}/swish-poster/visa-mottagare-alla" in text
     assert "Visa för alla" in text and "Dölj för alla" in text
+
+
+def test_numret_grupperas_for_lasning(client, inloggad_anvandare):
+    """Tio siffror i rad går inte att knappa in utan att tappa räkningen.
+
+    Grupperingen är 3-3-2-2, Swish egen. Det som SPARAS är fortfarande tio
+    siffror utan mellanslag - annars hade koden och applänken burit ett
+    format som Swish-appen inte tar emot.
+    """
+    bundle_id = _samling(inloggad_anvandare["id"])
+    _post(bundle_id, visa_mottagare=1)
+
+    ruta = _nummerrutor(client.get("/domkyrkan").text)[0]
+
+    assert MOTTAGARE_LASBAR in ruta
+    assert MOTTAGARE not in ruta, "det ogrupperade numret ska inte stå kvar"
+    with get_db() as db:
+        sparat = db.execute("SELECT mottagare FROM swish_items").fetchone()["mottagare"]
+    assert sparat == MOTTAGARE
+
+
+def test_mobilnummer_grupperas_likadant(client, inloggad_anvandare):
+    """Ett format, inte två. Numret behöver inte veta vilken sort det är."""
+    bundle_id = _samling(inloggad_anvandare["id"])
+    _post(bundle_id, mottagare="0701234567", visa_mottagare=1)
+
+    assert "070 123 45 67" in _nummerrutor(client.get("/domkyrkan").text)[0]
