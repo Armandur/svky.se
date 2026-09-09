@@ -16,7 +16,13 @@
 .filter-bar .spacer { margin-left: auto; }
 .code-link { font-family: "SF Mono","Fira Code",monospace; font-weight: 700; color: var(--blue-dark); text-decoration: none; }
 .code-link:hover { text-decoration: underline; }
-.owner-cell { font-size: .82rem; color: var(--muted); }
+.owner-cell {
+  font-size: .82rem; color: var(--muted);
+  max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Datum på EN rad, aldrig brutet över två - se docs/design.md avsnitt 10. */
+.tid-cell { font-size: .83rem; color: var(--muted); white-space: nowrap; }
+.tid-skapad { font-style: italic; opacity: .75; }
 td.actions { white-space: nowrap; }
 .count-info { color: var(--muted); font-size: .83rem; text-align: right; margin-bottom: 8px; }
 
@@ -107,8 +113,7 @@ td.actions { white-space: nowrap; }
         <th>Ägare</th>
         <th>Status</th>
         <th style="text-align:right;">Klick</th>
-        <th>Senast använd</th>
-        <th>Skapad</th>
+        <th>Senast händelse</th>
         <th>Åtgärder</th>
       </tr>
     </thead>
@@ -127,13 +132,26 @@ td.actions { white-space: nowrap; }
           {% endif %}
         </td>
         <td class="url-cell" title="{{ link.target_url }}">{{ link.target_url | replace('https://','') | replace('www.','') | truncate(40) }}</td>
-        <td class="owner-cell">{{ link.owner_email or '-' }}</td>
+        {# Namnet före @ räcker för att känna igen någon, hela adressen
+           ligger i title. Aldrig radbrytning för att spara bredd. #}
+        <td class="owner-cell" title="{{ link.owner_email or '' }}">
+          {{ (link.owner_email or '-').split('@')[0] }}
+        </td>
         <td><span class="badge {{ badge_cls }}">{{ badge_txt }}</span></td>
         <td style="text-align:right; {% if link.click_count %}font-weight:600;{% else %}color:var(--muted);{% endif %}">
           {{ link.click_count or '-' }}
         </td>
-        <td style="font-size:.83rem; color:var(--muted);">{{ link.last_used_at | sthlm or '-' }}</td>
-        <td style="font-size:.83rem;">{{ link.created_at | sthlm }}</td>
+        {# Senast använd och Skapad svarade båda på "när hände något med den
+           här länken". En kolumn visar den senaste händelsen, den andra
+           tidpunkten ligger i title. Se docs/design.md avsnitt 10. #}
+        <td class="tid-cell"
+            title="Skapad {{ link.created_at | sthlm }}{% if link.last_used_at %} - senast använd {{ link.last_used_at | sthlm }}{% endif %}">
+          {% if link.last_used_at %}
+            {{ link.last_used_at | sthlm }}
+          {% else %}
+            <span class="tid-skapad">{{ link.created_at | sthlm }}</span>
+          {% endif %}
+        </td>
         <td class="actions">
           <a href="/admin/links/{{ link.id }}" class="btn btn-secondary btn-sm">Detalj</a>
           <button type="button" class="btn btn-secondary btn-sm"
@@ -155,7 +173,7 @@ td.actions { white-space: nowrap; }
       </tr>
       <tr class="qr-adminrad" id="qr-admin-link-{{ link.id }}"
           data-qr-display="table-row" style="display:none;">
-        <td colspan="8">
+        <td colspan="7">
           <div class="qr-ruta">
             <img alt="QR-kod till svky.se/{{ link.code }}"
                  data-src="/admin/links/{{ link.id }}/qr.png" width="180" height="180">
@@ -183,7 +201,7 @@ td.actions { white-space: nowrap; }
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="8" style="text-align:center; color:var(--muted); padding:32px;">Inga kortlänkar hittades.</td></tr>
+      <tr><td colspan="7" style="text-align:center; color:var(--muted); padding:32px;">Inga kortlänkar hittades.</td></tr>
       {% endfor %}
     </tbody>
   </table>

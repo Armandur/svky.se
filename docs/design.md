@@ -102,8 +102,13 @@ lista med tio länkar → tio kort, inte en tabell, eftersom varje länk har fem
 knappar och två dolda paneler (redigera, QR, bekräfta) som bara får plats i
 ett kort. En tabell (`admin/links.html`, `admin/users.html` för siffrorna)
 används när raden är läsdata utan egna dolda paneler och radhöjden ska hållas
-nere - `admin/links.html` har fortfarande knappar per rad, men bara tre
-smala, så tabellen bär dem.
+nere.
+
+Meningen "`admin/links.html` har fortfarande knappar per rad, men bara tre
+smala, så tabellen bär dem" stod här och var fel: de tre knapparna sitter i
+en cell med `white-space: nowrap` och driver 59 px överflöd även på en bred
+skärm. Att en tabell "bär" sina knappar är inte något man antar, det är
+något avsnitt 10 räknar.
 
 Ny regel (litet tillägg, inte i kod idag): **återanvänd `.card` för nya
 listkort i stället för att skriva en ny klass med samma fem deklarationer.**
@@ -263,10 +268,133 @@ brytpunkter som finns löser var sitt konkret uppmätt haveri (sidledes
 scroll), inte en allmän "mobilanpassning" - lägg en ny bara när du kan peka
 på samma sorts trasigt läge.
 
-Verifierat i den här genomgången vid 390px och 1280px: inga sidor fick
-sidledes scroll. `admin/links.html`s tabell smalnar av korrekt (kolumnerna
-Klick/Senast använd/Skapad försvinner ur synligt fönster men går att scrolla
-via `.table-wrap`, `style.css:212`).
+**Rättat 2026-09-09.** Den här sidan påstod att inga sidor fick sidledes
+scroll, och att `admin/links.html`s tabell "smalnar av korrekt" så att
+Klick/Senast använd/Skapad hamnar utanför men går att scrolla. Båda
+påståendena var fel, och felaktiga på ett sätt som visar att kontrollen
+aldrig kördes med riktig data:
+
+- Tabellen smalnar inte av. Den är 1211 px bred i en yta som är 1152 px
+  (`main.wide` 1200 px minus padding) och därmed lika bred vid 1600 px som
+  vid 1280 px. Överflödet går inte att växa ur.
+- Det som hamnar utanför är inte Klick/Senast använd/Skapad utan **Åtgärder**
+  - den enda kolumnen med knappar. Skillnaden är hela poängen: "lite data
+  ligger utanför" mot "knapparna går inte att träffa".
+- "Går att scrolla" var sant om DOM:en och falskt om användaren. Mätt:
+  `.table-wrap` scrollar (`scrollWidth > clientWidth`), men scrollbarens
+  höjd är **0 px** - webbläsarens overlay-scrollbar ritas inte förrän någon
+  redan scrollar. Ingenting på skärmen säger att det finns mer till höger.
+
+Uppmätt 2026-09-09 med 34 länkar och en admin-session, alltså den data
+sidan faktiskt bär:
+
+| Sida | 1280 px | 390 px | Skydd |
+|---|---|---|---|
+| `/admin/links` | +59 px utanför | +869 px utanför | `.table-wrap` |
+| `/admin/bundles` | ryms | +621 px utanför | **inget** - `overflow-x: hidden` på föräldern |
+| `/admin/domaner` | ryms | +376 px utanför | `.table-wrap` |
+
+`/admin/bundles` är värst: innehållet ligger utanför bakom `overflow-x:
+hidden` och går alltså inte att nå alls på en telefon.
+
+Övriga adminsidor (`users`, `takeover-requests`, `transfers`, `stats`,
+`snabblänkar`) renderade ingen tabell med den testdatan och är därför
+**inte mätta** - inte samma sak som mätta och felfria.
+
+## 10. Tabeller: bredd, kolumner och åtgärder
+
+Avsnitt 3 avgör *om* något ska vara en tabell. Det här avgör vad tabellen
+får innehålla när den är det. Reglerna kommer ur mätningen i avsnitt 9, inte
+ur smak.
+
+### Budgeten
+
+Adminsidorna kör `main.wide`, alltså **1200 px minus 48 px padding = 1152 px
+användbar bredd**. Det är ett tak och inte ett riktvärde: en bredare skärm
+ger inte mer plats. Räkna innan du lägger till en kolumn.
+
+**Regel: en tabell får aldrig vara bredare än sin yta på den bredd den är
+byggd för.** Att `.table-wrap` finns är ingen ursäkt - dess scrollbar är en
+overlay som ritas först när någon redan scrollar, alltså osynlig för den som
+inte vet att det finns mer. Ett `overflow-x: auto` är en räddning för
+telefonen, inte en plats att lägga en knapp på.
+
+### Åtgärdskolumnen
+
+**Regel: högst tre åtgärder per rad, och den bredaste tänkbara varianten är
+den som räknas.** `admin/links.html` bär Detalj + QR + en tredje som växlar
+mellan `Avaktivera`, `Återaktivera` och `📋 Se samling` - det är den längsta
+av dem som sätter kolumnbredden för hela tabellen, inte den vanligaste.
+
+Behövs en fjärde åtgärd hör den hemma på detaljsidan. Bygg ingen meny: det
+mönstret finns inte någon annanstans i gränssnittet, och en meny som bara
+existerar på ett ställe blir en egen sak att lära sig.
+
+`td.actions` behåller `white-space: nowrap` - knappar som bryter mitt i ett
+stråk är svårare att träffa än knappar som tvingar fram ett val om vad som
+ska bort.
+
+### Vad som får kortas, och hur
+
+Tre olika beteenden levde parallellt i `admin/links.html`: Mål-URL kortades
+med ellips, Ägare bröt till två rader, och Skapad bröt datum från tid medan
+Senast använd inte gjorde det. Det är inte tre beslut, det är noll beslut.
+
+**Regel, i den ordning man ska pröva dem:**
+
+1. **Slå ihop innan du kortar.** Två kolumner som svarar på samma fråga blir
+   en. Senast använd och Skapad är båda "när hände något med den här
+   länken" - visa den senaste händelsen och lägg den andra i `title`.
+2. **Korta det som har en igenkännbar början.** En e-postadress känns igen
+   på namnet före `@`, en URL på sitt värdnamn. Visa den delen, lägg hela
+   värdet i `title`. Aldrig ellips i mitten.
+3. **Låt aldrig en cell bryta till två rader för att spara bredd.** En rad
+   som är dubbelt så hög kostar mer på en lista med 34 poster än de 40 px
+   den sparar i sidled.
+4. **Datum skrivs `YYYY-MM-DD HH:MM` på en rad, eller inte alls.** Bryts det
+   över två rader är kolumnen för smal och något annat ska bort först.
+
+### Mobil
+
+**Regel: varje tabell ligger i `.table-wrap`.** `admin/bundles.html` gjorde
+inte det och hamnade bakom `overflow-x: hidden` på föräldern - 621 px
+innehåll som inte gick att nå alls på en telefon. En tabell utan wrap är en
+bugg, inte ett val.
+
+**Regel: att det finns mer i sidled ska SYNAS.** Wrapen ensam räcker inte -
+overlay-scrollbaren ritas först när någon redan scrollar, och den som inte
+vet att det finns mer får aldrig veta det. `app/static/tabellsvep.js` sätter
+`data-mer="hoger|vanster|bada"` på wrapen, och `style.css` tonar ut
+innehållet i den kanten med en mask.
+
+Mönstret är hämtat från slöjda.de, tillsammans med dess dyrköpta slutsats:
+**en skugga bakom innehållet fungerar inte.** Celler med egen bakgrund - våra
+`.badge`-pillar i statuskolumnen - målar över skuggan precis där den behövs.
+Masken ligger därför på behållarens box, inte på det som skrollar, så
+toningen står stilla i kanten medan innehållet glider förbi och träffar även
+pillren. Skriptet är rent tillägg: utan det sätts inget attribut, ingen mask
+läggs på, och tabellen fungerar som förut.
+
+Skriptet laddas globalt från `base.html`. Det gör ingenting på en sida utan
+`.table-wrap`, och det är billigare än att komma ihåg det i varje ny mall.
+
+Sidledes svep är alltså svaret på telefonen, inte en nödlösning på väg mot
+något annat. Ett kort per rad (avsnitt 3) hör hit först när raden behöver
+egna dolda paneler - inte för att en tabell är bred.
+
+### Att kontrollera en tabelländring
+
+Widderna ljuger om man mäter dem på tom data. Mät med den mängd rader sidan
+faktiskt bär, som admin, och jämför `table.scrollWidth` mot ytans
+`clientWidth` vid **både 390 px och 1280 px**. Klicka sedan varje åtgärd i
+en rad: ett `<form style="display:inline">` i en cell är precis där en
+omstrukturering slutar posta utan att synas. Öppna också en dold rad
+(QR-raden i `admin/links.html`), för dess `colspan` ska stämma med antalet
+`<th>` och gör det tyst fel annars.
+
+Kontrollera toningen genom att sätta `scrollLeft` till 0, mitten och slutet
+och läsa `data-mer`: `hoger`, `bada`, `vanster`. Ryms tabellen ska attributet
+inte finnas alls.
 
 ## Bilaga: knapp- och komponentreferens
 

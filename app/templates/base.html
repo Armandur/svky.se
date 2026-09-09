@@ -79,6 +79,11 @@
   <a href="/nyheter" style="color:var(--muted); text-decoration:none;">Nyheter</a>
 </footer>
 
+{# Ligger globalt och inte per mall: skriptet gör ingenting när sidan saknar
+   .table-wrap, och det är billigare än att komma ihåg det i varje ny
+   tabellmall. Se docs/design.md avsnitt 10. #}
+<script src="/static/tabellsvep.js" defer></script>
+
 {% block scripts %}{% endblock %}
 </body>
 </html>

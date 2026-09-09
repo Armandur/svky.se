@@ -214,7 +214,34 @@ input.error    { border-color: var(--red); }
 
 /* ── Tables ── */
 
+/* Att tabellen fortsätter i sidled ska SYNAS, inte bara fungera. Webbläsarens
+   overlay-scrollbar ritas först när någon redan scrollar, alltså aldrig för
+   den som inte vet att det finns mer - se docs/design.md avsnitt 10.
+
+   Mönstret är hämtat från slöjda.de (TASK-1039 där), inklusive dess dyrköpta
+   slutsats: en skugga BAKOM innehållet fungerar inte, för celler med egen
+   bakgrund (våra .badge-pillar) målar över den precis där den behövs.
+   Innehållet tonas därför ut med en mask.
+
+   Masken sitter på behållarens box och inte på det som skrollar, så toningen
+   står stilla i kanten medan innehållet glider förbi. Vilket håll det finns
+   mer åt sätts av app/static/tabellsvep.js - utan skript sätts inget attribut,
+   ingen mask läggs på, och tabellen beter sig precis som förut. */
 .table-wrap { overflow-x: auto; margin-top: 16px; }
+.table-wrap[data-mer="hoger"] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2.2rem), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 2.2rem), transparent);
+}
+.table-wrap[data-mer="vanster"] {
+  -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 2.2rem), transparent);
+  mask-image: linear-gradient(to left, #000 calc(100% - 2.2rem), transparent);
+}
+.table-wrap[data-mer="bada"] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 2.2rem,
+                                      #000 calc(100% - 2.2rem), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 2.2rem,
+                              #000 calc(100% - 2.2rem), transparent);
+}
 table { width: 100%; border-collapse: collapse; font-size: .88rem; }
 
 thead th {

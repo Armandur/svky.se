@@ -74,7 +74,12 @@
 </form>
 
 {% if bundles %}
+{# overflow: hidden på den här rutan gömde 621 px av tabellen på mobil, utan
+   någon väg att nå dem. Rundade hörn kräver klippning, så den behålls - men
+   tabellen får sin egen .table-wrap innanför, som varje tabell ska ha.
+   Se docs/design.md avsnitt 10. #}
 <div style="background:var(--white); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden;">
+  <div style="margin-top:0;" class="table-wrap">
   <table class="bundle-table">
     <thead>
       <tr>
@@ -150,6 +155,7 @@
     {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
 {% else %}
 <div style="padding:40px; text-align:center; color:var(--muted);">
