@@ -177,7 +177,9 @@
        man skriver, och ett fel uppe vid formuläret hade lämnat den platsen
        tom - det ser ut som att ingenting hände. #}
     <div class="gen-tom" id="gen-tom" {% if betalning or fel %}hidden{% endif %}>
-      Fyll i Swish-numret till vänster, så visas koden här.
+      {# Inte "till vänster": under 900 px staplas spalterna och formuläret
+         ligger ovanför den här rutan, inte bredvid den. #}
+      Fyll i Swish-numret, så visas koden här.
     </div>
 
     <div class="gen-tom gen-fel" id="gen-fel" {% if not fel %}hidden{% endif %}>

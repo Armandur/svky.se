@@ -241,6 +241,6 @@ def fria_falt(betalning: Swishbetalning) -> tuple[str, ...]:
         fria.append("belopp")
     if betalning.redigerbart_meddelande:
         fria.append("meddelande")
-    # Mottagaren sist och alltid: den följer med, oavsett kryssruta.
+    # Mottagaren sist och alltid: den går att ändra, oavsett kryssruta.
     fria.append("mottagare")
     return tuple(fria)

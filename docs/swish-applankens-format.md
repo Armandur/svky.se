@@ -126,8 +126,8 @@ Vad som följer av det:
 - **Ingenting håller mottagaren låst utom att låsa alla fält.** Det gäller
   den tryckta koden lika mycket som applänken.
 - Den som skapar en kod ska få veta vad den tillåter, för de värden hen
-  fyllt i. En rad som räknar upp kryssrutorna räcker inte: mottagaren
-  följer med utan att någon kryssat i den, och en text som säger något
+  fyllt i. En rad som räknar upp kryssrutorna räcker inte: mottagaren går
+  att ändra utan att någon kryssat i den, och en text som säger något
   annat säger emot verkligheten på just den punkt som betyder mest.
 - Det är en **upplysning, inte en varning**. Betalaren kan bara peka om sin
   egen betalning, ser mottagaren innan hen skriver under med BankID, och

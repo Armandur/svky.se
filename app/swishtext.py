@@ -28,7 +28,7 @@ def lastext(betalning: Swishbetalning) -> str:
     """Vad betalaren kan ändra, i klartext och för de ifyllda värdena.
 
     Ersätter den statiska raden "Det som inte är ikryssat låses i appen".
-    Den stämde inte: mottagaren följer med så fort något annat fält är
+    Den stämde inte: mottagaren går att ändra så fort något annat fält är
     fritt, oavsett vad kryssrutan säger. En rad som räknar upp kryssrutorna
     hade alltså sagt emot verkligheten på just den punkt som betyder mest.
     """
@@ -42,8 +42,10 @@ def lastext(betalning: Swishbetalning) -> str:
     text = "Betalaren kan ändra " + _rada_upp([_FALTNAMN[f] for f in fria]) + "."
     if not betalning.redigerbar_mottagare:
         # Utan den här meningen ser mottagaren ut att vara fri av misstag.
+        # "kan ändras" och inte "följer med": det senare läses som att numret
+        # följer med betalningen, vilket är något helt annat.
         text += (
-            " Mottagarnumret följer med så fort något annat fält är fritt, även utan kryssrutan."
+            " Mottagarnumret kan ändras så fort något annat fält är fritt, även utan kryssrutan."
         )
 
     # Ett tomt meddelande finns inte att låsa, och beloppet är alltid fritt

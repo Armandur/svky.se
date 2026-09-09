@@ -127,8 +127,8 @@ What follows from it:
 - **Nothing keeps the payee locked except locking every field.** That holds
   for the printed code and the app link alike.
 - Whoever creates a code should be told what it allows, for the values they
-  entered. Listing the checkboxes is not enough: the payee goes free without
-  anyone ticking it, and text saying otherwise contradicts reality on the
+  entered. Listing the checkboxes is not enough: the payee becomes editable
+  without anyone ticking it, and text saying otherwise contradicts reality on
   one point that matters.
 - Treat it as **information, not a warning**. The payer can only redirect
   their own payment, sees the payee before signing with BankID, and rarely
