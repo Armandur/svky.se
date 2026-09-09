@@ -36,6 +36,20 @@
   border-left: 3px solid var(--red, #c0392b); background: #fdf3f2;
   padding: 10px 14px; margin-top: 12px; font-size: .83rem; line-height: 1.6; color: #7d2b21;
 }
+.sw-installningar {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 0 20px; margin-bottom: 20px;
+  box-shadow: var(--shadow);
+}
+.sw-installningar[open] { padding-bottom: 18px; }
+.sw-installningar summary {
+  cursor: pointer; padding: 14px 0; font-weight: 700; font-size: .92rem;
+  color: var(--blue-dark);
+}
+.sw-farligt {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  border-top: 1px solid var(--border); margin-top: 16px; padding-top: 14px;
+}
 .sw-fel {
   border-left: 3px solid var(--red); background: var(--red-bg);
   color: var(--red); padding: 9px 13px; margin-top: 12px;
@@ -109,6 +123,73 @@
 {# Ingen felbanner här. Felet hör till det formulär det gäller och står där,
    se .sw-fel längre ner. Utan JavaScript kommer det ändå tillbaka som
    query-parameter, och då visas det vid formuläret av mallen. #}
+
+{# Samlingens egna inställningar. Fanns bara i den vanliga samlingsvyn -
+   efter delningen gick namn och beskrivning inte att ändra alls här, trots
+   att de sätts vid skapandet och syns överst på den publika sidan.
+   Temavalet är medvetet utelämnat: att byta bort swish-temat gömmer alla
+   Swish-koder utan att radera dem, och det behöver ett eget beslut om vad
+   som ska hända med dem. #}
+<details class="sw-installningar">
+  <summary>Inställningar för samlingen</summary>
+  <form method="post" action="/mina-samlingar/{{ bundle.id }}/update">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="theme" value="swish">
+    <div class="sw-falt">
+      <div>
+        <label for="samling-namn">Namn</label>
+        <input id="samling-namn" type="text" name="name" value="{{ bundle.name }}"
+               required maxlength="120">
+      </div>
+      <div>
+        <label for="samling-desc">Beskrivning</label>
+        <input id="samling-desc" type="text" name="description"
+               value="{{ bundle.description or '' }}" maxlength="300"
+               placeholder="Valfri - står under rubriken på sidan">
+      </div>
+    </div>
+    <div class="sw-knappar">
+      <button type="submit" class="btn btn-primary btn-sm">Spara inställningar</button>
+      <a class="btn btn-secondary btn-sm" href="/mina-samlingar/{{ bundle.id }}/stats">
+        &#128202; Statistik
+      </a>
+    </div>
+  </form>
+
+  <div class="sw-farligt">
+    {% if bundle.status == 1 %}
+    {# Panel och inte confirm(), samma standard som Ta bort längre ner.
+       Se docs/design.md avsnitt 8. #}
+    <button type="button" class="btn btn-danger btn-sm" id="avaktivera-knapp"
+            onclick="document.getElementById('avaktivera-panel').style.display='block'; this.style.display='none';">
+      Avaktivera samlingen
+    </button>
+    <span class="sw-hjalp">Sidan slutar svara. Koderna finns kvar och går att slå på igen.</span>
+    <div class="confirm-overlay" id="avaktivera-panel" style="width:100%;">
+      <strong>Avaktivera {{ bundle.name }}?</strong>
+      Sidan slutar svara direkt, och en tryckt kod leder ingenstans tills du
+      slår på den igen. Swish-koderna och deras tryck finns kvar.
+      <div class="btn-row">
+        <form method="post" action="/mina-samlingar/{{ bundle.id }}/deactivate"
+              style="display:inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-danger btn-sm">Ja, avaktivera</button>
+        </form>
+        <button type="button" class="btn btn-secondary btn-sm"
+                onclick="document.getElementById('avaktivera-panel').style.display='none'; document.getElementById('avaktivera-knapp').style.display='';">
+          Avbryt
+        </button>
+      </div>
+    </div>
+    {% else %}
+    <form method="post" action="/mina-samlingar/{{ bundle.id }}/reactivate">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-primary btn-sm">Aktivera samlingen igen</button>
+    </form>
+    <span class="sw-hjalp">Samlingen är avaktiverad. Sidan svarar inte.</span>
+    {% endif %}
+  </div>
+</details>
 
 <p style="font-size:.88rem; color:var(--muted); max-width:60ch; margin-bottom:22px;">
   En kod på lappen, flera Swish-koder på sidan. Byt den som gäller veckans kollekt här när det

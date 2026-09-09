@@ -687,3 +687,70 @@ def test_valideringen_frager_servern_och_sparrar_knappen(client, inloggad_anvand
 
     assert "/swish-data?" in text
     assert "spara.disabled" in text
+
+
+# --- samlingens egna inställningar ----------------------------------------
+
+
+def test_agaren_kan_andra_namn_och_beskrivning(client, inloggad_anvandare):
+    """Beskrivningen syns överst på den publika sidan och sätts vid
+    skapandet. Efter att samlingsvyn delades i två mallar fanns inget sätt
+    att ändra den för en swishsamling - bara för en vanlig.
+    """
+    bundle_id = _samling(inloggad_anvandare["id"])
+    token = _csrf(client, f"/mina-samlingar/{bundle_id}")
+
+    svar = client.post(
+        f"/mina-samlingar/{bundle_id}/update",
+        data={
+            "name": "Ge en gåva",
+            "description": "Välj vad du vill ge till.",
+            "theme": "swish",
+            "csrf_token": token,
+        },
+    )
+
+    assert svar.status_code == 303
+    assert "Välj vad du vill ge till." in client.get("/domkyrkan").text
+
+
+def test_installningarna_behaller_swishtemat(client, inloggad_anvandare):
+    """Formuläret skickar med temat som ett dolt fält. Utan det faller
+    routen tillbaka på 'rich' och alla Swish-koder försvinner ur vyn."""
+    bundle_id = _samling(inloggad_anvandare["id"])
+    _post(bundle_id, "Diakoni", belopp="100,00")
+    token = _csrf(client, f"/mina-samlingar/{bundle_id}")
+
+    client.post(
+        f"/mina-samlingar/{bundle_id}/update",
+        data={"name": "Ge en gåva", "theme": "swish", "csrf_token": token},
+    )
+
+    with get_db() as db:
+        assert (
+            db.execute("SELECT theme FROM bundles WHERE id=?", (bundle_id,)).fetchone()["theme"]
+            == "swish"
+        )
+    assert "Diakoni" in client.get(f"/mina-samlingar/{bundle_id}").text
+
+
+def test_installningspanelen_finns_i_swishvyn(client, inloggad_anvandare):
+    bundle_id = _samling(inloggad_anvandare["id"])
+
+    text = client.get(f"/mina-samlingar/{bundle_id}").text
+
+    assert f'action="/mina-samlingar/{bundle_id}/update"' in text
+    assert f'action="/mina-samlingar/{bundle_id}/deactivate"' in text
+    assert f'href="/mina-samlingar/{bundle_id}/stats"' in text
+    # Temat får inte gå att byta bort härifrån - det skulle gömma alla koder.
+    assert 'name="theme" value="swish"' in text
+    assert 'value="rich"' not in text
+
+
+def test_avaktiverad_samling_erbjuder_att_slas_pa_igen(client, inloggad_anvandare):
+    bundle_id = _samling(inloggad_anvandare["id"], status=3)
+
+    text = client.get(f"/mina-samlingar/{bundle_id}").text
+
+    assert f'action="/mina-samlingar/{bundle_id}/reactivate"' in text
+    assert f'action="/mina-samlingar/{bundle_id}/deactivate"' not in text
