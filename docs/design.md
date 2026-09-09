@@ -292,10 +292,23 @@ sidan faktiskt bär:
 |---|---|---|---|
 | `/admin/links` | +59 px utanför | +869 px utanför | `.table-wrap` |
 | `/admin/bundles` | ryms | +621 px utanför | **inget** - `overflow-x: hidden` på föräldern |
-| `/admin/domaner` | ryms | +376 px utanför | `.table-wrap` |
+| `/admin/domaner` | ryms | +410 px utanför | `.table-wrap` |
 
-`/admin/bundles` är värst: innehållet ligger utanför bakom `overflow-x:
-hidden` och går alltså inte att nå alls på en telefon.
+`/admin/bundles` var värst: innehållet låg utanför bakom `overflow-x: hidden`
+och gick alltså inte att nå alls på en telefon.
+
+Efter att avsnitt 10 tillämpats, samma data och samma bredder:
+
+| Sida | 1280 px | Högsta radhöjd, 1280 px | Högsta radhöjd, 390 px |
+|---|---|---|---|
+| `/admin/links` | ryms (1152/1152) | 44 px (var 62) | - |
+| `/admin/bundles` | ryms | oförändrad | oförändrad |
+| `/admin/domaner` | ryms (852/852) | 62 px (var 103) | 84 px (var 166) |
+
+Sidledes svep står kvar på telefonen, nu med synlig toning. Radhöjden är den
+stora vinsten: en cell som slutar brytas till två rader ger tillbaka mer på
+en lista med 34 poster än de pixlar den kostar i bredd. Att `/admin/domaner`
+blev 34 px bredare på 390 px är den avvägningen, gjord med öppna ögon.
 
 Övriga adminsidor (`users`, `takeover-requests`, `transfers`, `stats`,
 `snabblänkar`) renderade ingen tabell med den testdatan och är därför
@@ -309,8 +322,8 @@ ur smak.
 
 ### Budgeten
 
-Adminsidorna kör `main.wide`, alltså **1200 px minus 48 px padding = 1152 px
-användbar bredd**. Det är ett tak och inte ett riktvärde: en bredare skärm
+Adminsidorna kör `main.wide` (`style.css:46`), alltså **1200 px minus 48 px
+padding (`style.css:41`) = 1152 px användbar bredd**. Det är ett tak och inte ett riktvärde: en bredare skärm
 ger inte mer plats. Räkna innan du lägger till en kolumn.
 
 **Regel: en tabell får aldrig vara bredare än sin yta på den bredd den är

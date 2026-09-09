@@ -51,17 +51,52 @@ def test_colspan_stammer_med_antalet_kolumner():
     assert colspans == {kolumner}, f"links.html har {kolumner} kolumner men colspan {colspans}"
 
 
+def _samtidiga_atgarder(cell: str) -> int:
+    """Hur många knappar en rad visar SAMTIDIGT.
+
+    Knappar inuti ett {% if %}/{% elif %}/{% else %} utesluter varandra och
+    räknas som en. Att bara räkna knappar hade sagt fyra där användaren ser
+    tre - och att dra bort antalet grenar hade släppt igenom en fjärde
+    ovillkorlig knapp, vilket är precis det regeln finns för att stoppa.
+    """
+    utanfor, i_gren, sett_gren = 0, 0, False
+    for bit in re.split(r"({%-?\s*(?:if|elif|else|endif)\b.*?%})", cell, flags=re.S):
+        if re.match(r"{%-?\s*(?:if|elif|else)\b", bit or ""):
+            sett_gren = True
+            continue
+        if re.match(r"{%-?\s*endif\b", bit or ""):
+            sett_gren = False
+            continue
+        n = len(re.findall(r'class="btn btn-\w+ btn-sm"', bit or ""))
+        if sett_gren:
+            i_gren = max(i_gren, n)
+        else:
+            utanfor += n
+    return utanfor + i_gren
+
+
 def test_links_har_hogst_tre_atgarder_per_rad():
     """Regel: högst tre åtgärder per rad, den fjärde hör hemma på
     detaljsidan. Fler knappar spränger kolumnen igen."""
-    text = _text("links.html")
-    cell = text.split('<td class="actions">')[1].split("</td>")[0]
+    cell = _text("links.html").split('<td class="actions">')[1].split("</td>")[0]
 
-    knappar = len(re.findall(r'class="btn btn-\w+ btn-sm"', cell))
-    grenar = cell.count("{% if") + cell.count("{% elif")
+    # Detalj + QR + en tredje som växlar mellan Avaktivera, Återaktivera
+    # och Se samling.
+    assert _samtidiga_atgarder(cell) == 3
 
-    # Detalj + QR + en tredje som växlar mellan tre varianter.
-    assert knappar - grenar <= 3, f"fler än tre samtidiga åtgärder: {knappar - grenar}"
+
+def test_atgardsraknaren_ser_en_fjarde_knapp():
+    """Räknaren ska falla på det den finns för att fånga.
+
+    Utan det här provet vore det omätt om _samtidiga_atgarder ens reagerar -
+    en räknare som alltid svarar tre godkänner också en fjärde knapp.
+    """
+    cell = _text("links.html").split('<td class="actions">')[1].split("</td>")[0]
+    fore = _samtidiga_atgarder(cell)
+
+    extra = cell + '\n<a class="btn btn-secondary btn-sm">Fjärde</a>'
+
+    assert _samtidiga_atgarder(extra) == fore + 1
 
 
 def test_datumkolumnerna_ar_sammanslagna():
@@ -81,6 +116,26 @@ def test_agaren_kortas_men_hela_adressen_finns_kvar():
 
     assert "split('@')[0]" in text
     assert 'title="{{ link.owner_email' in text
+
+
+def test_domaner_slog_ihop_sina_tva_flaggkolumner():
+    """Rubrikerna "Subdomäner" och "Fria URL:er" var bredare än sina egna
+    På/Av-värden - orden kostade mer plats än det de beskrev."""
+    text = _text("domains.html")
+
+    assert "<th>Tillåter</th>" in text
+    assert "<th>Subdomäner</th>" not in text
+    assert "<th>Fria URL:er</th>" not in text
+    # Förkortningen i knappen kräver att innebörden finns i title.
+    assert text.count('title="Subdomäner') == 1
+    assert text.count('title="Fria URL:er') == 1
+
+
+def test_domaner_kortar_noteringen_utan_att_tappa_den():
+    text = _text("domains.html")
+
+    assert 'class="dom-note dom-anteckning"' in text
+    assert "title=\"{{ d.note or '' }}\"" in text
 
 
 def test_svepskriptet_laddas_globalt():
