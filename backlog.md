@@ -251,7 +251,7 @@ Verifiera: prov som anropar routen och kontrollerar att numret INTE står i svar
 
 ---
 
-## [P3][doing] [svky] Utred om Swish-länkarna ska gå via ett domännamn i stället för swish://
+## [P3][done] [svky] Utred om Swish-länkarna ska gå via ett domännamn i stället för swish://
 
 Vi bygger i dag swish://payment?data=<URL-kodad JSON>. En egen URI-scheme har kända svagheter som ett vanligt https-domännamn inte har - frågan är om Swish erbjuder en sådan väg, och om den beter sig bättre.
 
