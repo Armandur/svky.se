@@ -30,9 +30,14 @@ lägger på mindre padding ovanpå någon av de tre.
 - **Farlig** (`.btn-danger`, bakgrund `--red-bg`, text `--red`,
   `style.css:190`) = handlingen tar bort, avaktiverar eller raderar något.
   Används konsekvent: `Avaktivera`, `Radera mitt konto`, `Radera {{ e-post
-  }}`, `Ta bort`. Kontrollerat: `.btn-danger` har **aldrig** en emoji-ikon
-  (se avsnitt 6) - farliga knappar ska vara rena ord, inget som drar blicken
-  åt en annan riktning.
+  }}`, `Ta bort`. **Regel: en farlig knapp bär inga ikoner** (se avsnitt 6) -
+  rena ord, inget som drar blicken åt en annan riktning.
+
+  Sidan påstod här "Kontrollerat: `.btn-danger` har **aldrig** en
+  emoji-ikon". Prövat 2026-09-09: `admin/users.html:283` bär
+  `&#128465; Radera`, alltså en papperskorg. Regeln är rätt, kontrollen var
+  det inte. Undantaget står kvar i koden tills någon rör den knappen - men
+  det är ett undantag, inte ett mönster att följa.
 - **Textlänk** (ingen btn-klass) = navigation som inte är sidans
   primäruppgift och inte radbrytande viktig: `Logga in` i sidfoten av ett
   formulär, `Mina länkar` i brödsmulor, länkar i löptext.
@@ -131,6 +136,14 @@ Mönstret sitter i `style.css:140-168` och upprepas konsekvent:
 - **Etikett** ovanför fältet, `font-weight:600`, aldrig placeholder som enda
   etikett (placeholder används som exempel-text, t.ex.
   `bestall.html`: "fornamn.efternamn@svenskakyrkan.se").
+
+  Prövat 2026-09-09: sex fält bryter mot det. Fyra är sökrutor
+  (`admin/links.html`, `admin/users.html`, `admin/bundles.html`,
+  `admin/snabblänkar.html`) där en ensam placeholder är etablerad konvention
+  och får vara undantag - **skriv en `aria-label` på dem** så den som lyssnar
+  också vet vad fältet är. Två är riktiga inmatningsfält och ska ha etikett:
+  `admin/users.html` (`new_email`) och `mina_samlingar_detalj.html`
+  (`shortcode`).
 - **Hjälptext** (`.hint`) direkt under fältet, innan felet, muted-färg,
   permanent text som förklarar formatet - inte ett fel.
 - **Fel** (`.field-error`, röd) står **under fältet det gäller**, inte
@@ -220,12 +233,14 @@ att det är okej som det är.
 
 Två mönster lever parallellt idag:
 
-1. **Webbläsarens `confirm()`** - `onclick="return confirm('...')"`, 20
-   förekomster: `admin/users.html`, `admin/domains.html`,
-   `admin/snabblänkar.html`, `admin/transfers.html`,
-   `admin/bundle_detail.html`, `delete_account_confirm.html`.
-2. **Inline bekräftelsepanel** (`.confirm-overlay`, `my_links.html:39-42`,
-   även i `mina_samlingar_detalj.html`) - en dold ruta som visas vid klick,
+1. **Webbläsarens `confirm()`** - `onclick="return confirm('...')"`.
+   Uppmätt 2026-09-09: **22 förekomster i 9 mallar** - `admin/bundle_detail.html`
+   (4), `admin/domains.html` (1), `admin/snabblänkar.html` (3),
+   `admin/transfers.html` (2), `admin/users.html` (2),
+   `delete_account_confirm.html` (1), `mina_samlingar_detalj.html` (6),
+   `mina_swishsamlingar_detalj.html` (1), `my_links.html` (2).
+2. **Inline bekräftelsepanel** (`.confirm-overlay`, `my_links.html:39-42`) -
+   en dold ruta som visas vid klick,
    med egen förklarande text och två knappar: farlig "Ja, avaktivera" och
    sekundär "Avbryt".
 
@@ -235,11 +250,22 @@ webbläsardialog går inte att styla, är lika lätt att OK:a bort av vana som
 att läsa, och syns inte i skärmdumpar eller automatiska tester. En inline-
 panel tvingar in bekräftelsetexten i sidans eget flöde och kan förklara
 konsekvensen ("En administratör kan återaktivera den om det behövs") på ett
-sätt en `confirm()`-sträng inte kan formatera. Det här är en ändring mot
-nuläget - `confirm()` är i majoritet (20 mot 2 mallar) - men bara `my_links.
-html` och `mina_samlingar_detalj.html` har redan gjort jobbet, så
-regeln pekar dit nya destruktiva knappar ska följa efter, inte tillbaka mot
-`confirm()`.
+sätt en `confirm()`-sträng inte kan formatera. Det här är en ändring mot nuläget, och en större
+ändring än sidan först påstod.
+
+**Rättat 2026-09-09.** Här stod att `.confirm-overlay` fanns även i
+`mina_samlingar_detalj.html`, och att "bara `my_links.html` och
+`mina_samlingar_detalj.html` har redan gjort jobbet". Båda är fel:
+`.confirm-overlay` finns bara i `my_links.html`. `mina_samlingar_detalj.html`
+lutar sig tvärtom HÅRDAST av alla mot det gamla mönstret med sina sex
+`confirm()` - alltså utpekad som föredöme när den är motsatsen.
+
+Jämförelsen "20 mot 2" blandade dessutom två enheter: 20 var förekomster,
+2 var mallar. Rätt siffra är **22 förekomster i 9 mallar mot 1 mall** med
+panel. `confirm()` är alltså i än större majoritet, och avståndet till
+regeln längre än sidan gav sken av. Regeln står kvar - den pekar dit nya
+destruktiva knappar ska följa efter - men den som citerar den ska veta att
+den beskriver ett mål och inte ett nuläge.
 
 Regel oavsett mönster: bekräftelsetexten ska säga **vad som händer** och,
 om det stämmer, **att det går att ångra** eller **att det inte går**. Jämför
