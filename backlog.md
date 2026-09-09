@@ -570,21 +570,72 @@ utan undantag: GET renderar BARA en bekräftelsesida, POST med CSRF utför
 
 ---
 
-## [P3][todo] [svky] Byt ut marked-förhandsvisningen mot EasyMDE i alla markdown-redigerare
+## [P3][done] [svky] Byt marked-förhandsvisningen mot lokalt hostad EasyMDE i fyra redigerare
 
-Fyra redigerare skriver markdown i dag, alla med samma lösning: en textarea plus live-förhandsvisning via marked. Ingen av dem har EasyMDE.
+## Context
 
-Att byta:
-- admin/notis_edit.html (notisbannern)
-- admin/om_edit.html (delas av Om-sidan, Integritet och Nyheter)
-- admin/snabblänkar.html (introtexten på startsidan)
-- mina_samlingar_detalj.html (samlingens brödtext, användarsida - inte admin)
+Fyra redigerare skriver markdown i dag, alla med samma lösning: en `textarea`
+plus live-förhandsvisning via `marked` från jsDelivr. Ingen har EasyMDE, alltså
+finns ingen verktygsrad, inga kortkommandon och ingen syntaxfärgning - den som
+skriver en om-sida ser rå markdown och en förhandsvisning bredvid.
 
-EasyMDE ska köras UTAN fullskärmsvyn. Toolbaren behöver anpassas per plats: notisbannern är en till tre rader och ska inte få samma verktygsrad som en hel om-sida.
+BESLUT 2026-09-09 (Rasmus): EasyMDE läggs som LOKAL FIL i `app/static/`, inte
+från CDN. Redigerarna ska fungera när jsDelivr är nere. `marked` försvinner i
+och med bytet, för EasyMDE har egen förhandsvisning.
 
-Markdown renderas på fem ställen i appen (render_markdown i public.py och templating.py): om, integritet, nyheter, samlingens brödtext och startsidans introtext. Alla fem har alltså en redigerare - inget ställe saknar redigerare helt.
+## Acceptance criteria
 
-Verifiera: shot vid 390px OCH 1280px per redigerare, och att SPARA fungerar från EasyMDE-instansen (den ersätter textarean med en CodeMirror-yta, och ett formulär som postar tom text är det tysta felet här). Kolla också ljust och mörkt läge - EasyMDE:s toolbar-ikoner ärver textfärg och har försvunnit mot ljus bakgrund i andra projekt.
+- [ ] EasyMDE:s JS och CSS ligger i `app/static/` och laddas därifrån. Ingen
+      redigerare hämtar något från ett CDN.
+- [ ] Alla fyra redigerarna kör EasyMDE. `marked` finns inte kvar i någon mall.
+- [ ] Fullskärmsvyn och sida-vid-sida-fullskärm är AVSTÄNGDA överallt.
+- [ ] Toolbaren är anpassad per plats: notisbannern är en till tre rader och
+      får en kort rad (fet, kursiv, länk, förhandsvisning), medan om-sidan får
+      full uppsättning med rubriker och listor.
+- [ ] SPARA fungerar från varje redigerare, alltså texten når databasen och
+      syns på den publika sidan efteråt.
+- [ ] Toolbarens ikoner syns mot appens vita bakgrund i alla fyra vyerna.
+
+## Implementation hints
+
+De fyra mallarna, med fältnamn och id:n som EasyMDE ska knytas till:
+
+| Mall | Fält | id | Redigerar |
+|---|---|---|---|
+| `admin/notis_edit.html` | `content` | `md-input` | Notisbannern |
+| `admin/om_edit.html` | `content` | `md-input` | Om, Integritet, Nyheter |
+| `admin/snabblänkar.html` | `intro_md` | `snabb-intro-md` | Startsidans introtext |
+| `mina_samlingar_detalj.html` | `body_md` | `bundle-body-md` | Samlingens brödtext |
+
+De två första delar id, alltså går de inte att skilja åt på id ensamt om
+initieringen någon gång flyttar till en delad fil.
+
+`mina_samlingar_detalj.html` är en ANVÄNDARSIDA, inte admin. Den redigeraren
+möter alltså någon som inte kan markdown, vilket är argumentet för hela tasken.
+
+Markdown renderas på fem ställen (`render_markdown` i `public.py` och
+`templating.py`): om, integritet, nyheter, samlingens brödtext och startsidans
+introtext. Alla fem har en redigerare - inget ställe blir utan.
+
+## Verification
+
+- `grep -rn "cdn.jsdelivr" app/templates/` ger INGA träffar för marked eller
+  EasyMDE. Ett tomt svar är kriteriet.
+- `grep -rln "marked" app/templates/` ger inga träffar.
+- `ls app/static/` visar EasyMDE:s js- och css-fil.
+- SPARA per redigerare, som är det tysta felet: EasyMDE ersätter `textarea`
+  med en CodeMirror-yta, och ett formulär som postar tom text ser ut att ha
+  fungerat tills någon läser sidan. Prov som anropar ROUTEN, postar text och
+  läser tillbaka den ur databasen - ett prov som bara kollar 200 eller 303
+  fångar inte detta.
+- `shot` vid 390px OCH 1280px per redigerare, fyra vyer. Toolbarens ikoner ska
+  synas, inte vara vita mot vitt.
+
+OBS om mörkt läge: appen har INGEN `prefers-color-scheme` alls och är enbart
+ljus (kontrollerat 2026-09-09, noll träffar i `app/static/style.css`). Den
+ursprungliga formuleringen bad om kontroll i båda lägena - det finns bara ett.
+Risken står kvar men gäller ljust läge: EasyMDE:s ikoner ärver textfärg och
+har försvunnit mot ljus bakgrund i andra projekt.
 
 - ID: `01M1ZVY10JK2SV21GYE59GW98Z`
 - Type: improvement
