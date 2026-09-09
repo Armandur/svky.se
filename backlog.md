@@ -223,7 +223,35 @@ Kontrollera samma sak för produktionsstacken - 80 och 443 ska vara publicerade,
 
 ---
 
-## [P3][todo] [svky] Utred om Swish-länkarna ska gå via ett domännamn i stället för swish://
+## [P3][todo] [svky] Val per swishpost om mottagarnumret ska visas i klartext på samlingssidan
+
+I dag står mottagarnumret bara i ÄGARENS vy. Den publika sidan visar ändamål, belopp, knapp och QR-kod, men aldrig numret som text.
+
+Rasmus vill kunna välja att skriva ut det - per post, och med ett sätt att sätta alla på en gång.
+
+TOLKNING SOM SKA BEKRÄFTAS: att numret visas som läsbar text på den publika samlingssidan, så den som hellre knappar in det själv i Swish-appen kan göra det utan att skanna eller trycka på knappen. Om det i stället handlar om en utskriftsvy - en lapp att skriva ut på papper med koderna och numren - är det en annan och större sak. Fråga innan bygget börjar.
+
+Varför någon vill ha det: en besökare med en telefon som inte kan skanna, eller som fått sidan uppläst, har i dag ingen väg fram om knappen inte fungerar. Numret i klartext är den vägen.
+
+Varför någon INTE vill ha det: ett Swish-nummer i klartext på en publik sida är lättare att samla in maskinellt än ett inbakat i en QR-kod. För ett församlingsnummer spelar det troligen ingen roll, men valet ska vara ägarens och därför per post.
+
+BERÖRS:
+- swish_items behöver en kolumn, förslagsvis visa_mottagare med default 0. Migration 12 - 10 är ett hål och 11 är swish_items.
+- Kryssruta per post i mina_swishsamlingar_detalj.html, plus en knapp eller kryssruta som sätter alla i samlingen på en gång.
+- app/templates/swish_bundle.html visar numret när flaggan är satt.
+- lastext i app/swishtext.py nämner redan mottagaren för ägaren - texten på den publika sidan är en annan sak och ska inte återanvända den.
+
+Klart när: ägaren kan slå på numret för en post eller för hela samlingen, och det syns på den publika sidan bara för de poster som har det påslaget.
+
+Verifiera: prov som anropar routen och kontrollerar att numret INTE står i svaret när flaggan är av - ett prov som bara kollar att det står där när den är på missar hela poängen. shot vid 390px och 1280px med blandade lägen i samma samling.
+
+- ID: `01M22SSHPYQKYJ61P52K6FY2S0`
+- Type: feature
+- Actor: ai:claude-code
+
+---
+
+## [P3][doing] [svky] Utred om Swish-länkarna ska gå via ett domännamn i stället för swish://
 
 Vi bygger i dag swish://payment?data=<URL-kodad JSON>. En egen URI-scheme har kända svagheter som ett vanligt https-domännamn inte har - frågan är om Swish erbjuder en sådan väg, och om den beter sig bättre.
 
@@ -250,7 +278,7 @@ Klart när: docs/swish-applankens-format.md har ett avsnitt som svarar ja eller 
 
 ---
 
-## [P3][todo] [svky] Swish-samlingens ägarvy saknar QR-väljaren och zip som andra samlingar har
+## [P3][done] [svky] Swish-samlingens ägarvy saknar QR-väljaren och zip som andra samlingar har
 
 Gäller samlingens EGEN kortkod, alltså svky.se/dk-swish - inte betalkoderna i posterna.
 
