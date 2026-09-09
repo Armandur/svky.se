@@ -137,6 +137,49 @@ What follows from it:
   or on the account - which you do regardless of how the code is locked.
 - A fully locked code is safe in both forms.
 
+## Measurement 5: app.swish.nu opens the app, but does not carry the format
+
+The question was whether `swish://` could be replaced by a plain https URL. A
+custom URI scheme does nothing at all when the app is missing - no page, no
+message - and several apps and webviews refuse to open unknown schemes, so a
+link in a mailing can be dead without the sender noticing.
+
+**The domain exists and is genuine.** `app.swish.nu` is registered as a
+Universal Link on iOS and an App Link on Android, for `se.bankgirot.swish` -
+the production app, not a test build. Retrieved 2026-09-09:
+
+| File | Contents |
+| --- | --- |
+| `/.well-known/apple-app-site-association` | `appID: 7PQRK67B3Y.se.bankgirot.swish`, `paths: ["/", "*"]` |
+| `/.well-known/assetlinks.json` | `package_name: se.bankgirot.swish`, `handle_all_urls` |
+
+Without the app, the domain serves a "Download Swish" page linking to the App
+Store and Google Play.
+
+**But it does not carry our format.** Measured on a phone 2026-09-09 across
+four paths - `/payment`, `/`, `/1/p/` and `/paymentrequest`, each with the same
+`?data=<URL-encoded JSON>` that `swish://` uses:
+
+> Swish opened, but empty. No amount, no message, no payee.
+
+So the Universal Link association works - the app launches - but the `?data=`
+payload never reaches it. The domain is no good for a prefilled payment.
+
+**Consequence: `swish://payment?data=` stays.** It is worse at fallback but the
+only form that actually fills the fields.
+
+**Still open as an option:** since `app.swish.nu` shows "Download Swish" only
+when the app is missing, and opens the app when it is present, it works as a
+*supplementary* link for people without Swish - alongside `swish://` for the
+payment itself. Not built, and a separate decision.
+
+**What Swish themselves document:** their "Trigger the Swish app" guide on
+developer.swish.nu describes only
+`swish://paymentrequest?token=<token>&callbackurl=<url>`. That token comes from
+the Commerce API and requires a contract and certificates, so it does not apply
+here. The format on this page still appears nowhere in Swish's own
+documentation - it was derived from the app.
+
 ## The QR code payload is a different format
 
 Don't mix them up. The scannable code carries a semicolon-separated string, not

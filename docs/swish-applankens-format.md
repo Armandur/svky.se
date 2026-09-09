@@ -136,6 +136,49 @@ Vad som följer av det:
   Swish-appen eller på kontot - och det gör man oavsett hur koden är låst.
 - En helt låst kod är säker i båda formerna.
 
+## Mätning 5: app.swish.nu öppnar appen, men bär inte formatet
+
+Frågan var om `swish://` kan bytas mot en vanlig https-adress. En egen
+URI-scheme gör ingenting alls när appen saknas - ingen sida, inget besked -
+och flera appar och webbvyer vägrar öppna okända scheman, så en länk i ett
+utskick kan vara död utan att avsändaren ser det.
+
+**Domänen finns och är riktig.** `app.swish.nu` är registrerad som Universal
+Link på iOS och App Link på Android, för `se.bankgirot.swish` - skarpa Swish,
+inte en testapp. Hämtat 2026-09-09:
+
+| Fil | Innehåll |
+| --- | --- |
+| `/.well-known/apple-app-site-association` | `appID: 7PQRK67B3Y.se.bankgirot.swish`, `paths: ["/", "*"]` |
+| `/.well-known/assetlinks.json` | `package_name: se.bankgirot.swish`, `handle_all_urls` |
+
+Utan appen serverar domänen en "Ladda ner Swish"-sida med länkar till App
+Store och Google Play.
+
+**Men den bär inte vårt format.** Mätt på telefon 2026-09-09 med fyra
+sökvägar - `/payment`, `/`, `/1/p/` och `/paymentrequest`, alla med samma
+`?data=<URL-kodad JSON>` som `swish://` använder:
+
+> Swish öppnades, men tomt. Inget belopp, inget meddelande, ingen mottagare.
+
+Universal Link-kopplingen fungerar alltså - appen startar - men
+`?data=`-nyttolasten når den inte. Domänen duger inte för en förifylld
+betalning.
+
+**Följden: `swish://payment?data=` står kvar.** Den är sämre på fallback men
+den enda form som faktiskt fyller i fälten.
+
+**Kvar som möjlighet:** eftersom `app.swish.nu` visar "Ladda ner Swish" bara
+när appen saknas, och öppnar appen när den finns, duger den som en
+*kompletterande* länk för den som inte har Swish - vid sidan av `swish://`
+för själva betalningen. Det är inte byggt, och är ett eget beslut.
+
+**Vad Swish själva dokumenterar:** deras guide "Trigger the Swish app" på
+developer.swish.nu beskriver bara `swish://paymentrequest?token=<token>&callbackurl=<url>`.
+Det tokenet kommer från Handel-API:t och kräver avtal och certifikat, alltså
+inte vårt fall. Formatet på den här sidan står fortfarande ingenstans hos
+Swish - det är härlett ur appen.
+
 ## QR-kodens nyttolast är ett annat format
 
 Blanda inte ihop dem. Den skannade koden bär en sträng med semikolon, inte

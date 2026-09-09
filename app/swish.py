@@ -151,6 +151,11 @@ def applank(betalning: Swishbetalning) -> str:
     Formatet är inte dokumenterat av Swish utan härlett ur appen, därav den
     egna funktionen: byts det ut rör ändringen bara den här koden.
 
+    Prövat 2026-09-09 att i stället använda https://app.swish.nu, som är en
+    riktig Universal Link för Swish-appen. Appen öppnas, men TOM - nyttolasten
+    når den inte. Se docs/swish-applankens-format.md mätning 5. Schemat står
+    alltså kvar, och nästa person behöver inte pröva om.
+
     VARNING: så fort något fält bär editable går MOTTAGAREN att ändra i
     appen, oavsett vad payee säger. Mätt 2026-09-08, och editable: false på
     payee hjälper inte. En applänk med fria fält låter alltså den som
