@@ -154,3 +154,69 @@ def test_trasig_uppslagning_falller_inte_sidan(client, monkeypatch, caplog):
 
 def test_admin_baren_lankar_till_notisen(client, admin):
     assert 'href="/admin/notis"' in client.get("/admin/links").text
+
+
+# --- förhandsvisningen ----------------------------------------------------
+#
+# Rutan ska visa bannern som den BLIR. Proven mäter därför att servern
+# renderar markdown och sanerar, inte att svaret är 200.
+
+FORHANDS = "/admin/notis/forhandsvisning"
+
+
+def test_forhandsvisningen_renderar_markdown(client, admin):
+    svar = client.get(FORHANDS, params={"content": "Läs **nyheterna**", "niva": "varning"})
+
+    assert svar.status_code == 200
+    data = svar.json()
+    assert data["visas"] is True
+    assert "<strong>nyheterna</strong>" in data["html"]
+    assert data["niva"] == "varning"
+
+
+def test_forhandsvisningen_sanerar_som_den_riktiga_bannern(client, admin):
+    """Samma render_markdown som base.html, alltså samma sanering.
+
+    Det som skulle ändras om felet fanns: skripttaggen står kvar i html och
+    rutan visar något sidan sedan strypt. En förhandsvisning som ljuger är
+    värre än ingen alls.
+    """
+    farligt = "Hej <script>alert(1)</script> och <b onclick='x()'>text</b>"
+
+    html = client.get(FORHANDS, params={"content": farligt}).json()["html"]
+
+    assert "<script>" not in html
+    assert "onclick" not in html
+    assert "Hej" in html
+
+
+def test_tom_text_ger_ingen_banner(client, admin):
+    """Tom ruta betyder att bannern inte visas alls - det är ett svar."""
+    data = client.get(FORHANDS, params={"content": "   "}).json()
+
+    assert data["visas"] is False
+    assert data["html"] == ""
+
+
+def test_okand_niva_blir_info_i_forhandsvisningen(client, admin):
+    """Nivån kommer utifrån. Samma regel som när bannern sparas, se ovan."""
+    assert client.get(FORHANDS, params={"content": "Hej", "niva": "panik"}).json()["niva"] == "info"
+
+
+def test_vanlig_anvandare_nekas_forhandsvisningen(client, inloggad_anvandare):
+    svar = client.get(FORHANDS, params={"content": "Hej"}, follow_redirects=False)
+
+    assert svar.status_code in (302, 303), "en icke-admin ska inte få rendera admintext"
+
+
+def test_utloggad_nekas_forhandsvisningen(client):
+    svar = client.get(FORHANDS, params={"content": "Hej"}, follow_redirects=False)
+
+    assert svar.status_code in (302, 303)
+
+
+def test_redigeraren_bar_forhandsvisningsrutan(client, admin):
+    text = client.get("/admin/notis").text
+
+    assert 'id="notisprov"' in text
+    assert FORHANDS in text

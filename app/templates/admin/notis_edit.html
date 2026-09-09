@@ -21,6 +21,26 @@
   letter-spacing: 0; font-weight: 500; color: var(--text); font-size: .92rem;
 }
 .btn-row { display: flex; gap: 10px; align-items: center; margin-top: 16px; }
+
+/* Förhandsvisningen. Ramen är medvetet enkel och grå: det som ska synas är
+   bannern inuti, och en dekorerad ram hade tävlat med den om blicken. */
+.notisprov { margin-top: 22px; }
+.notisprov > .rubrik {
+  font-size: .78rem; text-transform: uppercase; letter-spacing: .4px;
+  color: var(--muted); font-weight: 600; display: block; margin-bottom: 8px;
+}
+.notisprov .ram {
+  border: 1px dashed var(--border); border-radius: var(--radius);
+  padding: 10px; background: var(--bg);
+}
+/* Bannern inuti provet ritas av samma .notisbanner-regler som riktiga
+   sidor. Bara marginalen nollas - på en riktig sida sitter den mot
+   sidhuvudet, här ligger den i en ruta. */
+.notisprov .notisbanner { margin: 0; }
+.notisprov .tom {
+  color: var(--muted); font-size: .88rem; font-style: italic;
+  padding: 8px 2px; margin: 0;
+}
 {% endblock %}
 
 {% block admin_bar %}
@@ -60,6 +80,17 @@
       {% endfor %}
     </div>
 
+    {# Visar bannern som den blir, INNAN den sparas. Servern renderar
+       markdown, se /admin/notis/forhandsvisning - webbläsaren ritar aldrig
+       markdown själv, för då kan rutan visa något som saneringen sedan
+       stryper. #}
+    <div class="notisprov">
+      <span class="rubrik">Så här kommer den att se ut</span>
+      <div class="ram" id="notisprov" aria-live="polite">
+        <p class="tom">Ingen banner visas. Rutan är tom.</p>
+      </div>
+    </div>
+
     <div class="btn-row">
       <button type="submit" class="btn btn-primary">Spara</button>
       <a href="/" target="_blank" class="btn btn-secondary">Visa startsidan</a>
@@ -71,14 +102,70 @@
 {% block scripts %}
 <script src="/static/easymde.min.js"></script>
 <script>
-new EasyMDE({
-  element: document.getElementById('md-input'),
-  forceSync: true,
-  minHeight: '140px',
-  spellChecker: false,
-  shortcuts: { toggleFullScreen: null, toggleSideBySide: null },
-  status: false,
-  toolbar: ['bold', 'italic', 'link', '|', 'preview']
-});
+(function () {
+  var redigerare = new EasyMDE({
+    element: document.getElementById('md-input'),
+    forceSync: true,
+    minHeight: '140px',
+    spellChecker: false,
+    shortcuts: { toggleFullScreen: null, toggleSideBySide: null },
+    status: false,
+    toolbar: ['bold', 'italic', 'link', '|', 'preview']
+  });
+
+  var ruta = document.getElementById('notisprov');
+  if (!ruta || !window.fetch) return;
+
+  var timer = null;
+  var senaste = 0;
+
+  function niva() {
+    var vald = document.querySelector('input[name="niva"]:checked');
+    return vald ? vald.value : 'info';
+  }
+
+  function rita() {
+    // Numrerade svar. Skriver man snabbt är två frågor i luften samtidigt,
+    // och utan räknaren kan det långsammare svaret landa sist och visa en
+    // äldre text än den som står i rutan.
+    var mitt = ++senaste;
+    var fraga = new URLSearchParams({ content: redigerare.value(), niva: niva() });
+
+    fetch('/admin/notis/forhandsvisning?' + fraga.toString(), {
+      headers: { 'Accept': 'application/json' }
+    })
+      .then(function (svar) { return svar.ok ? svar.json() : null; })
+      .then(function (data) {
+        if (!data || mitt !== senaste) return;
+        if (!data.visas) {
+          ruta.innerHTML = '<p class="tom">Ingen banner visas. Rutan är tom.</p>';
+          return;
+        }
+        // Servern har redan sanerat med nh3, alltså samma HTML som sidan
+        // får. Klassen byggs av ett värde servern validerat mot NOTISNIVAER.
+        var banner = document.createElement('div');
+        banner.className = 'notisbanner notisbanner-' + data.niva;
+        banner.setAttribute('role', 'status');
+        banner.innerHTML = data.html;
+        ruta.replaceChildren(banner);
+      })
+      .catch(function () {
+        // Nätet svarade inte. Lämna det som står kvar - en tömd ruta hade
+        // sett ut som att texten inte ger någon banner, vilket är ett svar
+        // och inte ett uteblivet svar.
+      });
+  }
+
+  redigerare.codemirror.on('change', function () {
+    clearTimeout(timer);
+    timer = setTimeout(rita, 300);
+  });
+
+  document.querySelectorAll('input[name="niva"]').forEach(function (knapp) {
+    knapp.addEventListener('change', rita);
+  });
+
+  rita();
+})();
 </script>
 {% endblock %}

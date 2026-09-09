@@ -6,11 +6,12 @@ vilken nyckel som läses och vart den publika länken pekar.
 """
 
 from fastapi import APIRouter, Form, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.csrf import get_csrf_secret, validate_csrf_token
 from app.database import get_db
 from app.deps import get_admin_or_redirect
+from app.markdown_safe import render_markdown
 from app.templating import NOTISNIVAER, templates
 
 from .helpers import pending_takeover_count
@@ -134,6 +135,38 @@ async def admin_edit_notis(request: Request):
             "saved": request.query_params.get("saved") == "1",
         },
     )
+
+
+@router.get("/notis/forhandsvisning")
+async def admin_notis_forhandsvisning(request: Request):
+    """Bannern som den kommer att se ut, renderad AV SERVERN medan man skriver.
+
+    Samma render_markdown som base.html sedan använder, alltså samma
+    sanering. EasyMDE har en egen förhandsvisning inbyggd, men den ritar
+    markdown med sin egen parser och kan därför visa en tagg som nh3 sedan
+    stryper - och en banner som ser rätt ut i rutan men fel på sidan är
+    värre än ingen förhandsvisning alls. Samma skäl som /swish-data: den
+    som äger formatet ska räkna fram det.
+
+    GET utan CSRF. Rutten ändrar ingenting och läser inte ens databasen -
+    den tar texten ur frågesträngen och lämnar tillbaka den renderad.
+    Adminspärren står kvar ändå, för resten av /admin gör det.
+
+    `visas` säger om en banner alls skulle ritas. Tom text betyder ingen
+    banner, och det är ett svar förhandsvisningen ska ge - inte en tom ruta
+    som ser ut som att något gick sönder.
+    """
+    get_admin_or_redirect(request)
+
+    text = (request.query_params.get("content") or "").strip()
+    niva = request.query_params.get("niva") or "info"
+    if niva not in NOTISNIVAER:
+        niva = "info"
+
+    if not text:
+        return JSONResponse({"visas": False, "html": "", "niva": niva})
+
+    return JSONResponse({"visas": True, "html": str(render_markdown(text)), "niva": niva})
 
 
 @router.post("/notis")
