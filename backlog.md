@@ -481,7 +481,7 @@ Verifiera: shot vid 390px OCH 1280px per redigerare, och att SPARA fungerar frå
 
 ---
 
-## [P3][todo] [svky] Driftytan ska visa när driftkoden ligger efter, och kunna hämta den
+## [P3][done] [svky] Driftytan ska visa när driftkoden ligger efter, och kunna hämta den
 
 ## Context
 
@@ -742,7 +742,7 @@ BLOCKERAR: TASK-1086, uppetidssonden på den servern.
 
 ---
 
-## [P3][todo] [svky] Staging och produktion som på slöjda.de, i stället för manuell git pull
+## [P3][done] [svky] Staging och produktion som på slöjda.de, i stället för manuell git pull
 
 Rasmus 2026-08-08. I dag driftsätts svky.se för hand: git pull och docker compose up -d direkt på servern. Det fungerar, men det finns ingen miljö att prova en ändring i innan den möter användarna, och ingen grind mellan att något byggts och att det körs skarpt.
 
@@ -796,7 +796,7 @@ Kör `crontab -l` (och `systemctl list-timers`) på Hetzner-burken och avgör.
 
 ---
 
-## [P4][todo] [svky] Testlistan svky-1673 har föråldrade punkter efter att Swish-länktypen revs
+## [P4][done] [svky] Testlistan svky-1673 har föråldrade punkter efter att Swish-länktypen revs
 
 Sessionen http://ubuntu-ai:8890/test/svky-1673 skapades innan Swish byggdes om. Punkt 3 till 12 prövar en funktion som inte finns längre: kortlänkar med typ swish, landningssidan /kollekt och /gava, och Swish-fliken i beställningsformuläret. Allt det revs 2026-09-08 i commit f75d851.
 
