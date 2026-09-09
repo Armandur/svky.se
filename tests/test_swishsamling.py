@@ -809,7 +809,8 @@ def test_vanlig_samling_visar_fortfarande_sina_lankar(client, admin):
     with get_db() as db:
         db.execute(
             "INSERT INTO bundles (code, name, owner_id, status, theme) "
-            "VALUES ('vanlig','Vanlig','%d',1,'rich')" % admin["id"]
+            "VALUES ('vanlig','Vanlig',?,1,'rich')",
+            (admin["id"],),
         )
         bid = db.execute("SELECT last_insert_rowid()").fetchone()[0]
         db.execute(

@@ -7,11 +7,11 @@ from fastapi.responses import RedirectResponse
 
 from app.csrf import get_csrf_secret, validate_csrf_token
 from app.database import get_db
-from app.swish import Swishfel, betalning_ur_rad
-from app.swishtext import lastext
 from app.deps import get_admin_or_redirect
 from app.ownership import move_twin_rows
 from app.routes.user.links import _qr_paket, _qr_svar
+from app.swish import Swishfel, betalning_ur_rad
+from app.swishtext import lastext
 from app.templating import templates
 from app.validation import MAX_NAME_LENGTH, MAX_TEXT_LENGTH, validate_length, validate_target_url
 
