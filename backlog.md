@@ -223,6 +223,34 @@ Kontrollera samma sak för produktionsstacken - 80 och 443 ska vara publicerade,
 
 ---
 
+## [P3][todo] [svky] Swish-samlingens ägarvy saknar QR-väljaren och zip som andra samlingar har
+
+Gäller samlingens EGEN kortkod, alltså svky.se/dk-swish - inte betalkoderna i posterna.
+
+En vanlig samling har en QR-ruta som fälls ut med en trelägesväxel (ingen sköld, svart sköld, färgsköld) som byter bild utan omladdning, plus tre nedladdningar: SVG för tryck, PNG och Alla varianter (zip). Swish-samlingens ägarvy har bara en naken länk till qr.svg.
+
+Det är ett fel jag införde 2026-09-08 när samlingsvyn delades i två mallar. Ingenting i backend saknas.
+
+KONTROLLERAT 2026-09-09 mot en körande Swish-samling:
+- GET /mina-samlingar/1/qr.zip -> 200
+- GET /mina-samlingar/1/qr.png?symbol=skold-farg -> 200
+
+Routerna min_samling_qr och min_samling_qr_paket i app/routes/user/bundles.py gäller alla bundles oavsett tema och behöver inte röras.
+
+Det som ska göras: kopiera QR-rutan ur app/templates/mina_samlingar_detalj.html (raderna kring 257-280, klassen .qr-ruta med data-qr-open, data-qr-val och data-qr-lank) in i mina_swishsamlingar_detalj.html, och byt den nakna qr.svg-länken mot knappen som fäller ut den. Stilen .qr-ruta ligger redan i den vanliga mallens extra_style och följer inte med automatiskt.
+
+app/static/qr.js sköter växeln och länkarna - kontrollera att den laddas för den här mallen också.
+
+Klart när: ägaren till en Swish-samling kan välja symbol och ladda ner PNG, SVG eller zip för samlingens kortkod, precis som för en vanlig samling.
+
+Verifiera: klicka växeln och bekräfta att bilden byter utan omladdning OCH att nedladdningslänkarna bär valet - att bilden byter är inte samma sak som att länken gör det. Ladda ner zip och räkna filerna, sex stycken. shot vid 390px och 1280px.
+
+- ID: `01M22RF639603XJ099E71RAMJG`
+- Type: feature
+- Actor: ai:claude-code
+
+---
+
 ## [P3][done] [svky] Tabellen på /admin/links är bredare än containern - åtgärdsknapparna kapas
 
 Kolumnen ÅTGÄRDER hamnar utanför containern och knapparna klipps mitt i. Rasmus skärmdump 2026-09-09 visar det vid full desktopbredd, alltså inte bara ett mobilproblem: Detalj och QR syns, resten av knapparna skärs av vid högerkanten.
