@@ -223,7 +223,7 @@ Kontrollera samma sak för produktionsstacken - 80 och 443 ska vara publicerade,
 
 ---
 
-## [P3][todo] [svky] Admins detaljvy visar en Swish-samling som tom - den hämtar bara bundle_items
+## [P3][done] [svky] Admins detaljvy visar en Swish-samling som tom - den hämtar bara bundle_items
 
 GET /admin/bundles/<id> för en Swish-samling säger '0 länkar - redigeras av ägaren', även när samlingen har flera Swish-koder. Kontrollerat 2026-09-09 mot en samling med tre koder.
 
@@ -904,6 +904,26 @@ Kör `crontab -l` (och `systemctl list-timers`) på Hetzner-burken och avgör.
 - ID: `01KYWKZPQVRE56CQWC0Y8T251R`
 - Type: chore
 - Actor: ai:claude-opus-5
+
+---
+
+## [P4][todo] [svky] Mina länkar spränger mobilbredden med 31 px - badge-pillren sticker ut
+
+Mätt 2026-09-09 vid 390 px: document.documentElement.scrollWidth är 421. De element som sticker ut är .badge-pillren, ut till x=421.
+
+Mätt både före och efter en ändring i samma fil samma dag, med samma värde - alltså en befintlig bugg, inte en följd av den ändringen.
+
+Samma klass som TASK-1707, som gäller beställningssidan med 5 px. Den här är sex gånger värre.
+
+Testdatan hade långa kortkoder (allhelgona-replay-1). Kontrollera om det är kodlängden som driver bredden eller om pillret spränger även med korta koder - svaret avgör om fixen är på pillret eller på raden det sitter i.
+
+Klart när: scrollWidth är lika med viewportbredden vid 390 px med en lista som bär både långa och korta koder.
+
+Verifiera: shot vid 390px OCH 1280px. Mät scrollWidth, och lista de element vars getBoundingClientRect().right överstiger clientWidth - en siffra utan att veta VAD som sticker ut leder till gissningar.
+
+- ID: `01M236XJ5MMBD24Z3RGF5H1PFS`
+- Type: bug
+- Actor: ai:claude-code
 
 ---
 
