@@ -907,7 +907,7 @@ Kör `crontab -l` (och `systemctl list-timers`) på Hetzner-burken och avgör.
 
 ---
 
-## [P4][todo] [svky] Mina länkar spränger mobilbredden med 31 px - badge-pillren sticker ut
+## [P4][done] [svky] Mina länkar spränger mobilbredden med 31 px - badge-pillren sticker ut
 
 Mätt 2026-09-09 vid 390 px: document.documentElement.scrollWidth är 421. De element som sticker ut är .badge-pillren, ut till x=421.
 
