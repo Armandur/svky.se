@@ -29,6 +29,26 @@
 .sw-fria { display: flex; gap: 16px; flex-wrap: wrap; margin: 12px 0 4px; font-size: .84rem; }
 .sw-fria label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 
+/* Visningsvalet står avskilt från de tre låsrutorna: en tunn skiljelinje
+   till vänster, för det är en annan sorts val. */
+.sw-fria label.sw-visa {
+  border-left: 1px solid var(--border, #dde3ed); padding-left: 16px;
+}
+@media (max-width: 520px) {
+  .sw-fria label.sw-visa { border-left: none; padding-left: 0; }
+}
+
+.sw-alla {
+  display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+  font-size: .84rem; color: var(--muted, #5a6b85); margin-bottom: 16px;
+}
+.sw-alla form { display: inline; }
+.sw-alla button {
+  background: none; border: 1px solid var(--border, #dde3ed); border-radius: 6px;
+  padding: 5px 12px; font-size: .82rem; color: inherit; cursor: pointer;
+}
+.sw-alla button:hover { border-color: #2355a0; color: #2355a0; }
+
 .sw-knappar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; align-items: center; }
 .sw-knappar form { display: inline; }
 
@@ -196,6 +216,24 @@
   ändras - den tryckta lappen behöver inte bytas.
 </p>
 
+{% if poster %}
+{# Sätter numret för alla poster på en gång. Två knappar och inte en växel:
+   posterna kan stå i olika lägen, och då finns inget läge att växla FRÅN. #}
+<div class="sw-alla">
+  <span>Läsbart Swish-nummer på den publika sidan:</span>
+  <form method="post" action="/mina-samlingar/{{ bundle.id }}/swish-poster/visa-mottagare-alla">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="varde" value="1">
+    <button type="submit">Visa för alla</button>
+  </form>
+  <form method="post" action="/mina-samlingar/{{ bundle.id }}/swish-poster/visa-mottagare-alla">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="varde" value="0">
+    <button type="submit">Dölj för alla</button>
+  </form>
+</div>
+{% endif %}
+
 {% for post in poster %}
 <div class="sw-post">
   <div class="sw-post-topp">
@@ -249,6 +287,13 @@
       <label>
         <input type="checkbox" name="fritt_meddelande" value="1"
                {% if post.fritt_meddelande %}checked{% endif %}> Fritt meddelande
+      </label>
+      {# Visning, inte låsning. Ligger sist och avskilt för att den inte hör
+         till låsmasken - de tre ovan styr vad betalaren får ändra i appen,
+         den här styr bara om numret står läsbart på den publika sidan. #}
+      <label class="sw-visa">
+        <input type="checkbox" name="visa_mottagare" value="1"
+               {% if post.visa_mottagare %}checked{% endif %}> Visa numret i klartext
       </label>
     </div>
 
@@ -363,6 +408,7 @@
       <label><input type="checkbox" name="fri_mottagare" value="1"> Fritt Swish-nummer</label>
       <label><input type="checkbox" name="fritt_belopp" value="1" id="nytt-fritt-belopp"> Fritt belopp</label>
       <label><input type="checkbox" name="fritt_meddelande" value="1"> Fritt meddelande</label>
+      <label class="sw-visa"><input type="checkbox" name="visa_mottagare" value="1"> Visa numret i klartext</label>
     </div>
     <p class="sw-upplysning" data-las hidden></p>
     {# Ett fel utan utpekad post kommer från det här formuläret. Gäller bara

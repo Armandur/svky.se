@@ -183,6 +183,7 @@ async def lagg_till_post(
     fri_mottagare: str = Form(""),
     fritt_belopp: str = Form(""),
     fritt_meddelande: str = Form(""),
+    visa_mottagare: str = Form(""),
     csrf_token: str = Form(...),
 ):
     if not validate_csrf_token(csrf_token, get_csrf_secret(request)):
@@ -217,8 +218,8 @@ async def lagg_till_post(
         db.execute(
             """INSERT INTO swish_items
                (bundle_id, title, description, mottagare, belopp, meddelande,
-                fri_mottagare, fritt_belopp, fritt_meddelande, sort_order)
-               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                fri_mottagare, fritt_belopp, fritt_meddelande, visa_mottagare, sort_order)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 bundle_id,
                 title,
@@ -229,6 +230,7 @@ async def lagg_till_post(
                 int(betalning.redigerbar_mottagare),
                 int(betalning.redigerbart_belopp),
                 int(betalning.redigerbart_meddelande),
+                int(visa_mottagare == "1"),
                 nasta,
             ),
         )
@@ -250,6 +252,7 @@ async def uppdatera_post(
     fri_mottagare: str = Form(""),
     fritt_belopp: str = Form(""),
     fritt_meddelande: str = Form(""),
+    visa_mottagare: str = Form(""),
     csrf_token: str = Form(...),
 ):
     if not validate_csrf_token(csrf_token, get_csrf_secret(request)):
@@ -279,7 +282,8 @@ async def uppdatera_post(
         _egen_samling(db, bundle_id, user["id"])
         andrade = db.execute(
             """UPDATE swish_items SET title=?, description=?, mottagare=?, belopp=?,
-                      meddelande=?, fri_mottagare=?, fritt_belopp=?, fritt_meddelande=?
+                      meddelande=?, fri_mottagare=?, fritt_belopp=?, fritt_meddelande=?,
+                      visa_mottagare=?
                 WHERE id=? AND bundle_id=?""",
             (
                 title,
@@ -290,12 +294,42 @@ async def uppdatera_post(
                 int(betalning.redigerbar_mottagare),
                 int(betalning.redigerbart_belopp),
                 int(betalning.redigerbart_meddelande),
+                int(visa_mottagare == "1"),
                 item_id,
                 bundle_id,
             ),
         ).rowcount
         if not andrade:
             raise HTTPException(status_code=404)
+        db.execute("UPDATE bundles SET updated_at=CURRENT_TIMESTAMP WHERE id=?", (bundle_id,))
+
+    return _tillbaka(bundle_id)
+
+
+@router.post("/mina-samlingar/{bundle_id}/swish-poster/visa-mottagare-alla")
+async def visa_mottagare_alla(
+    request: Request,
+    bundle_id: int,
+    varde: str = Form(...),
+    csrf_token: str = Form(...),
+):
+    """Slå på eller av det läsbara numret för HELA samlingen på en gång.
+
+    Sparar ingen egen samlingsflagga. Nästa post som läggs till är alltså
+    av, oavsett vad knappen senast satte - en samlingsflagga hade behövt
+    veta vad den betyder när en enskild post avviker, och det valet är
+    postens.
+    """
+    if not validate_csrf_token(csrf_token, get_csrf_secret(request)):
+        raise HTTPException(status_code=403)
+    user = get_user_or_redirect(request)
+
+    with get_db() as db:
+        _egen_samling(db, bundle_id, user["id"])
+        db.execute(
+            "UPDATE swish_items SET visa_mottagare=? WHERE bundle_id=?",
+            (int(varde == "1"), bundle_id),
+        )
         db.execute("UPDATE bundles SET updated_at=CURRENT_TIMESTAMP WHERE id=?", (bundle_id,))
 
     return _tillbaka(bundle_id)

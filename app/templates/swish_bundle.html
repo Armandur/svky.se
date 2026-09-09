@@ -63,6 +63,18 @@
 .swish-kod img { display: block; margin: 0 auto; width: 190px; height: auto; }
 .swish-kod .kod-text { font-size: .78rem; color: var(--muted, #5a6b85); margin-top: 6px; }
 
+/* Numret för den som hellre knappar in det själv. Stor och glesad text:
+   den ska gå att läsa av en skärm och skriva in i en annan app utan att
+   tappa bort sig mellan siffrorna. */
+.swish-nummer {
+  text-align: center; font-size: .84rem; color: var(--muted, #5a6b85);
+  margin-top: 4px;
+}
+.swish-nummer strong {
+  display: block; font-size: 1.15rem; letter-spacing: .06em;
+  color: #193d7a; font-weight: 700; margin-top: 2px;
+}
+
 /* Skannläge: koden är huvudsaken, knappen krymper till en rad under. */
 body[data-lage="skanna"] .swish-medel { flex-direction: column; }
 body[data-lage="skanna"] .swish-kod img { width: 260px; }
@@ -115,6 +127,15 @@ body[data-lage="skanna"] .swish-medel { flex-direction: column-reverse; }
         <img src="/swish-post/{{ post.id }}/qr.png"
              alt="Swish-kod för {{ post.title }}" loading="lazy">
         <div class="kod-text">Skanna med Swish eller kameran</div>
+        {# Ägarens val per post. Av som förval, och avstängt läge DÖLJER
+           ingenting: applänken i knappen ovan bär numret i klartext ändå.
+           Rutan finns för den som inte kan skanna eller trycka. #}
+        {% if post.visa_mottagare %}
+        <p class="swish-nummer" data-mottagare>
+          Eller knappa in numret:
+          <strong>{{ post.mottagare }}</strong>
+        </p>
+        {% endif %}
       </div>
     </div>
   </div>

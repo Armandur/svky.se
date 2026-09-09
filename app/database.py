@@ -521,6 +521,20 @@ def _mig_011_swish_items(conn: sqlite3.Connection) -> None:
     """)
 
 
+def _mig_012_visa_mottagare(conn: sqlite3.Connection) -> None:
+    """Val per swishpost om numret ska stå som läsbar text på samlingssidan.
+
+    Av som förval. Den som inte kan skanna, eller som fått sidan uppläst,
+    kan då knappa in numret själv i Swish-appen. Valet är ägarens och sitter
+    per post, för en samling kan blanda ett församlingsnummer med ett som
+    hör till en enskild insamling.
+
+    Döljer INGENTING när flaggan är av: applänken i href bär numret i
+    klartext ändå, se applank(). Kolumnen styr läsbarhet för människan.
+    """
+    _alter(conn, "ALTER TABLE swish_items ADD COLUMN visa_mottagare INTEGER NOT NULL DEFAULT 0")
+
+
 # Nya migrationer läggs ALLTID SIST - aldrig infogas mellan existerande.
 MIGRATIONS: list[tuple[int, object]] = [
     (1, _mig_001_baseline),
@@ -534,6 +548,7 @@ MIGRATIONS: list[tuple[int, object]] = [
     (9, _mig_009_domain_permission_requests),
     (10, _mig_010_borttagen),
     (11, _mig_011_swish_items),
+    (12, _mig_012_visa_mottagare),
 ]
 
 

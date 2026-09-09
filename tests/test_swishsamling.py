@@ -57,6 +57,7 @@ def _post(bundle_id: int, title: str = "Diakoni", belopp: str | None = "100,00",
         "fri_mottagare": 0,
         "fritt_belopp": 0 if belopp else 1,
         "fritt_meddelande": 0,
+        "visa_mottagare": 0,
         "sort_order": 1,
     }
     falt.update(kw)
@@ -64,8 +65,9 @@ def _post(bundle_id: int, title: str = "Diakoni", belopp: str | None = "100,00",
         db.execute(
             """INSERT INTO swish_items
                (bundle_id, title, mottagare, belopp, meddelande,
-                fri_mottagare, fritt_belopp, fritt_meddelande, sort_order)
-               VALUES (?,?,?,?,?,?,?,?,?)""",
+                fri_mottagare, fritt_belopp, fritt_meddelande, visa_mottagare,
+                sort_order)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
             (
                 bundle_id,
                 title,
@@ -75,6 +77,7 @@ def _post(bundle_id: int, title: str = "Diakoni", belopp: str | None = "100,00",
                 falt["fri_mottagare"],
                 falt["fritt_belopp"],
                 falt["fritt_meddelande"],
+                falt["visa_mottagare"],
                 falt["sort_order"],
             ),
         )
@@ -873,3 +876,196 @@ def test_kortrubriken_far_bryta_till_flera_rader():
     assert "flex-wrap: wrap" in rubrik
     # Utan overflow-wrap kan en tillräckligt lång kortkod spränga ensam.
     assert "overflow-wrap: anywhere" in rubrik
+
+
+# --- läsbart Swish-nummer på den publika sidan ----------------------------
+#
+# Provet frågar ELEMENTET, aldrig siffersträngen. Numret står i klartext i
+# applänkens href oavsett flagga - applank() URL-kodar nyttolasten, och
+# siffror är unreserved, så `MOTTAGARE not in svar.text` faller ALLTID.
+# Uppmätt 2026-09-09: href:en innehåller %221231234567%22.
+
+NUMMERRUTA = re.compile(r'<p class="swish-nummer" data-mottagare>(.*?)</p>', re.S)
+
+
+def _nummerrutor(text: str) -> list[str]:
+    return NUMMERRUTA.findall(text)
+
+
+def test_numret_visas_bara_for_posten_som_har_valet_pa(client, inloggad_anvandare):
+    """Blandade lägen i samma samling, ett svar.
+
+    Det som skulle ändras om felet fanns: antalet nummerrutor blir två i
+    stället för en, eller noll. Applänken kollas för BÅDA posterna, för den
+    bär numret i klartext ändå - hittar provet numret där mäter det fel sak.
+    """
+    bundle_id = _samling(inloggad_anvandare["id"])
+    _post(bundle_id, "Diakoni", visa_mottagare=1)
+    _post(bundle_id, "Musikverksamheten", visa_mottagare=0, sort_order=2)
+
+    text = client.get("/domkyrkan").text
+
+    assert "Diakoni" in text and "Musikverksamheten" in text
+    assert text.count("swish://payment?data=") == 2, "båda posterna ska ha sin applänk"
+
+    rutor = _nummerrutor(text)
+    assert len(rutor) == 1, f"exakt en post har valet på, hittade {len(rutor)}"
+    assert MOTTAGARE in rutor[0]
+
+
+def test_numret_saknas_helt_nar_ingen_post_har_valet_pa(client, inloggad_anvandare):
+    bundle_id = _samling(inloggad_anvandare["id"])
+    _post(bundle_id, "Diakoni")
+
+    text = client.get("/domkyrkan").text
+
+    assert "Diakoni" in text
+    assert "swish://payment?data=" in text
+    assert _nummerrutor(text) == []
+
+
+def test_agaren_kan_sla_pa_numret_pa_en_post(client, inloggad_anvandare):
+    bundle_id = _samling(inloggad_anvandare["id"])
+    item_id = _post(bundle_id)
+    token = _csrf(client, f"/mina-samlingar/{bundle_id}")
+
+    svar = client.post(
+        f"/mina-samlingar/{bundle_id}/swish-poster/{item_id}/update",
+        data={
+            "title": "Diakoni",
+            "mottagare": MOTTAGARE,
+            "belopp": "100,00",
+            "meddelande": "Diakoni",
+            "visa_mottagare": "1",
+            "csrf_token": token,
+        },
+        follow_redirects=False,
+    )
+
+    assert svar.status_code == 303
+    with get_db() as db:
+        rad = db.execute("SELECT visa_mottagare FROM swish_items WHERE id=?", (item_id,)).fetchone()
+    assert rad["visa_mottagare"] == 1
+    assert len(_nummerrutor(client.get("/domkyrkan").text)) == 1
+
+
+def test_valet_ar_av_for_en_ny_post(client, inloggad_anvandare):
+    """Förvalet är av. En kryssruta som inte skickas ska inte tolkas som på."""
+    bundle_id = _samling(inloggad_anvandare["id"])
+    token = _csrf(client, f"/mina-samlingar/{bundle_id}")
+
+    client.post(
+        f"/mina-samlingar/{bundle_id}/swish-poster",
+        data={
+            "title": "Nytt ändamål",
+            "mottagare": MOTTAGARE,
+            "belopp": "50,00",
+            "csrf_token": token,
+        },
+        follow_redirects=False,
+    )
+
+    with get_db() as db:
+        rad = db.execute(
+            "SELECT visa_mottagare FROM swish_items WHERE bundle_id=?", (bundle_id,)
+        ).fetchone()
+    assert rad["visa_mottagare"] == 0
+    assert _nummerrutor(client.get("/domkyrkan").text) == []
+
+
+# --- sätt alla på en gång ------------------------------------------------
+
+
+def test_alla_poster_kan_slas_pa_med_en_knapp(client, inloggad_anvandare):
+    bundle_id = _samling(inloggad_anvandare["id"])
+    _post(bundle_id, "Diakoni")
+    _post(bundle_id, "Musiken", sort_order=2)
+    token = _csrf(client, f"/mina-samlingar/{bundle_id}")
+
+    svar = client.post(
+        f"/mina-samlingar/{bundle_id}/swish-poster/visa-mottagare-alla",
+        data={"varde": "1", "csrf_token": token},
+        follow_redirects=False,
+    )
+
+    assert svar.status_code == 303
+    assert len(_nummerrutor(client.get("/domkyrkan").text)) == 2
+
+
+def test_alla_poster_kan_slas_av_med_en_knapp(client, inloggad_anvandare):
+    bundle_id = _samling(inloggad_anvandare["id"])
+    _post(bundle_id, "Diakoni", visa_mottagare=1)
+    _post(bundle_id, "Musiken", visa_mottagare=1, sort_order=2)
+    token = _csrf(client, f"/mina-samlingar/{bundle_id}")
+
+    client.post(
+        f"/mina-samlingar/{bundle_id}/swish-poster/visa-mottagare-alla",
+        data={"varde": "0", "csrf_token": token},
+        follow_redirects=False,
+    )
+
+    assert _nummerrutor(client.get("/domkyrkan").text) == []
+
+
+def test_satt_alla_utan_csrf_nekas(client, inloggad_anvandare):
+    bundle_id = _samling(inloggad_anvandare["id"])
+    _post(bundle_id, "Diakoni")
+
+    svar = client.post(
+        f"/mina-samlingar/{bundle_id}/swish-poster/visa-mottagare-alla",
+        data={"varde": "1", "csrf_token": "fel"},
+    )
+
+    assert svar.status_code == 403
+    assert _nummerrutor(client.get("/domkyrkan").text) == []
+
+
+def test_satt_alla_ror_inte_annans_samling(client, inloggad_anvandare):
+    """Bundle-id:t kommer ur adressen. Utan ägarkontroll hade en inloggad
+    användare kunnat slå på numret i vem som helsts samling."""
+    annan = _annan_anvandare()
+    annans_bundle = _samling(annan, code="annans")
+    _post(annans_bundle, "Deras kollekt")
+    egen = _samling(inloggad_anvandare["id"])
+    token = _csrf(client, f"/mina-samlingar/{egen}")
+
+    svar = client.post(
+        f"/mina-samlingar/{annans_bundle}/swish-poster/visa-mottagare-alla",
+        data={"varde": "1", "csrf_token": token},
+    )
+
+    assert svar.status_code == 404
+    with get_db() as db:
+        rad = db.execute(
+            "SELECT visa_mottagare FROM swish_items WHERE bundle_id=?", (annans_bundle,)
+        ).fetchone()
+    assert rad["visa_mottagare"] == 0
+
+
+def test_satt_alla_ror_bara_den_egna_samlingens_poster(client, inloggad_anvandare):
+    """Två egna samlingar. UPDATE utan bundle_id i WHERE hade tagit båda."""
+    en = _samling(inloggad_anvandare["id"], code="domkyrkan")
+    tva = _samling(inloggad_anvandare["id"], code="kapellet")
+    _post(en, "Diakoni")
+    _post(tva, "Musiken")
+    token = _csrf(client, f"/mina-samlingar/{en}")
+
+    client.post(
+        f"/mina-samlingar/{en}/swish-poster/visa-mottagare-alla",
+        data={"varde": "1", "csrf_token": token},
+        follow_redirects=False,
+    )
+
+    assert len(_nummerrutor(client.get("/domkyrkan").text)) == 1
+    assert _nummerrutor(client.get("/kapellet").text) == []
+
+
+def test_agarvyn_erbjuder_bade_kryssrutan_och_knapparna(client, inloggad_anvandare):
+    bundle_id = _samling(inloggad_anvandare["id"])
+    _post(bundle_id)
+
+    text = client.get(f"/mina-samlingar/{bundle_id}").text
+
+    assert 'name="visa_mottagare"' in text
+    assert f"/mina-samlingar/{bundle_id}/swish-poster/visa-mottagare-alla" in text
+    assert "Visa för alla" in text and "Dölj för alla" in text
