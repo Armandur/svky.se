@@ -609,7 +609,7 @@ def test_samlingens_egen_kod_gar_att_hamta(client, inloggad_anvandare, andelse):
 
 def test_samlingens_kod_bar_kortlanken_inte_en_betalning(client, inloggad_anvandare):
     """Två sorters koder lever på samma sida. Den här bär adressen till
-    sidan med alla ändamål, postens egen bär betalningen."""
+    sidan med alla Swish-koder, postens egen bär en enskild Swish-kod."""
     from app import qr
 
     bundle_id = _samling(inloggad_anvandare["id"])

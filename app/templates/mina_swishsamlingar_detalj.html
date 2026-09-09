@@ -69,14 +69,14 @@
 </div>
 
 {# Samma ruta som en vanlig samling har. Koden bär samlingens KORTLÄNK och
-   inte en betalning - postens egna betalkoder hämtas per post längre ner.
+   inte en Swish-kod - de enskilda Swish-koderna hämtas per post längre ner.
    Routerna är gemensamma för alla samlingar oavsett tema. #}
 <div class="qr-ruta" id="qr-bundle-{{ bundle.id }}" style="display:none;">
   <img alt="QR-kod till svky.se/{{ bundle.code }}"
        data-src="/mina-samlingar/{{ bundle.id }}/qr.png" width="180" height="180">
   <div class="qr-text">
     <p>Koden bär <strong>svky.se/{{ bundle.code }}</strong> - alltså sidan med
-       alla ändamål, inte en enskild betalning.</p>
+       alla Swish-koder, inte en enskild Swish-kod.</p>
     <p class="qr-symbolval" data-qr-val>
       {% for varde, text in qr_symboler.items() %}
       <label>
