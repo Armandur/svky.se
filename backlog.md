@@ -352,7 +352,7 @@ Verifiera: shot vid 390px OCH 1280px med en admin-session och minst 20 rader i l
 
 ---
 
-## [P3][doing] [svky] Bygg Swish-samlingen: flera betalkoder på en sida med en kortkod
+## [P3][done] [svky] Bygg Swish-samlingen: flera betalkoder på en sida med en kortkod
 
 Den starkaste delen av Rasmus ursprungliga idé, och den enda som inte är byggd.
 
@@ -752,7 +752,7 @@ Klart när / Verifiera:
 
 ---
 
-## [P3][doing] [svky] Swish-betallänkar: swish://-applänk, QR-kod och landningssida
+## [P3][done] [svky] Swish-betallänkar: swish://-applänk, QR-kod och landningssida
 
 Ny länktyp i kortlänksgeneratorn: Swish-betalning. Kortkoden leder till en landningssida som öppnar Swish-appen förifylld på mobil och visar QR-koden på desktop. Applänk och QR-kod ligger i samma vy, så användaren kan lägga ut båda.
 
