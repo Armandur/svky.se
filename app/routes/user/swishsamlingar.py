@@ -112,12 +112,26 @@ def _falt(
     return betalning.normaliserad(), None
 
 
-def _tillbaka(bundle_id: int, fel: str | None = None) -> RedirectResponse:
+def _tillbaka(
+    bundle_id: int, fel: str | None = None, item_id: int | None = None
+) -> RedirectResponse:
+    """Tillbaka till samlingen, med felet knutet till rätt formulär.
+
+    `item_id` säger VILKEN post felet gäller, så mallen kan visa det där i
+    stället för som en banner högst upp. Utan det hamnar felet i formuläret
+    för en ny kod, som är där det kommer ifrån när ingen post är utpekad.
+
+    Den här vägen används bara utan JavaScript. Med skript prövas
+    betalningen mot /swish-data medan man skriver, och knappen släpper
+    aldrig igenom något som ändå skulle avvisas här.
+    """
     adress = f"/mina-samlingar/{bundle_id}"
     if fel:
         import urllib.parse
 
         adress += f"?swish_error={urllib.parse.quote(fel)}"
+        if item_id is not None:
+            adress += f"&fel_post={item_id}"
     else:
         adress += "?saved=1"
     return RedirectResponse(url=adress, status_code=303)
@@ -152,6 +166,7 @@ async def samlingsvy(request: Request, user: dict, bundle: dict):
             "max_meddelande": MAX_MEDDELANDE,
             "saved": request.query_params.get("saved") == "1",
             "swish_error": request.query_params.get("swish_error"),
+            "fel_post": request.query_params.get("fel_post"),
         },
     )
 
@@ -176,7 +191,7 @@ async def lagg_till_post(
 
     title = title.strip()
     if not title:
-        return _tillbaka(bundle_id, "Ändamålet behöver ett namn.")
+        return _tillbaka(bundle_id, "Swish-koden behöver en rubrik.")
     if fel := validate_length(title, MAX_NAME_LENGTH, "Namnet"):
         return _tillbaka(bundle_id, fel)
     if fel := validate_length(description, MAX_TEXT_LENGTH, "Beskrivningen"):
@@ -243,11 +258,11 @@ async def uppdatera_post(
 
     title = title.strip()
     if not title:
-        return _tillbaka(bundle_id, "Ändamålet behöver ett namn.")
+        return _tillbaka(bundle_id, item_id=item_id, fel="Swish-koden behöver en rubrik.")
     if fel := validate_length(title, MAX_NAME_LENGTH, "Namnet"):
-        return _tillbaka(bundle_id, fel)
+        return _tillbaka(bundle_id, item_id=item_id, fel=fel)
     if fel := validate_length(description, MAX_TEXT_LENGTH, "Beskrivningen"):
-        return _tillbaka(bundle_id, fel)
+        return _tillbaka(bundle_id, item_id=item_id, fel=fel)
 
     betalning, fel = _falt(
         mottagare,
@@ -258,7 +273,7 @@ async def uppdatera_post(
         fritt_meddelande == "1",
     )
     if fel:
-        return _tillbaka(bundle_id, fel)
+        return _tillbaka(bundle_id, item_id=item_id, fel=fel)
 
     with get_db() as db:
         _egen_samling(db, bundle_id, user["id"])
@@ -348,7 +363,7 @@ async def flytta_post(
 
 @router.get("/mina-samlingar/{bundle_id}/swish-poster/{item_id}/qr.{andelse}")
 async def post_qr(request: Request, bundle_id: int, item_id: int, andelse: str):
-    """Postens egen QR-kod, för den som vill trycka just det ändamålet.
+    """Postens egen QR-kod, för den som vill trycka just den betalningen.
 
     Samlingens kod finns redan via bundles egen QR-route. Den här ger den
     enskilda betalningen, alltså samma bild som generatorn hade gett.

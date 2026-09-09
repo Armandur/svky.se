@@ -36,6 +36,12 @@
   border-left: 3px solid var(--red, #c0392b); background: #fdf3f2;
   padding: 10px 14px; margin-top: 12px; font-size: .83rem; line-height: 1.6; color: #7d2b21;
 }
+.sw-fel {
+  border-left: 3px solid var(--red); background: var(--red-bg);
+  color: var(--red); padding: 9px 13px; margin-top: 12px;
+  font-size: .84rem; line-height: 1.55; border-radius: 0 var(--radius) var(--radius) 0;
+}
+.sw-knappar .btn[disabled] { opacity: .5; cursor: not-allowed; }
 .sw-upplysning {
   font-size: .82rem; color: var(--muted); margin: 10px 0 0; line-height: 1.6;
   border-left: 3px solid var(--border); padding-left: 10px;
@@ -100,12 +106,12 @@
 {% if saved %}
 <div class="alert alert-success" style="margin-bottom:18px;">&#10003; Sparat.</div>
 {% endif %}
-{% if swish_error %}
-<div class="alert alert-error" style="margin-bottom:18px;">{{ swish_error }}</div>
-{% endif %}
+{# Ingen felbanner här. Felet hör till det formulär det gäller och står där,
+   se .sw-fel längre ner. Utan JavaScript kommer det ändå tillbaka som
+   query-parameter, och då visas det vid formuläret av mallen. #}
 
 <p style="font-size:.88rem; color:var(--muted); max-width:60ch; margin-bottom:22px;">
-  En kod på lappen, flera ändamål på sidan. Byt kollektändamålet här när det
+  En kod på lappen, flera Swish-koder på sidan. Byt den som gäller veckans kollekt här när det
   ändras - den tryckta lappen behöver inte bytas.
 </p>
 
@@ -124,7 +130,7 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="sw-falt">
       <div>
-        <label for="t{{ post.id }}">Ändamål</label>
+        <label for="t{{ post.id }}">Rubrik</label>
         <input id="t{{ post.id }}" type="text" name="title" value="{{ post.title }}" required>
       </div>
       <div>
@@ -165,19 +171,18 @@
       </label>
     </div>
 
-    {% if post.fel %}
-    <div class="sw-varning">
-      <strong>Den här posten går inte att koda.</strong>
-      {{ post.fel }} Rätta fälten och spara - koden visas inte på
-      samlingssidan förrän den går att betala.
+    {# Felet står VID formuläret det gäller. Låg förut som en banner högst
+       upp på sidan, dit man skickades efter en redirect - med tre koder i
+       listan hamnade man långt från fältet man skrev fel i. #}
+    {% set eget_fel = swish_error if fel_post and fel_post|string == post.id|string else None %}
+    <div class="sw-fel" data-fel {% if not post.fel and not eget_fel %}hidden{% endif %}>
+      {% if eget_fel %}<strong>Går inte att koda.</strong> {{ eget_fel }}
+      {% elif post.fel %}<strong>Går inte att koda.</strong> {{ post.fel }}{% endif %}
     </div>
-    {% endif %}
 
-    {# Vad posten faktiskt tillåter, räknad ur de sparade värdena. Samma
-       text som generatorn visar - se app/swishtext.py. #}
-    {% if post.lastext %}
-    <p class="sw-upplysning">{{ post.lastext }}</p>
-    {% endif %}
+    {# Vad posten faktiskt tillåter. Samma text som generatorn visar, se
+       app/swishtext.py, och den räknas om medan man skriver. #}
+    <p class="sw-upplysning" data-las {% if not post.lastext %}hidden{% endif %}>{{ post.lastext or '' }}</p>
 
   </form>
 
@@ -210,9 +215,9 @@
 
   <div class="confirm-overlay">
     <strong>Ta bort {{ post.title }}?</strong>
-    Ändamålet försvinner från samlingssidan direkt, och en tryckt kod som
+    Swish-koden försvinner från samlingssidan direkt, och en tryckt kod som
     bär just den betalningen slutar leda någonstans. Trycken som räknats
-    upp för det här ändamålet försvinner också.
+    upp för den försvinner också.
     <div class="btn-row">
       <form method="post" action="/mina-samlingar/{{ bundle.id }}/swish-poster/{{ post.id }}/delete"
             style="display:inline;">
@@ -230,17 +235,17 @@
 
 {% if not poster %}
 <p style="color:var(--muted); margin-bottom:20px;">
-  Samlingen har inga ändamål än. Lägg till det första nedan.
+  Samlingen har inga Swish-koder än. Lägg till den första nedan.
 </p>
 {% endif %}
 
 <div class="sw-post sw-ny">
-  <div class="sw-post-topp"><span class="namn">Nytt ändamål</span></div>
+  <div class="sw-post-topp"><span class="namn">Ny Swish-kod</span></div>
   <form method="post" action="/mina-samlingar/{{ bundle.id }}/swish-poster">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="sw-falt">
       <div>
-        <label for="nytt-title">Ändamål</label>
+        <label for="nytt-title">Rubrik</label>
         <input id="nytt-title" type="text" name="title" required placeholder="Dagens kollekt">
       </div>
       <div>
@@ -271,6 +276,12 @@
       <label><input type="checkbox" name="fritt_belopp" value="1" id="nytt-fritt-belopp"> Fritt belopp</label>
       <label><input type="checkbox" name="fritt_meddelande" value="1"> Fritt meddelande</label>
     </div>
+    <p class="sw-upplysning" data-las hidden></p>
+    {# Ett fel utan utpekad post kommer från det här formuläret. Gäller bara
+       utan JavaScript - med skript spärras knappen innan det händer. #}
+    <div class="sw-fel" data-fel {% if not (swish_error and not fel_post) %}hidden{% endif %}>
+      {% if swish_error and not fel_post %}<strong>Går inte att koda.</strong> {{ swish_error }}{% endif %}
+    </div>
     <div class="sw-knappar">
       <button type="submit" class="btn btn-primary btn-sm">Lägg till</button>
     </div>
@@ -291,6 +302,95 @@
   belopp.addEventListener('input', function () {
     if (!belopp.value.trim()) fritt.checked = true;
   });
+})();
+
+// ── Pröva betalningen medan man skriver ──────────────────────────────────
+// Felet ska stå VID formuläret det gäller, inte som en banner högst upp dit
+// man skickas efter en redirect. Med tre koder i listan hamnade man långt
+// från fältet man skrev fel i, och fick skrolla tillbaka för att hitta det.
+//
+// Servern avgör, inte webbläsaren: samma /swish-data som generatorn frågar.
+// Hade sidan bedömt själv hade reglerna funnits på två ställen, och
+// app/swish.py är det enda som får äga dem.
+(function () {
+  if (!window.fetch) return;
+
+  function falt(form, namn) {
+    return form.querySelector('[name="' + namn + '"]');
+  }
+
+  function fraga(form) {
+    var delar = new URLSearchParams();
+    ['mottagare', 'belopp', 'meddelande'].forEach(function (namn) {
+      var f = falt(form, namn);
+      var v = f && f.value.trim();
+      if (v) delar.set(namn, v);
+    });
+    ['fri_mottagare', 'fritt_belopp', 'fritt_meddelande'].forEach(function (namn) {
+      var f = falt(form, namn);
+      if (f && f.checked) delar.set(namn, '1');
+    });
+    return delar.toString();
+  }
+
+  // Knappen ligger UTANFÖR formuläret och pekar in med form=, så den går
+  // inte att hitta med form.querySelector.
+  function knapp(form) {
+    return form.id
+      ? document.querySelector('button[form="' + form.id + '"]')
+      : form.querySelector('button[type="submit"]');
+  }
+
+  function koppla(form) {
+    var felruta = form.querySelector('[data-fel]');
+    var lasrad = form.querySelector('[data-las]');
+    var spara = knapp(form);
+    if (!felruta || !spara) return;
+
+    var timer = null;
+    var senaste = 0;
+
+    async function prova() {
+      var mitt = ++senaste;
+      var q = fraga(form);
+      try {
+        var res = await fetch('/swish-data?' + q, { headers: { Accept: 'application/json' } });
+        var svar = await res.json();
+        if (mitt !== senaste) return;   // ett äldre svar får inte vinna
+
+        var trasig = svar.lage === 'fel';
+        felruta.hidden = !trasig;
+        if (trasig) {
+          felruta.innerHTML = '<strong>Går inte att koda.</strong> ';
+          felruta.append(svar.fel);
+        }
+        // Ofullständigt är inte fel - men det går inte att spara heller.
+        spara.disabled = svar.lage !== 'ok';
+        if (lasrad) {
+          lasrad.hidden = !svar.lastext;
+          lasrad.textContent = svar.lastext || '';
+        }
+      } catch (e) {
+        // Nätet svarade inte. Spärra inte knappen på det - servern prövar
+        // ändå vid submit, och en spärr vi inte kan motivera är värre.
+        if (mitt === senaste) spara.disabled = false;
+      }
+    }
+
+    form.addEventListener('input', function () {
+      clearTimeout(timer);
+      timer = setTimeout(prova, 400);
+    });
+    form.addEventListener('change', function (e) {
+      if (e.target.type !== 'checkbox') return;
+      clearTimeout(timer);
+      prova();
+    });
+    prova();
+  }
+
+  document.querySelectorAll('form[id^="uppd-"], form[action$="/swish-poster"]')
+    .forEach(koppla);
 })();
 </script>
 {% endblock %}

@@ -174,7 +174,7 @@ def test_agarvyn_visar_swishformularet(client, inloggad_anvandare):
     svar = client.get(f"/mina-samlingar/{bundle_id}")
 
     assert svar.status_code == 200
-    assert "Nytt ändamål" in svar.text
+    assert "Ny Swish-kod" in svar.text
     assert "Swish-nummer" in svar.text
 
 
@@ -625,3 +625,65 @@ def test_samlingens_kod_bar_kortlanken_inte_en_betalning(client, inloggad_anvand
 
     assert samlingen == qr.lankadress("domkyrkan")
     assert posten.startswith(f"C{MOTTAGARE};150,00;")
+
+
+# --- felet ska stå vid rätt formulär --------------------------------------
+
+
+def test_felet_pekar_ut_posten_det_galler(client, inloggad_anvandare):
+    """Utan JavaScript kommer felet tillbaka som query-parameter. Då ska det
+    stå vid den post som avvisades, inte som en banner högst upp - med tre
+    koder i listan hamnar man annars långt från fältet man skrev fel i.
+    """
+    bundle_id = _samling(inloggad_anvandare["id"])
+    item_id = _post(bundle_id, "Diakoni", belopp="100,00")
+    token = _csrf(client, f"/mina-samlingar/{bundle_id}")
+
+    svar = client.post(
+        f"/mina-samlingar/{bundle_id}/swish-poster/{item_id}/update",
+        data={"title": "Diakoni", "mottagare": MOTTAGARE, "belopp": "", "csrf_token": token},
+    )
+
+    assert svar.status_code == 303
+    plats = svar.headers["location"]
+    assert "swish_error=" in plats
+    assert f"fel_post={item_id}" in plats
+
+
+def test_fel_utan_utpekad_post_hor_till_nya_formularet(client, inloggad_anvandare):
+    bundle_id = _samling(inloggad_anvandare["id"])
+    token = _csrf(client, f"/mina-samlingar/{bundle_id}")
+
+    svar = client.post(
+        f"/mina-samlingar/{bundle_id}/swish-poster",
+        data={"title": "Ny", "mottagare": MOTTAGARE, "belopp": "", "csrf_token": token},
+    )
+
+    assert "swish_error=" in svar.headers["location"]
+    assert "fel_post=" not in svar.headers["location"]
+
+
+def test_felrutan_star_vid_posten_och_inte_hogst_upp(client, inloggad_anvandare):
+    """Bannern högst upp är borttagen. Provet faller om den kommer tillbaka."""
+    bundle_id = _samling(inloggad_anvandare["id"])
+    item_id = _post(bundle_id, "Diakoni", belopp="100,00")
+
+    text = client.get(
+        f"/mina-samlingar/{bundle_id}?swish_error=Det+gick+fel&fel_post={item_id}"
+    ).text
+
+    assert 'class="alert alert-error"' not in text
+    # Felet ska ligga inne i postens eget formulär.
+    formular = text.split(f'id="uppd-{item_id}"')[1].split("</form>")[0]
+    assert "Det gick fel" in formular
+
+
+def test_valideringen_frager_servern_och_sparrar_knappen(client, inloggad_anvandare):
+    """Sidan får aldrig bedöma en betalning själv - då finns reglerna på två
+    ställen. Den frågar /swish-data, samma väg som generatorn."""
+    bundle_id = _samling(inloggad_anvandare["id"])
+
+    text = client.get(f"/mina-samlingar/{bundle_id}").text
+
+    assert "/swish-data?" in text
+    assert "spara.disabled" in text
