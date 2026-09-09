@@ -251,7 +251,7 @@ Verifiera: prov som anropar ROUTEN med en swishsamling och kontrollerar att en k
 
 ---
 
-## [P3][todo] [svky] Val per swishpost om mottagarnumret ska visas i klartext på samlingssidan
+## [P3][done] [svky] Val per swishpost om mottagarnumret ska visas i klartext på samlingssidan
 
 I dag står mottagarnumret bara i ÄGARENS vy. Den publika sidan visar ändamål, belopp, knapp och QR-kod, men aldrig numret som text.
 
@@ -904,6 +904,35 @@ Kör `crontab -l` (och `systemctl list-timers`) på Hetzner-burken och avgör.
 - ID: `01KYWKZPQVRE56CQWC0Y8T251R`
 - Type: chore
 - Actor: ai:claude-opus-5
+
+---
+
+## [P4][todo] [svky] Designspecens fyndlista och de fyra oprövade avsnitten
+
+TASK-1708 stängdes 2026-09-09 med sex av tio avsnitt mätta och rättade. Det som lämnades kvar står bara i en kommentar på en STÄNGD task, alltså svårt att hitta. Den här tasken bär det vidare.
+
+OPRÖVADE AVSNITT: 2 (alert vs löptext), 5 (rubriker och knapptexter) och 7 (tomma tillstånd). De handlar om ton och komponentval och går inte att mäta som de övriga. De vilar på läsning och kan bara granskas med omdöme.
+
+FYNDLISTAN, nio punkter längst ner i docs/design.md, oåtgärdad som avsett:
+1. Inline style-attribut: 101 i mina_samlingar_detalj.html, 73 i my_links.html. De flesta upprepar deklarationer som redan finns som klasser.
+2. 33 mallar har eget extra_style-block. Flera duplicerar samma regler mellan filer - h1-stilen upprepas i minst sex adminmallar trots att .page-title h1 finns.
+3. .link-card duplicerar .card fält för fält i stället för att komponera på den.
+4. Två bekräftelsemönster lever parallellt. Efter 2026-09-09 är det 21 confirm() i 8 mallar mot 2 mallar med panel - regeln säger att panelen är standarden.
+5. Tomma bekräftelsetexter utan konsekvens i admin/bundle_detail.html och admin/snabblänkar.html.
+6. hjalpruta i admin/om_edit.html är en egen komponent förklädd till alert-info.
+7. Asterisken för obligatoriska fält sätts med inline style color:red i stället för en klass.
+8. Testdata-bugg, inte kod: kortlänkarna kollekt och gava i testdatabasen pekar på sig själva.
+9. CLAUDE.md:s filstruktur stämmer inte längre med repot - app/routes/user.py och public.py är uppdelade sedan länge.
+
+Punkt 9 är den billigaste och den som förvillar mest, eftersom CLAUDE.md läses först av varje ny session.
+
+Ta dem inte som en klump. Varje punkt är en egen liten städning, och flera rör filer som redan är över tusen rader.
+
+Klart när: punkterna är antingen åtgärdade eller uttryckligen avskrivna med skäl i docs/design.md.
+
+- ID: `01M238H3R6VCJ45XV8JGQ9QXJ4`
+- Type: improvement
+- Actor: ai:claude-code
 
 ---
 
