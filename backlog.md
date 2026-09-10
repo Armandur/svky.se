@@ -1034,14 +1034,19 @@ Kör `crontab -l` (och `systemctl list-timers`) på Hetzner-burken och avgör.
 
 En kortlänk som pekar på svky.se är antingen ett misstag eller en loop. I dag hindrar inget att någon skapar svky.se/a som går till svky.se/b - eller till sig själv.
 
-Blockera det i validate_target_url() (app/validation.py:45), där domänkontrollen redan bor. Värdnamnet jämförs mot BASE_URL.
+Blockera det i validate_target_url() (app/validation.py:45), där domänkontrollen redan bor.
 
-Rasmus vill ha ett litet roligt easter-egg för den som försöker, i stället för ett vanligt felmeddelande. Utformningen är öppen - det är hela poängen med den här todon.
+BESLUTAT AV RASMUS 2026-09-10:
+- Spärren gäller BARA svky.se, inte varje värdnamn appen svarar på.
+- Den gäller ÄVEN admin och trusted-användare, alltså också när allow_external är sant.
 
-ATT TÄNKA PÅ NÄR DEN TAS:
-- Gäller det bara exakt svky.se, eller alla värdnamn appen svarar på? Staging kör på ett ts.net-namn och dev på ubuntu-ai:PORT, och den som testar där ska inte mötas av ett skämt om en riktig loop.
-- Admin och trusted-användare släpps förbi domänlistan med allow_external. Ska de kunna peka på svky.se ändå? Det finns tänkbara skäl - en kortlänk till /om eller till en samling är inte en loop.
-- Felmeddelanden till slutanvändare ska vara tydliga och icke-tekniska. Ett skämt får inte göra det oklart VAD man ska göra i stället.
+Följden av det första beslutet: jämför mot en KONSTANT, inte mot BASE_URL. På staging är BASE_URL ts.net-namnet och i dev ubuntu-ai:PORT - jämför man mot BASE_URL blockerar staging sina egna adresser och släpper igenom svky.se, alltså precis tvärtom. Konstanten hör hemma i app/config.py bredvid BASE_URL.
+
+Följden av det andra: kontrollen måste ligga FÖRE eller UTANFÖR den gren som allow_external hoppar över. Läggs den inne i domänkontrollen släpps admin förbi.
+
+Subdomäner: en kortlänk till www.svky.se eller till en framtida subdomän är samma loop. Matcha värdnamnet som svky.se eller något som slutar på .svky.se, inte med en enkel likhet.
+
+Rasmus vill ha ett litet roligt easter-egg för den som försöker, i stället för ett vanligt felmeddelande. Utformningen är öppen - det är hela poängen med den här todon. Enda kravet: det får inte göra det oklart VAD man ska göra i stället. Felmeddelanden till slutanvändare ska vara tydliga och icke-tekniska.
 
 - ID: `01M2568T7E3HQZRZEMQQ7Z71S0`
 - Type: feature
