@@ -223,7 +223,7 @@ Kontrollera samma sak för produktionsstacken - 80 och 443 ska vara publicerade,
 
 ---
 
-## [P3][todo] [svky] Larma inte om osignerad image innan CI hunnit signera den
+## [P3][done] [svky] Larma inte om osignerad image innan CI hunnit signera den
 
 ## Context
 
