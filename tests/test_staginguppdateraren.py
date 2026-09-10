@@ -8,6 +8,7 @@ avstå - inte docker, som aldrig nås eftersom besluten faller före.
 import os
 import stat
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -35,17 +36,35 @@ def arbetsyta(tmp_path):
     return tmp_path
 
 
-def _kor(arbetsyta: Path) -> subprocess.CompletedProcess:
+def _kor(arbetsyta: Path, **extra_miljo: str) -> subprocess.CompletedProcess:
     miljo = {
         **os.environ,
         "SVKY_ARBETSKATALOG": str(arbetsyta),
         "SVKY_STAGING_VANTA": "1",
+        "SVKY_STAGING_OSIGNERAD_FIL": str(arbetsyta / "osignerad-sedan"),
         "NTFY_URL": "",
-        "NTFY_TOPIC": "",
+        "NTFY_TOKEN": "",
+        **extra_miljo,
     }
     return subprocess.run(
         ["bash", str(SKRIPT)], capture_output=True, text=True, env=miljo, timeout=60
     )
+
+
+def _fang_notiser(arbetsyta: Path) -> tuple[Path, dict[str, str]]:
+    binarkatalog = arbetsyta / "bin"
+    binarkatalog.mkdir(exist_ok=True)
+    logg = arbetsyta / "notiser.logg"
+    curl = binarkatalog / "curl"
+    curl.write_text('#!/usr/bin/env bash\nprintf \'%s\\n\' "$*" >> "$NOTISLOGG"\n')
+    curl.chmod(0o755)
+    miljo = {
+        "PATH": f"{binarkatalog}:{os.environ['PATH']}",
+        "NTFY_URL": "https://ntfy.example",
+        "NTFY_TOKEN": "provtoken",
+        "NOTISLOGG": str(logg),
+    }
+    return logg, miljo
 
 
 def test_gor_ingenting_nar_digesten_ar_oforandrad(arbetsyta):
@@ -61,22 +80,101 @@ def test_gor_ingenting_nar_digesten_ar_oforandrad(arbetsyta):
     assert GAMMAL in (arbetsyta / ".env.staging").read_text()
 
 
-# Provet som bär hela konstruktionen. Utan det är signeringen en ritual.
-def test_osignerad_image_avvisas_och_rors_inte(arbetsyta):
+def test_ny_osignerad_image_avvisas_utan_alert(arbetsyta):
     _attrapp(arbetsyta / "drift/svky-digest.sh", SIGNERAD)
     _attrapp(arbetsyta / "drift/svky-verifiera.sh", "no signatures found", exitkod=10)
+    (arbetsyta / "osignerad-sedan").write_text(f"annan-digest {int(time.time()) - 9999}\n")
+    notislogg, notismiljo = _fang_notiser(arbetsyta)
 
-    r = _kor(arbetsyta)
+    r = _kor(arbetsyta, **notismiljo)
 
     assert r.returncode != 0, "släppte igenom en osignerad image"
     env = (arbetsyta / ".env.staging").read_text()
     assert GAMMAL in env, "bytte version trots avvisad signatur"
     assert SIGNERAD not in env
     assert "AVVISAD" in r.stdout
-    # Meddelandet får inte påstå att signaturen saknas. Ett verktyg som inte
-    # kunde köra ger samma röda svar, och första gången det inträffade var
-    # orsaken en skrivskyddad hemkatalog - inte en osignerad image.
-    assert "saknar giltig signatur" not in r.stdout
+    assert "finns inte ännu" in r.stdout
+    assert not notislogg.exists(), "första försöket skickade en alert"
+    digest, tidpunkt = (arbetsyta / "osignerad-sedan").read_text().split()
+    assert digest == SIGNERAD, "behöll minnet för föregående digest"
+    assert int(tidpunkt) <= int(time.time())
+
+
+def test_samma_osignerade_image_ar_tyst_innan_troskeln(arbetsyta):
+    """Andra ticket i kapplöpningen: samma digest, men ännu inte gammal nog.
+
+    DET HÄR ÄR FALLET SOM BUGGEN HANDLADE OM. Uppmätt 2026-09-10: CI pushade
+    imagen 19:24:18 och signerade den sekunder senare, uppdateraren tittade
+    19:24:51 och larmade. Nästa tick 19:28:56 gick igenom.
+
+    Det som skulle ändras om felet fanns: tröskelvillkoret försvinner ur
+    skriptet och varje tick larmar. Provet för "ny digest" fångar INTE det -
+    det sätter minnesfilen till en annan digest, så grenen väljs redan på
+    digestjämförelsen och tröskeln spelar ingen roll. Kontrollerat genom att
+    ta bort villkoret: alla femton övriga prov passerade ändå.
+
+    Tidpunkten sätts till 60 sekunder sedan, alltså långt under 900.
+    """
+    _attrapp(arbetsyta / "drift/svky-digest.sh", SIGNERAD)
+    _attrapp(arbetsyta / "drift/svky-verifiera.sh", "no signatures found", exitkod=10)
+    (arbetsyta / "osignerad-sedan").write_text(f"{SIGNERAD} {int(time.time()) - 60}\n")
+    notislogg, notismiljo = _fang_notiser(arbetsyta)
+
+    r = _kor(arbetsyta, **notismiljo)
+
+    assert r.returncode != 0, "släppte igenom en osignerad image"
+    assert GAMMAL in (arbetsyta / ".env.staging").read_text(), "bytte version"
+    assert not notislogg.exists(), "larmade innan tröskeln gått ut"
+    assert "finns inte ännu" in r.stdout
+
+    # Tidpunkten ska stå KVAR. Skrivs den om vid varje tick når tröskeln
+    # aldrig fram, och en verkligt osignerad image larmar aldrig.
+    _, tidpunkt = (arbetsyta / "osignerad-sedan").read_text().split()
+    assert int(time.time()) - int(tidpunkt) >= 55, "nollställde väntetiden"
+
+
+def test_gammal_osignerad_image_avvisas_med_alert(arbetsyta):
+    _attrapp(arbetsyta / "drift/svky-digest.sh", SIGNERAD)
+    _attrapp(arbetsyta / "drift/svky-verifiera.sh", "no signatures found", exitkod=10)
+    (arbetsyta / "osignerad-sedan").write_text(f"{SIGNERAD} {int(time.time()) - 901}\n")
+    notislogg, notismiljo = _fang_notiser(arbetsyta)
+
+    r = _kor(arbetsyta, **notismiljo)
+
+    assert r.returncode != 0
+    assert "minst 900s" in r.stdout
+    assert "/svc_alert" in notislogg.read_text()
+    assert GAMMAL in (arbetsyta / ".env.staging").read_text()
+
+
+def test_annat_verifieringsfel_larmar_direkt(arbetsyta):
+    _attrapp(arbetsyta / "drift/svky-digest.sh", SIGNERAD)
+    _attrapp(arbetsyta / "drift/svky-verifiera.sh", "read-only file system", exitkod=1)
+    notislogg, notismiljo = _fang_notiser(arbetsyta)
+
+    r = _kor(arbetsyta, **notismiljo)
+
+    assert r.returncode != 0
+    assert "kunde inte verifiera" in r.stdout
+    assert "/svc_alert" in notislogg.read_text()
+    assert GAMMAL in (arbetsyta / ".env.staging").read_text()
+
+
+def test_signaturminnet_stadas_efter_lyckad_verifiering(arbetsyta):
+    _attrapp(arbetsyta / "drift/svky-digest.sh", SIGNERAD)
+    _attrapp(arbetsyta / "drift/svky-verifiera.sh", "Verified OK")
+    minnesfil = arbetsyta / "osignerad-sedan"
+    minnesfil.write_text(f"{SIGNERAD} {int(time.time())}\n")
+    binarkatalog = arbetsyta / "bin"
+    binarkatalog.mkdir()
+    _attrapp(binarkatalog / "docker", "")
+    _attrapp(binarkatalog / "curl", "")
+
+    r = _kor(arbetsyta, PATH=f"{binarkatalog}:{os.environ['PATH']}")
+
+    assert r.returncode == 0, r.stderr
+    assert not minnesfil.exists()
+    assert SIGNERAD in (arbetsyta / ".env.staging").read_text()
 
 
 def test_verifieringen_sker_fore_bytet(arbetsyta):
@@ -152,7 +250,7 @@ def test_verifierarens_utdata_nar_journalen():
     """Utan den står bara att något avvisades, och orsaken är borta."""
     kod = SKRIPT.read_text()
     assert "VERIFIERING=$(drift/svky-verifiera.sh" in kod
-    assert 'printf' in kod and 'VERIFIERING' in kod
+    assert "printf" in kod and "VERIFIERING" in kod
 
 
 def test_larmen_gar_till_den_delade_instansen_med_policyns_topics():
@@ -168,5 +266,5 @@ def test_ingen_notis_vid_lyckad_uppdatering():
     slutar man öppna."""
     kod = SKRIPT.read_text()
     lyckad = kod.index('logga "Staging kör $NY"')
-    fram_till_exit = kod[lyckad:kod.index("exit 0", lyckad)]
+    fram_till_exit = kod[lyckad : kod.index("exit 0", lyckad)]
     assert "notis " not in fram_till_exit

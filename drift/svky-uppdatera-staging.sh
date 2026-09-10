@@ -17,6 +17,8 @@ COMPOSE=${SVKY_STAGING_COMPOSE:-docker-compose.staging.yml}
 HALSA=${SVKY_STAGING_HALSA:-http://127.0.0.1:8001/healthz}
 TAGG=${SVKY_STAGING_TAGG:-latest}
 VANTA=${SVKY_STAGING_VANTA:-60}
+OSIGNERAD_FIL=${SVKY_STAGING_OSIGNERAD_FIL:-/var/lib/svky/osignerad-sedan}
+OSIGNERAD_TROSKEL=${SVKY_STAGING_OSIGNERAD_TROSKEL:-900}
 
 cd "$ARBETSKATALOG"
 
@@ -57,6 +59,19 @@ fi
 
 logga "Ny version: $NY (hade $NUVARANDE)"
 
+# Glöm väntetiden när :latest pekar på en annan digest. Annars kan en gammal
+# tidpunkt få nästa image att larma direkt.
+if [ -f "$OSIGNERAD_FIL" ]; then
+    read -r VANTANDE_DIGEST _ < "$OSIGNERAD_FIL" || VANTANDE_DIGEST=
+    if [ "$VANTANDE_DIGEST" != "$NY" ]; then
+        if ! rm -f "$OSIGNERAD_FIL"; then
+            logga "FEL: kunde inte städa $OSIGNERAD_FIL. Staging rörs inte."
+            notis "Kunde inte städa staginguppdaterarens signaturminne." alert
+            exit 1
+        fi
+    fi
+fi
+
 # Verifiera FÖRE bytet. En osignerad image ska inte kunna nå ens staging -
 # annars vore signeringen bara en ritual på produktionssidan.
 #
@@ -66,9 +81,42 @@ logga "Ny version: $NY (hade $NUVARANDE)"
 # föll var orsaken en skrivskyddad hemkatalog, inte en osignerad image.
 # Verifierarens egen utdata får därför följa med till journalen.
 if ! VERIFIERING=$(drift/svky-verifiera.sh "$NY" 2>&1); then
-    logga "AVVISAD: kunde inte verifiera $NY. Staging rörs inte."
     printf '%s\n' "$VERIFIERING" >&2
-    notis "Kunde inte verifiera en ny image. Staging kör vidare på den gamla." alert
+
+    if [[ "$VERIFIERING" == *"no signatures found"* ]]; then
+        NU=$(date +%s)
+        VANTANDE_DIGEST=
+        OSIGNERAD_SEDAN=
+        if [ -f "$OSIGNERAD_FIL" ]; then
+            read -r VANTANDE_DIGEST OSIGNERAD_SEDAN < "$OSIGNERAD_FIL" || true
+        fi
+
+        if [ "$VANTANDE_DIGEST" = "$NY" ] \
+            && [[ "$OSIGNERAD_SEDAN" =~ ^[0-9]+$ ]] \
+            && (( NU - OSIGNERAD_SEDAN >= OSIGNERAD_TROSKEL )); then
+            logga "AVVISAD: $NY har saknat signatur i minst ${OSIGNERAD_TROSKEL}s. Staging rörs inte."
+            notis "En ny image saknar fortfarande signatur. Staging kör vidare på den gamla." alert
+        else
+            if [ "$VANTANDE_DIGEST" != "$NY" ] \
+                || ! [[ "$OSIGNERAD_SEDAN" =~ ^[0-9]+$ ]]; then
+                if ! printf '%s %s\n' "$NY" "$NU" > "$OSIGNERAD_FIL"; then
+                    logga "AVVISAD: signaturen saknas och väntetiden kunde inte sparas. Staging rörs inte."
+                    notis "En ny image saknar signatur och väntetiden kunde inte sparas." alert
+                    exit 1
+                fi
+            fi
+            logga "AVVISAD: signaturen för $NY finns inte ännu. Väntar före alert. Staging rörs inte."
+        fi
+    else
+        logga "AVVISAD: kunde inte verifiera $NY. Staging rörs inte."
+        notis "Kunde inte verifiera en ny image. Staging kör vidare på den gamla." alert
+    fi
+    exit 1
+fi
+
+if ! rm -f "$OSIGNERAD_FIL"; then
+    logga "FEL: kunde inte städa $OSIGNERAD_FIL efter verifiering. Staging rörs inte."
+    notis "Kunde inte städa staginguppdaterarens signaturminne." alert
     exit 1
 fi
 
