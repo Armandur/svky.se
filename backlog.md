@@ -223,6 +223,88 @@ Kontrollera samma sak för produktionsstacken - 80 och 443 ska vara publicerade,
 
 ---
 
+## [P3][todo] [svky] Larma inte om osignerad image innan CI hunnit signera den
+
+## Context
+
+Uppdateraren larmar med prioritet "väck mig" när en image ännu inte hunnit
+signeras. Uppmätt 2026-09-10, med journalen som facit:
+
+```
+19:24:18  CI startar bygget (tog 43 s)
+19:24:51  uppdateraren ser den nya digesten
+19:24:52  Error: no signatures found  ->  AVVISAD + alert-notis
+19:28:56  nästa tick
+19:29:02  staging kör den, allt i sin ordning
+```
+
+Imagen var pushad men signaturen kom sekunder senare - CI signerar EFTER
+push. Systemet läkte sig självt på nästa tick, men larmet hade redan gått ut.
+
+Timern går var femte minut och bygget tar drygt 40 sekunder. Kapplöpningen
+inträffar varje gång timern råkar fyra i det fönstret, alltså återkommande.
+
+Larmet är inte värdelöst: `no signatures found` betyder OCKSÅ en verkligt
+osignerad image, och då ska det väcka någon. Problemet är att de två inte går
+att skilja åt i beskedet.
+
+## Acceptance criteria
+
+- [ ] En image som är för ny för att ha hunnit signeras ger INGEN alert-notis
+      vid första försöket.
+- [ ] Kvarstår avsaknaden av signatur efter en rimlig tid larmar det som förut,
+      på nivå alert.
+- [ ] Ett verifieringsfel som INTE är "no signatures found" larmar direkt som
+      i dag. En trasig cosign eller en skrivskyddad hemkatalog ska inte tystas.
+- [ ] Staging byts fortfarande ALDRIG till en image som inte verifierats.
+      Fördröjt larm är inte samma sak som slapp kontroll.
+- [ ] Journalen säger vilket av fallen det var, så nästa felsökning slipper
+      gissa.
+
+## Implementation hints
+
+`drift/svky-uppdatera-staging.sh` rad 68-73 är avvisningsgrenen. Den har redan
+verifierarens utdata i `$VERIFIERING` - det är den som bär "no signatures
+found", och den skiljer sig från andra fel.
+
+Skriptet körs av en timer var femte minut och har redan `flock` mot
+samtidiga körningar, så en väntan inuti skriptet är fel väg - den håller låset
+och krockar med nästa tick. Bättre är att komma ihåg mellan körningarna:
+skriv ner digest och tidpunkt för första gången signaturen saknades, och larma
+först när samma digest saknat signatur längre än en tröskel. En fil under
+`/var/lib/svky/` är i linje med hur resten av kedjan minns saker.
+
+Tröskeln bör vara generös. Bygget tar 43 sekunder i dag men det säger inget om
+i morgon, och kostnaden för att vänta är bara att ett äkta larm dröjer några
+minuter.
+
+`notis()` i samma skript tar nivå "ops" eller "alert". Ett första uteblivet
+larm kan mycket väl vara en ops-rad i stället för tystnad - "titta idag" är
+rimligt för något som troligen löser sig.
+
+## Icke-mål
+
+- Rör inte `drift/svky-verifiera.sh`. Kontrollen som sådan är rätt.
+- Ändra inte CI:s ordning mellan push och signering. Att signera före push går
+  inte - signaturen pekar på digesten.
+- Rör inte promoteringen (`svky-promotera.sh`). Den verifierar också, men körs
+  av en människa som ser resultatet direkt.
+
+## Verification
+
+- `bash -n drift/svky-uppdatera-staging.sh` och `shellcheck` om det finns.
+- Prov som matar funktionen de tre fallen: fräsch digest utan signatur (tyst
+  eller ops), gammal digest utan signatur (alert), annat fel (alert direkt).
+  `tests/test_staginguppdateraren.py` finns redan och läser skriptet.
+- manuellt: kontrollera att minnesfilen städas när digesten väl verifierats,
+  så en gammal post inte får en senare image att larma direkt.
+
+- ID: `01M26D1RW695MM58RHDFY0NJ35`
+- Type: bug
+- Actor: ai:claude-code
+
+---
+
 ## [P3][done] [svky] Bygg formatväxel i Swish-generatorn: C-format eller Swish URL-format
 
 ## Context
