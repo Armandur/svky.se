@@ -1030,6 +1030,60 @@ Kör `crontab -l` (och `systemctl list-timers`) på Hetzner-burken och avgör.
 
 ---
 
+## [P4][todo] [svky] Räkna sidvisningar på /swish och /nyheter - saknas i _TRACKED_PATHS
+
+## Context
+
+Sidvisningar räknas av en middleware i `app/main.py:73`, men bara för
+sökvägar som står i `_TRACKED_PATHS` (rad 61). Listan är sju sidor och har
+inte följt med när nya sidor byggts.
+
+`/swish` saknas, alltså finns ingen siffra på hur mycket Swish-generatorn
+används - trots att den var vinterns största bygge. `/nyheter` saknas
+också.
+
+Adminvyn behöver INTE ändras: `/admin/stats` grupperar fritt på `path` ur
+`page_views` (se `app/routes/admin/stats.py:54`), så en ny sökväg dyker
+upp av sig själv så fort raderna finns.
+
+## Acceptance criteria
+
+- [ ] `/swish` och `/nyheter` räknas i `page_views`.
+- [ ] Sidorna syns i `/admin/stats` under sidvisningar per sökväg.
+- [ ] Ett prov per ny sökväg som anropar ROUTEN och räknar rader i
+      `page_views` före och efter. Ett prov som bara kollar att listan
+      innehåller strängen mäter konstanten, inte att raden skrivs.
+
+## Implementation hints
+
+`_TRACKED_PATHS` i `app/main.py:61`. Middlewaren räknar bara GET som
+svarar 200, vilket är rätt - en omdirigering till login ska inte räknas
+som en sidvisning.
+
+Gå igenom ALLA GET-routes en gång och avgör vad som hör hemma i listan,
+i stället för att lägga till två sökvägar och lämna samma lucka öppen.
+Kandidater utöver de två: `/swish-generator`-vyer om sådana finns, och
+statiska admin-sidor. Utåtpekande kortlänkar ska INTE med - de räknas i
+`clicks`, och samlingar i `bundle_views`.
+
+Fundera på om listan ska vara en uppräkning alls. Ett alternativ är att
+räkna varje GET som svarar 200 och INTE är en kortlänk, en statisk fil
+eller en admin-sida. Väg det mot att en uppräkning är lätt att läsa och
+svår att råka bryta - men uppenbarligen också lätt att glömma.
+
+## Verification
+
+- `pytest tests/ -q` - alla passerar.
+- Provet ovan: rader i `page_views` ökar med ett per anrop.
+- Manuellt: besök `/swish` och `/nyheter`, ladda `/admin/stats` och se att
+  båda står i listan över sidvisningar per sökväg.
+
+- ID: `01M2559CQ009ETRP24BF5JR4PZ`
+- Type: improvement
+- Actor: ai:claude-code
+
+---
+
 ## [P4][todo] [svky] Designspecens fyndlista och de fyra oprövade avsnitten
 
 TASK-1708 stängdes 2026-09-09 med sex av tio avsnitt mätta och rättade. Det som lämnades kvar står bara i en kommentar på en STÄNGD task, alltså svårt att hitta. Den här tasken bär det vidare.
