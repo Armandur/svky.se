@@ -1030,6 +1030,25 @@ Kör `crontab -l` (och `systemctl list-timers`) på Hetzner-burken och avgör.
 
 ---
 
+## [P4][todo] [svky] Blockera kortlänkar som pekar tillbaka på svky.se, med easter egg
+
+En kortlänk som pekar på svky.se är antingen ett misstag eller en loop. I dag hindrar inget att någon skapar svky.se/a som går till svky.se/b - eller till sig själv.
+
+Blockera det i validate_target_url() (app/validation.py:45), där domänkontrollen redan bor. Värdnamnet jämförs mot BASE_URL.
+
+Rasmus vill ha ett litet roligt easter-egg för den som försöker, i stället för ett vanligt felmeddelande. Utformningen är öppen - det är hela poängen med den här todon.
+
+ATT TÄNKA PÅ NÄR DEN TAS:
+- Gäller det bara exakt svky.se, eller alla värdnamn appen svarar på? Staging kör på ett ts.net-namn och dev på ubuntu-ai:PORT, och den som testar där ska inte mötas av ett skämt om en riktig loop.
+- Admin och trusted-användare släpps förbi domänlistan med allow_external. Ska de kunna peka på svky.se ändå? Det finns tänkbara skäl - en kortlänk till /om eller till en samling är inte en loop.
+- Felmeddelanden till slutanvändare ska vara tydliga och icke-tekniska. Ett skämt får inte göra det oklart VAD man ska göra i stället.
+
+- ID: `01M2568T7E3HQZRZEMQQ7Z71S0`
+- Type: feature
+- Actor: ai:claude-code
+
+---
+
 ## [P4][todo] [svky] Räkna sidvisningar på /swish och /nyheter - saknas i _TRACKED_PATHS
 
 ## Context
