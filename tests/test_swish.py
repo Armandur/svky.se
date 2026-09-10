@@ -828,3 +828,23 @@ def test_url_formatet_skriver_belopp_som_swish(kronor, vantat):
     url = url_strang(Swishbetalning(mottagare="1231234567", belopp=kronor))
 
     assert f"amt={vantat}&" in url, url
+
+
+def test_generatorn_pastar_inte_att_numret_ar_last_i_url_formatet(client):
+    """Formatvalet fick inte säga att mottagaren är låst i URL-formatet.
+
+    Det stämmer inte, och det är samma regel i båda formaten: numret går att
+    ändra så fort något annat fält är fritt. Mätt på telefon 2026-09-10 för
+    URL-formatet och 2026-09-08 för C-formatet, se
+    docs/swish-applankens-format.md mätning 4 och 6.
+
+    Det som skulle ändras om felet fanns: sidan påstår i formatvalet att
+    numret inte kan göras fritt, samtidigt som upplysningsraden längre ner
+    säger att det kan det. Två meningar på samma sida som säger emot
+    varandra, och den felaktiga är den som läses först - den kan få någon att
+    tro att URL-formatet skyddar mottagaren. Det gör det inte.
+    """
+    text = client.get("/swish").text
+
+    assert "kan inte göras fritt" not in text
+    assert "precis som i C-formatet" in text, "skillnaden mot C ska stå utskriven"
