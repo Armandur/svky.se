@@ -34,7 +34,12 @@ specifikation.
 ```
 
 Gör JSON till en sträng, URL-koda hela strängen, och lägg den efter
-`swish://payment?data=`.
+`swish://payment?data=`. Det är formatet vi kör i dag.
+
+> **Det finns ett andra format**, Swish eget, som ser ut så här och fungerar
+> både som tryckt länk och som skannad kod - även i telefonens kamera:
+> `https://app.swish.nu/1/p/sw/?sw=1231234567&amt=100&cur=SEK&msg=Testkod`
+> Se mätning 6. Vi har inte bytt till det: koden blir fyrtio procent bredare.
 
 > **`"version": "1.0"` bryter länken.** Appen öppnas men fyller inte i
 > någonting. Det måste vara *talet* `1`. Det var den enda skillnaden mellan en
@@ -138,6 +143,12 @@ Vad som följer av det:
 
 ## Mätning 5: app.swish.nu öppnar appen, men bär inte formatet
 
+> **RÄTTAD AV MÄTNING 6.** Slutsatsen nedan - att domänen inte duger för en
+> förifylld betalning - gällde en fråga vi ställde fel. Vi provade
+> `app.swish.nu` med VÅRT `?data=<JSON>`. Domänen bär ett annat format, och
+> med det fungerar den. Läs mätning 6 innan du bygger något på det här
+> avsnittet.
+
 Frågan var om `swish://` kan bytas mot en vanlig https-adress. En egen
 URI-scheme gör ingenting alls när appen saknas - ingen sida, inget besked -
 och flera appar och webbvyer vägrar öppna okända scheman, så en länk i ett
@@ -173,7 +184,83 @@ när appen saknas, och öppnar appen när den finns, duger den som en
 *kompletterande* länk för den som inte har Swish - vid sidan av `swish://`
 för själva betalningen. Det är inte byggt, och är ett eget beslut.
 
-**Vad Swish själva dokumenterar:** deras guide "Trigger the Swish app" på
+## Mätning 6: formatet finns, och det är Swish eget
+
+Mätt 2026-09-10, sedan Swish egen QR-generator på
+<https://www.swish.nu/marknadsmaterial/qr-generator> avslöjat vad den
+producerar. Deras generator ritar ingen kod i webbläsaren: den POSTar till
+`https://api.swish.nu/qr/v2/prefilled` och får tillbaka en färdig bild. Vi
+körde generatorn, fångade svaret och avkodade det.
+
+**Deras officiella kod bär en https-adress, inte C-formatet:**
+
+```
+https://app.swish.nu/1/p/sw/?sw=1231234567&amt=100&cur=SEK&msg=Testkod&src=qr
+```
+
+Sökvägen är `/1/p/sw/` och parametrarna heter `sw`, `amt`, `cur` och `msg`.
+Mätning 5 provade `/1/p/` med `?data=` - alltså nästan rätt sökväg och helt
+fel parametrar. Det är därför appen öppnades tom.
+
+**Låsningen styrs av `edit`**, en kommaseparerad lista över vad som är
+REDIGERBART. Utelämnad betyder att allt är låst. Uppmätt genom att generera
+alla kombinationer via deras API och avkoda bilderna:
+
+| Vad som ska vara fritt | Parameter |
+| --- | --- |
+| ingenting | *(ingen `edit`)* |
+| meddelandet | `edit=msg` |
+| beloppet | `edit=amt` |
+| båda | `edit=amt,msg` |
+
+Samma innebörd som vår låsmask, alltså satt betyder redigerbar - men som namn
+i stället för bitar.
+
+**Mottagaren går inte att öppna.** API:t kräver att `payee` är en sträng och
+avvisar ett objekt med `editable`. Det finns ingen `edit=sw`. Vår
+`REDIGERBAR_MOTTAGARE` har alltså ingen motsvarighet här.
+
+**Utan belopp utelämnas `amt` helt**, precis som `applank()` utelämnar
+`amount` för en gåva med fritt belopp.
+
+**Prövat på telefon 2026-09-10**, både som skannad kod och som tryckt länk,
+i alla tre låslägena:
+
+| Läge | Går att ändra i appen |
+| --- | --- |
+| ingen `edit` | ingenting, mottagaren inräknad |
+| `edit=amt` | beloppet OCH mottagaren |
+| `edit=amt,msg` | alla tre |
+
+**Regeln är alltså densamma som för vårt eget format:** så fort något fält är
+fritt går mottagaren att peka om, och bara en helt låst betalning håller
+numret. Se mätning 4. Att den gäller lika för skannad kod och tryckt länk är
+mätt, inte antaget - knapparna betedde sig som koderna, prov för prov.
+
+**Kameran öppnar den.** Det är en vanlig https-adress, så telefonens
+kameraapp läser den och Universal Link-kopplingen tar den vidare till Swish.
+Det är hela skillnaden mot C-formatet, som bara Swish-appens egen skanner
+förstår - och orsaken till en felanmälan 2026-09-10 där en användare trodde
+att koderna slutat fungera.
+
+**Vad det kostar.** URL-formatet är längre, alltså blir matrisen tätare:
+
+| Format | Tecken | Moduler vid M | Moduler vid H |
+| --- | --- | --- | --- |
+| `C…` (vårt) | 30 | 37 | 41 |
+| URL (Swish eget) | 79 | 45 | 57 |
+
+Swish-symbolen i mitten kräver H. Där är URL-varianten 1,39 gånger bredare:
+en kod som i dag trycks 30 mm behöver 42 mm för samma modulstorlek. Det är
+avvägningen mellan de två, och den är verklig för den som trycker på papper.
+
+**Vad vi kör i dag:** `swish://payment?data=` för knappen och `C…` för koden.
+Båda fungerar. URL-formatet skulle kunna ersätta båda med EN sträng, och
+dessutom göra koden läsbar i kameran - mot fyrtio procent större kod.
+
+## Vad Swish själva dokumenterar
+
+Deras guide "Trigger the Swish app" på
 developer.swish.nu beskriver bara `swish://paymentrequest?token=<token>&callbackurl=<url>`.
 Det tokenet kommer från Handel-API:t och kräver avtal och certifikat, alltså
 inte vårt fall. Formatet på den här sidan står fortfarande ingenstans hos
