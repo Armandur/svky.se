@@ -842,7 +842,11 @@ function toggleCheatsheet() {
   el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 </script>
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1/Sortable.min.js"></script>
+{# Sortable 1.15.7, lokal fil. Pinnad version och inte @1: en rörlig
+   major kan byta beteende utan att något i repot ändras.
+   Uppgradering: hämta sortablejs@<version>/Sortable.min.js till
+   app/static/sortable.min.js och rätta versionen här. #}
+<script src="/static/sortable.min.js"></script>
 <script>
 (function() {
   const bundleId = {{ bundle.id }};
