@@ -223,7 +223,83 @@ Kontrollera samma sak för produktionsstacken - 80 och 443 ska vara publicerade,
 
 ---
 
-## [P3][todo] [svky] Utred Swish nyare QR-standard och bygg val mellan varianterna
+## [P3][todo] [svky] Bygg växel mellan C-format och URL-format i Swish-generatorn
+
+## Context
+
+TASK-1747 mätte klart de två formaten. Båda fungerar, och skillnaden är en
+verklig avvägning som den som skapar koden behöver kunna göra själv:
+
+| | C-format (vårt) | URL-format (Swish eget) |
+| --- | --- | --- |
+| Sträng | `C1231234567;100,00;Text;0` | `https://app.swish.nu/1/p/sw/?sw=…` |
+| Går att skanna med kameran | nej | ja |
+| Går att skanna i Swish-appen | ja | ja |
+| Moduler med symbol och H | 41 | 57 |
+| 30 mm kod blir | 30 mm | 42 mm |
+
+Den som trycker en liten kod på en lapp vill ha C. Den som sätter upp en
+skylt någon fotar med mobilen vill ha URL. I dag går det inte att välja.
+
+Underlaget i sin helhet: docs/swish-applankens-format.md mätning 6.
+
+## Acceptance criteria
+
+- [ ] Generatorn på /swish har ett val mellan de två formaten.
+- [ ] Valet förklarar KORT vad de gör och varför man väljer det ena eller det
+      andra - inte bara två namn.
+- [ ] Förvalet är C-format, alltså dagens beteende. Ingen som inte rör valet
+      får en annan kod än förut.
+- [ ] Valet följer med i nedladdningarna av PNG och SVG.
+- [ ] Låsningen fungerar i BÅDA formaten: kryssrutorna för fritt belopp och
+      fritt meddelande styr `;mask` respektive `edit=`-listan.
+- [ ] Upplysningstexten (app/swishtext.py, lastext) säger sanningen för det
+      valda formatet.
+
+## Implementation hints
+
+Formatens strängar byggs i `app/swish.py`: `qr_strang()` för C-formatet. En
+andra funktion för URL-formatet hör hemma bredvid den, inte i en gren inuti.
+
+Låsningens översättning, uppmätt:
+
+| Fritt | C-mask | URL |
+| --- | --- | --- |
+| ingenting | `0` | *(ingen `edit`)* |
+| belopp | `2` | `edit=amt` |
+| meddelande | `4` | `edit=msg` |
+| båda | `6` | `edit=amt,msg` |
+
+Mottagaren går inte att öppna i URL-formatet - Swish API vägrar `editable` på
+`payee`, och det finns ingen `edit=sw`. Kryssrutan "Fritt Swish-nummer" har
+alltså ingen verkan där. Antingen döljs den när URL är valt, eller så säger
+texten att den inte gäller. Att låta den se ut att fungera är inte ett
+alternativ.
+
+`fria_falt()` i app/swish.py gäller BÅDA formaten: så fort något fält är fritt
+går mottagaren att peka om. Mätt på telefon för båda, 2026-09-10.
+
+Symbolvalet påverkas inte - en Swish-kod bär Swish-symbolen, hårdkodad som
+`qr.SWISH` på alla sex ställen som ritar en.
+
+## Verification
+
+- Prov som bygger båda strängarna för samma betalning och kontrollerar att
+  låsningen översätts rätt i båda, alla fyra kombinationerna.
+- Prov som avkodar en ritad kod i vardera formatet med zxing och jämför mot
+  den väntade strängen - inte bara att funktionen returnerar rätt sträng.
+- `shot` vid 390px och 1280px på /swish, med båda lägena valda. Förklaringen
+  ska synas, inte bara två radioknappar.
+- Klicka växeln i browsern och kontrollera att den ritade koden FAKTISKT byter
+  innehåll. Att sidan renderar bevisar inte att bilden bytts.
+
+- ID: `01M25SFH9Y8D05ZFKEV0ZW68D5`
+- Type: feature
+- Actor: ai:claude-code
+
+---
+
+## [P3][done] [svky] Utred Swish nyare QR-standard och bygg val mellan varianterna
 
 Utred om Swish nyare QR-standard öppnar appen direkt vid kamerask
 anning, och bygg i så fall ett val i verktyget mellan de två varianterna.
@@ -1701,6 +1777,50 @@ KLART NAR: svky.se har en uppetidscheck som larmar pa samma tva kanaler, och fel
 - ID: `01KZGSFCXPCKH624AAEYVFNTMG`
 - Type: feature
 - Actor: human:rasmus
+
+---
+
+## [P5][todo] [svky] Beredskap: byt Öppna Swish-knappen till FQDN-länk om swish:// slutar fungera
+
+BEREDSKAPSTODO. Ligger här för att vara redo, inte för att göras nu.
+
+Knappen "Öppna Swish" använder `swish://payment?data=<JSON>`. Det formatet är
+INTE dokumenterat av Swish - det är härlett ur appen, se
+docs/swish-applankens-format.md. Ett odokumenterat format kan sluta fungera
+utan förvarning och utan att någon meddelar oss.
+
+Sedan 2026-09-10 vet vi att det finns ett dokumenterat alternativ som
+fungerar lika bra som knapp:
+
+  https://app.swish.nu/1/p/sw/?sw=<nummer>&amt=<belopp>&cur=SEK&msg=<text>
+
+Prövat på telefon samma dag, i alla tre låslägena, både som tryckt länk och
+som skannad kod. Det är Swish egen generator som använder det.
+
+NÄR DET HÄR SKA GÖRAS: den dag `swish://` slutar fylla i fälten, eller slutar
+öppna appen. Symptomet blir troligen att appen öppnas tom, som när vi provade
+fel format 2026-09-09.
+
+VAD SOM SKA GÖRAS: byt strängen i `applank()` (app/swish.py) mot URL-formatet.
+Knappen behöver inget annat - den bär redan en href.
+
+Översättningen av låsningen står i docs/swish-applankens-format.md mätning 6.
+Kort: ingen `edit` betyder allt låst, `edit=amt`, `edit=msg`, `edit=amt,msg`.
+Mottagaren går inte att öppna i URL-formatet, men det spelar ingen roll -
+mätningen visar att den ändå går att ändra så fort något annat fält är fritt.
+
+EN FÖRDEL PÅ KÖPET: en https-adress gör något vettigt när Swish saknas. Den
+visar Swish egen "Ladda ner"-sida. En `swish://`-länk gör ingenting alls -
+ingen sida, inget besked - och flera appar och webbvyer vägrar öppna okända
+scheman. Det talar för att byta även utan att något gått sönder, men det är
+ett eget beslut och inte den här todon.
+
+Motsvarande todo finns i projektet hemslojd (slöjda.de), som har samma
+konstruktion.
+
+- ID: `01M25SG7M4PPAS1SSCKSTZZJC3`
+- Type: chore
+- Actor: ai:claude-code
 
 ---
 
