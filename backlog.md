@@ -223,6 +223,53 @@ Kontrollera samma sak för produktionsstacken - 80 och 443 ska vara publicerade,
 
 ---
 
+## [P3][todo] [svky] Utred Swish nyare QR-standard och bygg val mellan varianterna
+
+Utred om Swish nyare QR-standard öppnar appen direkt vid kamerask
+anning, och bygg i så fall ett val i verktyget mellan de två varianterna.
+
+BAKGRUND, ur en dialog 2026-09-10. En användare rapporterade att koden
+"slutat fungera" - kameran visade bara texten `C123456789;;;2` i stället
+för att öppna Swish. Det var INGET fel: hen hade skannat med kameraappen
+i stället för i Swish-appen. Rapporten avskrevs av användaren själv.
+
+Men frågan den väckte står kvar och är Rasmus egen:
+
+C-varianten som vi genererar (se docs/swish-qr.md och app/swish.py:
+qr_strang) är Swish äldre kodstandard. Den lever kvar och fungerar, och
+har en verklig fördel: strängen är kort, alltså blir matrisen glesare och
+koden kan tryckas mindre. Nackdelen är att den bara går att läsa i
+Swish-appen, inte med telefonens kamera.
+
+ATT TA REDA PÅ:
+- Har Swish en nyare kodstandard som telefonens KAMERA öppnar direkt i
+  appen? Troligen en https-adress som är en Universal Link.
+- Vad kostar den i komplexitet? En längre sträng ger en tätare matris och
+  en kod som måste tryckas större för att gå att läsa. Mät det, gissa
+  inte - vi har längdsvepet i tests/test_qr.py att mäta med.
+- OBS mätning från 2026-09-09: app.swish.nu ÄR en riktig Universal Link
+  och öppnar appen, men bär inte vårt ?data=-format - appen öppnas TOM.
+  Se docs/swish-applankens-format.md mätning 5. Det utesluter inte att det
+  finns ett annat format som fungerar, men den vägen är redan prövad.
+
+OM det finns en fungerande nyare variant: bygg en växel i generatorn och i
+Swish-samlingen, som låter den som skapar koden välja. Valet måste förklara
+VAD det innebär, inte bara heta något - den som väljer fel får en kod som
+inte går att läsa på det sätt hen tänkt sig.
+
+Tills vidare är det värt att fundera på om sidan ska SÄGA att koden ska
+skannas i Swish-appen. Texten på samlingssidan säger i dag "Skanna med
+Swish eller kameran", vilket är fel för C-varianten - se
+app/templates/swish_bundle.html. Det är en mindre rättelse som kan göras
+oberoende av utredningen, och som hade besparat den här användaren
+förvirringen.
+
+- ID: `01M25MGESDF690FS7ER1C14QEQ`
+- Type: spike
+- Actor: ai:claude-code
+
+---
+
 ## [P3][done] [svky] Hämta hem Chart.js och Sortable lokalt i stället för från jsDelivr
 
 ## Context
@@ -1654,6 +1701,27 @@ KLART NAR: svky.se har en uppetidscheck som larmar pa samma tva kanaler, och fel
 - ID: `01KZGSFCXPCKH624AAEYVFNTMG`
 - Type: feature
 - Actor: human:rasmus
+
+---
+
+## [P5][todo] [svky] Animera ormen i easter egget när någon pekar en kortlänk på svky.se
+
+TASK-1729 gav en text: 'Ormen får inte äta sin egen svans. Ange adressen till sidan du vill nå i stället.'
+
+Rasmus idé 2026-09-10: en animerad orm som äter sin egen svans skulle klä det.
+
+ATT TÄNKA PÅ:
+- Texten kommer i dag ur validate_target_url() som en vanlig felsträng, och renderas i formulärets ordinarie felruta. En animation kräver att just DET felet går att skilja från andra fel i mallen - i dag är alla fel bara strängar. Antingen en egen felkod, eller att mallen känner igen texten (skört).
+- SVG med CSS-animation, inte en GIF: den skalar, väger inget och kan följa temat. Inga externa bibliotek, allt ligger lokalt sedan TASK-1726.
+- prefers-reduced-motion ska respekteras. En snurrande orm för den som bett om mindre rörelse är precis vad den inställningen finns till för att slippa.
+- Får inte skymma budskapet. Andra meningen säger vad man ska göra i stället, och den är viktigare än skämtet.
+- Ingen emoji, enligt projektets konvention. En ritad orm är något annat än en emoji.
+
+Låg prio med flit: det är ett skämt i ett felmeddelande som få ser.
+
+- ID: `01M25MH1WA2TYP6K8T7FJH6D79`
+- Type: feature
+- Actor: ai:claude-code
 
 ---
 
