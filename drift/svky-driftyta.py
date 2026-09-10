@@ -442,11 +442,17 @@ def fragment(besked: str = "", beskedklass: str = "") -> str:
     else:
         diff = '<p class="varning">Kan inte jämföra miljöerna, en av dem är okänd.</p>'
 
+    # Digesten skrivs UT, inte bara att den skiljer sig. Korten visar staging
+    # och produktion med sin digest, och den som felsöker vill kunna jämföra
+    # alla tre - "ett nyare finns" går inte att kontrollera mot registret.
+    senaste_kort = senaste.split("@")[-1][:19] + "…" if "@" in (senaste or "") else senaste
     if senaste and stag.get("image"):
-        nytt = ('<p class="info-rad">Ett nyare bygge finns än det staging kör. '
+        nytt = ('<p class="info-rad">Ett nyare bygge finns än det staging kör: '
+                f'<code>{esc(senaste_kort)}</code>. '
                 'Staginguppdateraren hämtar det inom fem minuter.</p>'
                 if senaste != stag["image"] else
-                '<p class="ok-rad">Staging kör senaste bygget.</p>')
+                '<p class="ok-rad">Staging kör senaste bygget, '
+                f'<code>{esc(senaste_kort)}</code>.</p>')
     else:
         nytt = '<p class="varning">Kunde inte slå upp senaste bygget i registret.</p>'
 

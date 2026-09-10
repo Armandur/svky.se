@@ -58,10 +58,11 @@ sond_aktiv=$(systemctl is-active uppetidssond.timer 2>/dev/null)
 begaran_trasiga=""
 begaran_lagen=""
 for e in svky-begaran-uppdatera.path svky-begaran-promotera.path \
-         svky-begaran-hamta-driftkod.path svky-begaran-rulla-ut.path; do
+         svky-begaran-hamta-driftkod.path svky-begaran-rulla-ut.path \
+         svky-begaran-inloggningslankar.path; do
     lage=$(systemctl is-active "$e" 2>/dev/null)
     # Enhetens NAMN och läge, inte bara en lista över de trasiga. Vid
-    # felsökning vill man se alla fyra på en gång - "de andra är väl igång"
+    # felsökning vill man se dem alla på en gång - "de andra är väl igång"
     # är en gissning, inte en uppgift.
     begaran_lagen="$begaran_lagen ${e%.path}=${lage:-okand}"
     [ "$lage" = "active" ] || begaran_trasiga="$begaran_trasiga $e"
@@ -138,7 +139,10 @@ _jamfor drift/svky-driftyta.py /usr/local/bin/svky-driftyta
 for e in svky-driftyta.service svky-samla-lage.service svky-samla-lage.timer \
          svky-staging-uppdatera.service svky-staging-uppdatera.timer \
          svky-begaran-uppdatera.path svky-begaran-uppdatera.service \
-         svky-begaran-promotera.path svky-begaran-promotera.service; do
+         svky-begaran-promotera.path svky-begaran-promotera.service \
+         svky-begaran-hamta-driftkod.path svky-begaran-hamta-driftkod.service \
+         svky-begaran-rulla-ut.path svky-begaran-rulla-ut.service \
+         svky-begaran-inloggningslankar.path svky-begaran-inloggningslankar.service; do
     _jamfor "drift/systemd/$e" "/etc/systemd/system/$e"
 done
 drift_outrullade=${drift_outrullade# }
