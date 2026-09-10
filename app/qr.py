@@ -192,17 +192,38 @@ def _badda_in_symbol(svgdata: bytes, kod: qrcode.QRCode, installning: Symbolinst
 
     SvgPathImage ritar med en modul per enhet, så måtten räknas ur antalet
     moduler - inte ur pixlar, som PNG-vägen gör.
+
+    BÅDE xlink:href och href, och det är inte bältet-och-hängslen. Filen
+    säger version="1.1", och i SVG 1.1 heter attributet xlink:href - rå
+    href kom först med SVG 2. Webbläsare tar båda, men Adobe följer 1.1
+    och hoppar över en <image> utan xlink:href: koden monteras i InDesign
+    med ett tomt hål där symbolen skulle sitta. Felanmält 2026-09-10.
+    Namnrymden måste deklareras på rotelementet, annars är prefixet
+    obundet och filen inte välformad XML.
     """
     moduler = len(kod.get_matrix())
     symbolbredd = installning.andel * moduler
     bild64 = base64.b64encode(installning.sokvag.read_bytes()).decode()
     inre_mitt = (moduler - symbolbredd) / 2
+    uri = f"data:image/png;base64,{bild64}"
     lager = (
         f'<image x="{inre_mitt:.3f}" y="{inre_mitt:.3f}" '
         f'width="{symbolbredd:.3f}" height="{symbolbredd:.3f}" '
-        f'href="data:image/png;base64,{bild64}"/>'
+        f'xlink:href="{uri}" href="{uri}"/>'
     )
+    svgdata = _deklarera_xlink(svgdata)
     return re.sub(rb"</svg>\s*$", lager.encode() + b"</svg>", svgdata)
+
+
+def _deklarera_xlink(svgdata: bytes) -> bytes:
+    """Binder xlink-prefixet på rotelementet, om det inte redan är bundet."""
+    if b"xmlns:xlink" in svgdata:
+        return svgdata
+    return svgdata.replace(
+        b'xmlns="http://www.w3.org/2000/svg"',
+        b'xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"',
+        1,
+    )
 
 
 def _felkorrigering(installning: Symbolinstallning | None) -> int:

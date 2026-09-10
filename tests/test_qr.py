@@ -5,6 +5,7 @@ något kom ut - inte att det går att skanna, och inte att det bär rätt adress
 """
 
 import io
+import xml.etree.ElementTree as ET
 
 import cv2
 import numpy as np
@@ -56,6 +57,7 @@ def _skapa_samling(agare: int, code: str = "konfirmander") -> int:
 
 # --- modulen -------------------------------------------------------------
 
+
 def test_koden_bar_kortlanken_inte_maladressen():
     """Byter länken mål ska en tryckt kod fortsätta fungera. Det är hela
     poängen med en kortlänk, och en kod på target_url hade förstört den."""
@@ -80,14 +82,18 @@ def test_marginalen_ar_minst_standardens_fyra():
 
 @pytest.mark.parametrize(
     ("code", "vantat"),
-    [("hsandkonf", "svky-hsandkonf.svg"), ("../../etc/passwd", "svky-etcpasswd.svg"),
-     ("!!!", "svky-kortlank.svg")],
+    [
+        ("hsandkonf", "svky-hsandkonf.svg"),
+        ("../../etc/passwd", "svky-etcpasswd.svg"),
+        ("!!!", "svky-kortlank.svg"),
+    ],
 )
 def test_filnamnet_ar_ofarligt(code, vantat):
     assert qr.filnamn(code, "svg") == vantat
 
 
 # --- routen --------------------------------------------------------------
+
 
 @pytest.mark.parametrize("andelse", ["png", "svg"])
 def test_agaren_far_hamta_sin_kod(client, inloggad_anvandare, andelse):
@@ -97,7 +103,8 @@ def test_agaren_far_hamta_sin_kod(client, inloggad_anvandare, andelse):
 
     assert svar.status_code == 200
     assert svar.headers["content-type"].startswith(
-        "image/png" if andelse == "png" else "image/svg+xml")
+        "image/png" if andelse == "png" else "image/svg+xml"
+    )
     assert "attachment" in svar.headers["content-disposition"]
     assert "svky-hsandkonf" in svar.headers["content-disposition"]
 
@@ -145,9 +152,7 @@ def test_vanlig_anvandare_nekas_adminroutens_kod(client, inloggad_anvandare):
 def test_agaren_far_hamta_samlingens_kod(client, inloggad_anvandare, andelse):
     samling = _skapa_samling(inloggad_anvandare["id"])
 
-    svar = client.get(
-        f"/mina-samlingar/{samling}/qr.{andelse}?symbol=skold-svart"
-    )
+    svar = client.get(f"/mina-samlingar/{samling}/qr.{andelse}?symbol=skold-svart")
 
     assert svar.status_code == 200
     assert svar.headers["etag"]
@@ -531,3 +536,36 @@ def test_okand_tabell_avvisas():
         _hamta_kod(1, None, "users")
     with pytest.raises(ValueError):
         _hamta_kod(1, 1, "links; DROP TABLE links")
+
+
+def test_svg_bar_xlink_href_for_adobe():
+    """SVG 1.1 stavar attributet xlink:href. Rå href kom med SVG 2.
+
+    Filen säger version="1.1". Webbläsare tar båda stavningarna, men Adobe
+    följer 1.1 och hoppar över en <image> utan xlink:href - koden monteras
+    i InDesign med ett tomt hål där symbolen skulle sitta. Felanmält
+    2026-09-10 av en användare som såg det i både InDesign och Illustrator.
+
+    Det som skulle ändras om felet fanns: xlink-stavningen försvinner ur
+    taggen och namnrymden ur rotelementet. Provet mäter BÅDA - ett prefix
+    utan bunden namnrymd är inte välformad XML, och då öppnas filen inte
+    alls i stället för att tappa symbolen.
+    """
+    data = qr.svg("https://svky.se/abc", symbol_installning=qr.SWISH)
+
+    assert b"xmlns:xlink=" in data, "xlink-prefixet måste bindas på rotelementet"
+    assert b"xlink:href=" in data, "SVG 1.1 kräver xlink:href på <image>"
+    # Välformad XML, alltså inget obundet prefix.
+    ET.fromstring(data.decode())
+
+
+def test_svg_utan_symbol_slipper_xlink():
+    """Ingen symbol, ingen <image>, ingen anledning till namnrymden.
+
+    En deklaration som inte används är skräp i varje fil vi lämnar ifrån
+    oss, och de flesta koder ritas utan symbol.
+    """
+    data = qr.svg("https://svky.se/abc")
+
+    assert b"<image" not in data
+    assert b"xmlns:xlink" not in data
