@@ -223,7 +223,7 @@ Kontrollera samma sak för produktionsstacken - 80 och 443 ska vara publicerade,
 
 ---
 
-## [P3][todo] [svky] Bygg växel mellan C-format och URL-format i Swish-generatorn
+## [P3][done] [svky] Bygg formatväxel i Swish-generatorn: C-format eller Swish URL-format
 
 ## Context
 
@@ -233,35 +233,42 @@ verklig avvägning som den som skapar koden behöver kunna göra själv:
 | | C-format (vårt) | URL-format (Swish eget) |
 | --- | --- | --- |
 | Sträng | `C1231234567;100,00;Text;0` | `https://app.swish.nu/1/p/sw/?sw=…` |
-| Går att skanna med kameran | nej | ja |
-| Går att skanna i Swish-appen | ja | ja |
+| Läses av telefonens kamera | nej | ja |
+| Läses i Swish-appens skanner | ja | ja |
 | Moduler med symbol och H | 41 | 57 |
 | 30 mm kod blir | 30 mm | 42 mm |
 
-Den som trycker en liten kod på en lapp vill ha C. Den som sätter upp en
-skylt någon fotar med mobilen vill ha URL. I dag går det inte att välja.
+Den som trycker en liten kod på en lapp vill ha C. Den som sätter upp en skylt
+någon fotar med mobilen vill ha URL. I dag går det inte att välja, och en
+felanmälan 2026-09-10 kom just av att en besökare fotade en C-kod med kameran
+och bara fick teckenföljden.
 
-Underlaget i sin helhet: docs/swish-applankens-format.md mätning 6.
+Hela mätningen ligger i `docs/swish-applankens-format.md` mätning 6.
 
 ## Acceptance criteria
 
-- [ ] Generatorn på /swish har ett val mellan de två formaten.
-- [ ] Valet förklarar KORT vad de gör och varför man väljer det ena eller det
-      andra - inte bara två namn.
+- [ ] Generatorn på `/swish` har ett val mellan de två formaten.
+- [ ] Valet FÖRKLARAR kort vad de gör och varför man väljer det ena eller det
+      andra - inte bara två namn. Kameraläsbarheten och storleken är de två
+      sakerna som avgör.
 - [ ] Förvalet är C-format, alltså dagens beteende. Ingen som inte rör valet
       får en annan kod än förut.
-- [ ] Valet följer med i nedladdningarna av PNG och SVG.
+- [ ] Valet följer med i nedladdningarna av både PNG och SVG.
 - [ ] Låsningen fungerar i BÅDA formaten: kryssrutorna för fritt belopp och
       fritt meddelande styr `;mask` respektive `edit=`-listan.
-- [ ] Upplysningstexten (app/swishtext.py, lastext) säger sanningen för det
-      valda formatet.
+- [ ] Kryssrutan "Fritt Swish-nummer" har ingen verkan i URL-formatet. Den
+      ska antingen döljas eller säga att den inte gäller - att låta den se ut
+      att fungera är inte ett alternativ.
+- [ ] Upplysningstexten (`app/swishtext.py`, `lastext`) säger sanningen för
+      det valda formatet.
 
 ## Implementation hints
 
-Formatens strängar byggs i `app/swish.py`: `qr_strang()` för C-formatet. En
-andra funktion för URL-formatet hör hemma bredvid den, inte i en gren inuti.
+Formatens strängar byggs i `app/swish.py`. `qr_strang()` gör C-formatet. En
+andra funktion för URL-formatet hör hemma bredvid den, inte som en gren inuti.
 
-Låsningens översättning, uppmätt:
+Låsningens översättning, uppmätt genom att generera alla kombinationer via
+Swish eget API och avkoda bilderna:
 
 | Fritt | C-mask | URL |
 | --- | --- | --- |
@@ -270,28 +277,47 @@ Låsningens översättning, uppmätt:
 | meddelande | `4` | `edit=msg` |
 | båda | `6` | `edit=amt,msg` |
 
-Mottagaren går inte att öppna i URL-formatet - Swish API vägrar `editable` på
-`payee`, och det finns ingen `edit=sw`. Kryssrutan "Fritt Swish-nummer" har
-alltså ingen verkan där. Antingen döljs den när URL är valt, eller så säger
-texten att den inte gäller. Att låta den se ut att fungera är inte ett
-alternativ.
+URL-formatets form, exakt: `https://app.swish.nu/1/p/sw/?sw=<tio siffror>` plus
+`&amt=<belopp>&cur=SEK` när belopp finns, `&msg=<text>` när meddelande finns,
+`&edit=<lista>` när något är fritt, och `&src=qr` sist. UTAN belopp utelämnas
+`amt` OCH `cur` helt - precis som `applank()` utelämnar `amount`.
 
-`fria_falt()` i app/swish.py gäller BÅDA formaten: så fort något fält är fritt
-går mottagaren att peka om. Mätt på telefon för båda, 2026-09-10.
+Mottagaren går inte att öppna i URL-formatet: Swish API vägrar `editable` på
+`payee`, och det finns ingen `edit=sw`. Se mätning 6.
 
-Symbolvalet påverkas inte - en Swish-kod bär Swish-symbolen, hårdkodad som
+`fria_falt()` i `app/swish.py` gäller BÅDA formaten: så fort något fält är
+fritt går mottagaren att peka om. Mätt på telefon för båda, 2026-09-10.
+
+Berörda ställen i generatorn:
+- `app/routes/swishgenerator.py`: `_ur_fragan()` läser frågesträngen,
+  `/swish-kod.png` (rad 61) och `/swish-kod.svg` (rad 83) ritar,
+  `/swish-data` (rad 100) svarar sidan medan man skriver.
+- `app/templates/swish_generator.html`: formuläret, fälten heter `mottagare`,
+  `belopp`, `meddelande`, `fritt_belopp`, `fritt_meddelande`, `fri_mottagare`.
+
+Symbolvalet påverkas inte. En Swish-kod bär Swish-symbolen, hårdkodad som
 `qr.SWISH` på alla sex ställen som ritar en.
+
+## Icke-mål
+
+Rör INTE Swish-samlingen (`swishsamling.py`, `user/swishsamlingar.py`). Den
+har egna ritvägar och ett eget formulär. Växeln byggs i generatorn först, och
+samlingen är en egen uppgift när mönstret satt sig.
 
 ## Verification
 
-- Prov som bygger båda strängarna för samma betalning och kontrollerar att
-  låsningen översätts rätt i båda, alla fyra kombinationerna.
-- Prov som avkodar en ritad kod i vardera formatet med zxing och jämför mot
-  den väntade strängen - inte bara att funktionen returnerar rätt sträng.
-- `shot` vid 390px och 1280px på /swish, med båda lägena valda. Förklaringen
+- Prov som bygger BÅDA strängarna för samma betalning och kontrollerar att
+  låsningen översätts rätt, alla fyra kombinationerna.
+- Prov för fallet utan belopp: `amt` och `cur` ska saknas helt i URL:en.
+- Prov som anropar ROUTEN `/swish-kod.png` och `/swish-kod.svg` med formatvalet
+  i frågesträngen, avkodar bilden med zxing och jämför mot väntad sträng. Att
+  funktionen returnerar rätt sträng bevisar inte att bilden bär den.
+- Prov som visar att FÖRVALET är C-format: en fråga utan formatparameter ger
+  samma sträng som i dag.
+- `shot` vid 390px och 1280px på `/swish` med båda lägena valda. Förklaringen
   ska synas, inte bara två radioknappar.
-- Klicka växeln i browsern och kontrollera att den ritade koden FAKTISKT byter
-  innehåll. Att sidan renderar bevisar inte att bilden bytts.
+- Klicka växeln i browsern och kontrollera att den visade koden FAKTISKT byter
+  innehåll - avkoda bilden före och efter. Att sidan renderar bevisar inget.
 
 - ID: `01M25SFH9Y8D05ZFKEV0ZW68D5`
 - Type: feature
