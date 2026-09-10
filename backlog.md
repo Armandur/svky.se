@@ -223,7 +223,7 @@ Kontrollera samma sak för produktionsstacken - 80 och 443 ska vara publicerade,
 
 ---
 
-## [P3][todo] [svky] Hämta hem Chart.js och Sortable lokalt i stället för från jsDelivr
+## [P3][done] [svky] Hämta hem Chart.js och Sortable lokalt i stället för från jsDelivr
 
 ## Context
 
