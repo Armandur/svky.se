@@ -24,7 +24,7 @@ def _rada_upp(delar: list[str]) -> str:
     return ", ".join(delar[:-1]) + " och " + delar[-1]
 
 
-def lastext(betalning: Swishbetalning) -> str:
+def lastext(betalning: Swishbetalning, kodformat: str = "c") -> str:
     """Vad betalaren kan ändra, i klartext och för de ifyllda värdena.
 
     Ersätter den statiska raden "Det som inte är ikryssat låses i appen".
@@ -34,13 +34,24 @@ def lastext(betalning: Swishbetalning) -> str:
     """
     # Visa värdena som de kommer att stå i koden, inte som de skrevs in.
     ren = betalning.normaliserad()
-    fria = fria_falt(betalning)
+    if kodformat == "url":
+        fria = []
+        if betalning.redigerbart_belopp:
+            fria.append("belopp")
+        if betalning.redigerbart_meddelande:
+            fria.append("meddelande")
+        if fria:
+            fria.append("mottagare")
+    else:
+        fria = list(fria_falt(betalning))
 
     if not fria:
         return f"Allt är låst. Betalaren kan bara godkänna {ren.belopp} kr till {ren.mottagare}."
 
     text = "Betalaren kan ändra " + _rada_upp([_FALTNAMN[f] for f in fria]) + "."
-    if not betalning.redigerbar_mottagare:
+    if kodformat == "url":
+        text += " Mottagarnumret kan ändras så fort något annat fält är fritt."
+    elif not betalning.redigerbar_mottagare:
         # Utan den här meningen ser mottagaren ut att vara fri av misstag.
         # "kan ändras" och inte "följer med": det senare läses som att numret
         # följer med betalningen, vilket är något helt annat.

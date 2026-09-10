@@ -44,6 +44,15 @@
   display: flex; align-items: center; gap: 8px; font-weight: 400;
   margin-bottom: 6px; cursor: pointer;
 }
+.formatval { border: 0; padding: 0; margin: 0 0 20px; }
+.formatval legend { font-weight: 600; margin-bottom: 8px; }
+.formatval label {
+  display: grid; grid-template-columns: auto 1fr; gap: 2px 8px;
+  align-items: start; margin-bottom: 10px; cursor: pointer;
+}
+.formatval input { margin-top: 4px; }
+.formatval strong, .formatval small { grid-column: 2; }
+.formatval small { color: var(--muted); line-height: 1.45; }
 .laset {
   margin-top: 8px; line-height: 1.6;
   border-left: 3px solid var(--border); padding-left: 10px;
@@ -67,6 +76,21 @@
 <div class="gen-layout">
   <div class="card">
     <form method="get" action="/swish">
+      <fieldset class="formatval">
+        <legend>QR-format</legend>
+        <label>
+          <input type="radio" name="format" value="c"
+                 {% if kodformat == 'c' %}checked{% endif %}>
+          <strong>C-format - kompakt</strong>
+          <small>Läses bara i Swish-appens skanner. Välj detta för en mindre kod.</small>
+        </label>
+        <label>
+          <input type="radio" name="format" value="url"
+                 {% if kodformat == 'url' %}checked{% endif %}>
+          <strong>Swish URL-format - kameraläsbart</strong>
+          <small>Läses även av telefonens kamera, men koden blir cirka 40 procent bredare. Swish-numret kan inte göras fritt.</small>
+        </label>
+      </fieldset>
       <div class="form-group">
         <label for="mottagare">Swish-nummer *</label>
         <input type="text" id="mottagare" name="mottagare" required
@@ -106,7 +130,7 @@
           <input type="checkbox" name="fritt_meddelande" value="1"
                  {% if form.fritt_meddelande %}checked{% endif %}> Meddelandet får ändras
         </label>
-        <label class="kryss">
+        <label class="kryss" id="fri-mottagare-val" {% if kodformat == 'url' %}hidden{% endif %}>
           <input type="checkbox" name="fri_mottagare" value="1"
                  {% if form.fri_mottagare %}checked{% endif %}> Mottagaren får ändras
         </label>
@@ -134,7 +158,7 @@
     <div id="gen-fardig" {% if not betalning %}hidden{% endif %}>
       <div class="gen-kod">
         <img id="gen-bild" width="240" height="240"
-             {% if betalning %}src="/swish-kod.png?{{ request.url.query }}"{% endif %}
+             {% if betalning %}src="/swish-kod.png?{{ kodfraga }}"{% endif %}
              alt="Swish-QR-kod för betalningen">
       </div>
 
@@ -144,10 +168,10 @@
 
       <p class="gen-hamta">
         <a id="gen-svg" class="btn btn-secondary btn-sm"
-           {% if betalning %}href="/swish-kod.svg?{{ request.url.query }}"{% endif %}>
+           {% if betalning %}href="/swish-kod.svg?{{ kodfraga }}"{% endif %}>
           &#11015; SVG för tryck</a>
         <a id="gen-png" class="btn btn-secondary btn-sm"
-           {% if betalning %}href="/swish-kod.png?{{ request.url.query }}"{% endif %}>
+           {% if betalning %}href="/swish-kod.png?{{ kodfraga }}"{% endif %}>
           &#11015; PNG</a>
       </p>
 
@@ -226,6 +250,8 @@
   function fraga() {
     var data = new FormData(form);
     var delar = new URLSearchParams();
+    var kodformat = data.get('format');
+    if (kodformat === 'c' || kodformat === 'url') delar.set('format', kodformat);
     ['mottagare', 'belopp', 'meddelande'].forEach(function (namn) {
       var varde = (data.get(namn) || '').trim();
       if (varde) delar.set(namn, varde);
@@ -235,6 +261,14 @@
     });
     return delar.toString();
   }
+
+  function visaMottagarval() {
+    var valt = form.querySelector('input[name="format"]:checked');
+    var mottagarval = document.getElementById('fri-mottagare-val');
+    if (mottagarval) mottagarval.hidden = valt && valt.value === 'url';
+  }
+
+  visaMottagarval();
 
   function visa(lage, svar, q) {
     felruta.hidden = lage !== 'fel';
@@ -285,9 +319,10 @@
     clearTimeout(timer);
     timer = setTimeout(rakna, 400);
   });
-  // Kryssrutorna är ett beslut, inte ett skrivande - de behöver ingen paus.
+  // Kryssrutorna och formatvalet är beslut, så de behöver ingen paus.
   form.addEventListener('change', function (e) {
-    if (e.target.type !== 'checkbox') return;
+    if (e.target.name === 'format') visaMottagarval();
+    if (e.target.type !== 'checkbox' && e.target.name !== 'format') return;
     clearTimeout(timer);
     rakna();
   });

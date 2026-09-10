@@ -14,6 +14,8 @@ den som fyller i redan känner till.
 
 from __future__ import annotations
 
+from urllib.parse import urlencode
+
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 
@@ -25,11 +27,41 @@ from app.swish import (
     Swishfel,
     applank,
     qr_strang,
+    url_strang,
 )
 from app.swishtext import lastext
 from app.templating import templates
 
 router = APIRouter()
+
+_KODFORMAT = {"c": qr_strang, "url": url_strang}
+
+
+def _valj_format(varde: str | None) -> str:
+    """Ett känt format, med C-formatet som säkert förval."""
+    return varde if varde in _KODFORMAT else "c"
+
+
+def _format_ur_fragan(request: Request) -> str:
+    return _valj_format(request.query_params.get("format"))
+
+
+def _kodstrang(betalning: Swishbetalning, kodformat: str) -> str:
+    return _KODFORMAT[kodformat](betalning)
+
+
+def _kodfraga(request: Request) -> str:
+    """Känd och URL-kodad delmängd för bild- och nedladdningsadresser."""
+    fraga = request.query_params
+    parametrar = []
+    for namn in ("mottagare", "belopp", "meddelande"):
+        if fraga.get(namn):
+            parametrar.append((namn, fraga[namn]))
+    for namn in ("fri_mottagare", "fritt_belopp", "fritt_meddelande"):
+        if fraga.get(namn) == "1":
+            parametrar.append((namn, "1"))
+    parametrar.append(("format", _format_ur_fragan(request)))
+    return urlencode(parametrar)
 
 
 def _ur_fragan(request: Request) -> tuple[Swishbetalning | None, str | None]:
@@ -52,7 +84,7 @@ def _ur_fragan(request: Request) -> tuple[Swishbetalning | None, str | None]:
         redigerbart_meddelande=fraga.get("fritt_meddelande") == "1",
     )
     try:
-        qr_strang(betalning)
+        _kodstrang(betalning, _format_ur_fragan(request))
     except Swishfel as fel:
         return None, str(fel)
     return betalning, None
@@ -71,7 +103,9 @@ async def swish_kod_png(request: Request):
         raise HTTPException(status_code=404, detail=fel or "Ofullständig betalning")
 
     return Response(
-        content=qr.png(qr_strang(betalning), symbol_installning=qr.SWISH),
+        content=qr.png(
+            _kodstrang(betalning, _format_ur_fragan(request)), symbol_installning=qr.SWISH
+        ),
         media_type="image/png",
         headers={
             "Content-Disposition": 'attachment; filename="swish-qr.png"',
@@ -88,7 +122,9 @@ async def swish_kod_svg(request: Request):
         raise HTTPException(status_code=404, detail=fel or "Ofullständig betalning")
 
     return Response(
-        content=qr.svg(qr_strang(betalning), symbol_installning=qr.SWISH),
+        content=qr.svg(
+            _kodstrang(betalning, _format_ur_fragan(request)), symbol_installning=qr.SWISH
+        ),
         media_type="image/svg+xml",
         headers={
             "Content-Disposition": 'attachment; filename="swish-qr.svg"',
@@ -128,10 +164,10 @@ async def swish_data(request: Request):
         {
             "lage": "ok",
             "fel": None,
-            "kodstrang": qr_strang(betalning),
+            "kodstrang": _kodstrang(betalning, _format_ur_fragan(request)),
             "applank": applank(betalning),
             "mottagare": betalning.mottagare,
-            "lastext": lastext(betalning),
+            "lastext": lastext(betalning, _format_ur_fragan(request)),
         }
     )
 
@@ -149,9 +185,11 @@ async def generator(request: Request):
             "betalning": betalning,
             "fel": fel,
             "applank": applank(betalning) if betalning else None,
-            "kodstrang": qr_strang(betalning) if betalning else None,
-            "lastext": lastext(betalning) if betalning else None,
+            "kodstrang": _kodstrang(betalning, _format_ur_fragan(request)) if betalning else None,
+            "lastext": lastext(betalning, _format_ur_fragan(request)) if betalning else None,
             "form": dict(request.query_params),
+            "kodformat": _format_ur_fragan(request),
+            "kodfraga": _kodfraga(request),
             "max_meddelande": MAX_MEDDELANDE,
         },
     )

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 # Vad betalaren får ändra i appen efter skanning. Bit satt betyder REDIGERBAR,
 # alltså tvärtom mot vad namnet "lock" antyder. Utelämnad mask tolkas som 0,
@@ -164,6 +164,52 @@ def qr_strang(betalning: Swishbetalning) -> str:
     # kodar mellanslag som %20, inte som plus.
     meddelande = quote(_meddelande(betalning.meddelande), safe="")
     return f"C{mottagare};{belopp};{meddelande};{betalning.mask()}"
+
+
+def _amt(kronor: str) -> str:
+    """Beloppet som Swish egen generator skriver det i URL:en.
+
+    Punkt som decimaltecken, och EFTERFÖLJANDE NOLLOR BORTA. Uppmätt mot
+    api.swish.nu 2026-09-10 över fem belopp: 10,00 blir 10, 99,90 blir 99.9
+    och 149,55 blir 149,55.
+
+    Att bara stryka ".00" räcker inte - då blir 149,50 kvar som 149.50, vilket
+    Swish aldrig skriver. Skillnaden är troligen betydelselös för appen, men
+    formatet är odokumenterat och vi vet sedan tidigare att den är kinkig med
+    just talformat: strängen "1.0" i stället för talet 1 bröt applänken helt.
+    Att avvika från facit utan skäl är en risk vi inte behöver ta.
+    """
+    text = kronor.replace(",", ".")
+    return text.rstrip("0").rstrip(".") if "." in text else text
+
+
+def url_strang(betalning: Swishbetalning) -> str:
+    """Swish eget URL-format för QR-koder som telefonens kamera kan läsa.
+
+    Parametrarnas ordning och ``edit``-värden kommer från Swish egen
+    generator. Mottagaren kan inte markeras som redigerbar i formatet.
+    """
+    _kontrollera(betalning)
+    parametrar = [("sw", _rensa_mottagare(betalning.mottagare))]
+
+    belopp = _kronor(betalning.belopp)
+    if belopp:
+        parametrar.extend((("amt", _amt(belopp)), ("cur", "SEK")))
+
+    meddelande = _meddelande(betalning.meddelande)
+    if meddelande:
+        parametrar.append(("msg", meddelande))
+
+    redigerbara = []
+    if betalning.redigerbart_belopp:
+        redigerbara.append("amt")
+    if betalning.redigerbart_meddelande:
+        redigerbara.append("msg")
+    if redigerbara:
+        parametrar.append(("edit", ",".join(redigerbara)))
+
+    parametrar.append(("src", "qr"))
+    return "https://app.swish.nu/1/p/sw/?" + urlencode(parametrar, safe=",")
 
 
 def applank(betalning: Swishbetalning) -> str:

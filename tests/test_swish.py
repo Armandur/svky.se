@@ -21,6 +21,7 @@ from app.swish import (
     Swishfel,
     applank,
     qr_strang,
+    url_strang,
 )
 
 
@@ -43,6 +44,57 @@ def test_tomma_falt_behalls_som_tomma_stringar():
     gava = Swishbetalning("1231234567", redigerbart_belopp=True, redigerbart_meddelande=True)
 
     assert qr_strang(gava) == "C1231234567;;;6"
+
+
+@pytest.mark.parametrize(
+    "falt,edit",
+    [
+        ({}, ""),
+        ({"redigerbart_belopp": True}, "&edit=amt"),
+        ({"redigerbart_meddelande": True}, "&edit=msg"),
+        (
+            {"redigerbart_belopp": True, "redigerbart_meddelande": True},
+            "&edit=amt,msg",
+        ),
+    ],
+)
+def test_url_strangen_oversatter_alla_fyra_laslagen(falt, edit):
+    betalning = Swishbetalning("1231234567", "100", "Testkod", **falt)
+
+    assert url_strang(betalning) == (
+        f"https://app.swish.nu/1/p/sw/?sw=1231234567&amt=100&cur=SEK&msg=Testkod{edit}&src=qr"
+    )
+
+
+@pytest.mark.parametrize(
+    "falt,edit",
+    [
+        ({"redigerbart_belopp": True}, "&edit=amt"),
+        (
+            {"redigerbart_belopp": True, "redigerbart_meddelande": True},
+            "&edit=amt,msg",
+        ),
+    ],
+)
+def test_url_strangen_utelamnar_bade_amt_och_cur_utan_belopp(falt, edit):
+    betalning = Swishbetalning("1231234567", meddelande="Testkod", **falt)
+
+    assert url_strang(betalning) == (
+        f"https://app.swish.nu/1/p/sw/?sw=1231234567&msg=Testkod{edit}&src=qr"
+    )
+
+
+def test_url_strangen_kodar_fritext_och_ignorerar_fri_mottagare():
+    betalning = Swishbetalning(
+        "1231234567",
+        "149,50",
+        "Kollekt & kaffe",
+        redigerbar_mottagare=True,
+    )
+
+    assert url_strang(betalning) == (
+        "https://app.swish.nu/1/p/sw/?sw=1231234567&amt=149.5&cur=SEK&msg=Kollekt+%26+kaffe&src=qr"
+    )
 
 
 @pytest.mark.parametrize(
@@ -221,6 +273,16 @@ def _zxing(png: bytes) -> str | None:
     return traff.text if traff else None
 
 
+def _zxing_svg(svg: bytes) -> str | None:
+    import io
+
+    import cairosvg
+
+    png = io.BytesIO()
+    cairosvg.svg2png(bytestring=svg, write_to=png, output_width=900)
+    return _zxing(png.getvalue())
+
+
 def test_swishkoden_avkodas_med_symbolen():
     """Symbolen täcker mitten, så koden ritas med H. En kod som ser rätt ut
     men inte går att läsa är det enda utfall som betyder något här."""
@@ -382,6 +444,36 @@ def test_ifylld_generator_visar_kod_och_lankar(client):
     assert "C1231234567;150,00;Kollekt;2" in svar.text
 
 
+def test_generatorn_forklarar_formatvalet_och_forvaljer_c(client):
+    text = client.get("/swish").text
+
+    assert "Läses bara i Swish-appens skanner" in text
+    assert "Läses även av telefonens kamera" in text
+    assert "40 procent bredare" in text
+    assert re.search(r'name="format" value="c"\s+checked', text)
+
+
+def test_url_formatet_foljer_med_och_doljer_fri_mottagare(client):
+    fraga = "mottagare=1231234567&belopp=100&format=url"
+
+    text = client.get(f"/swish?{fraga}").text
+
+    assert re.search(r'name="format" value="url"\s+checked', text)
+    assert re.search(r'id="fri-mottagare-val"[^>]*hidden', text)
+    assert text.count("format%3Durl") == 0
+    assert text.count("format=url") >= 3
+
+
+def test_url_formatets_lastext_ignorerar_fri_mottagare(client):
+    fraga = "mottagare=1231234567&belopp=100&format=url&fri_mottagare=1"
+
+    data = client.get(f"/swish-data?{fraga}").json()
+
+    assert data["kodstrang"].endswith("&src=qr")
+    assert "edit=" not in data["kodstrang"]
+    assert data["lastext"].startswith("Allt är låst")
+
+
 def test_ingen_egen_ruta_for_sidans_egen_adress(client):
     """Adressfältet bär redan den länken.
 
@@ -400,6 +492,44 @@ def test_koden_avkodas_till_betalningen(client):
     assert svar.status_code == 200
     assert svar.headers["content-type"] == "image/png"
     assert _zxing(svar.content) == "C1231234567;150,00;Kollekt;0"
+
+
+@pytest.mark.parametrize(
+    "vag,kodformat,vantad",
+    [
+        ("/swish-kod.png", "c", "C1231234567;100,00;Testkod;0"),
+        (
+            "/swish-kod.png",
+            "url",
+            "https://app.swish.nu/1/p/sw/?sw=1231234567&amt=100&cur=SEK&msg=Testkod&src=qr",
+        ),
+        ("/swish-kod.svg", "c", "C1231234567;100,00;Testkod;0"),
+        (
+            "/swish-kod.svg",
+            "url",
+            "https://app.swish.nu/1/p/sw/?sw=1231234567&amt=100&cur=SEK&msg=Testkod&src=qr",
+        ),
+    ],
+)
+def test_formatvalet_nar_bade_png_och_svg(vag, kodformat, vantad, client):
+    fraga = f"mottagare=1231234567&belopp=100&meddelande=Testkod&format={kodformat}"
+
+    svar = client.get(f"{vag}?{fraga}")
+    avkodat = _zxing_svg(svar.content) if vag.endswith(".svg") else _zxing(svar.content)
+
+    assert svar.status_code == 200
+    assert avkodat == vantad
+
+
+def test_okant_format_blir_c_och_fogas_inte_in_ratt_i_lankar(client):
+    fraga = "mottagare=1231234567&belopp=100&format=%3Cscript%3E"
+
+    data = client.get(f"/swish-data?{fraga}").json()
+    sida = client.get(f"/swish?{fraga}").text
+
+    assert data["kodstrang"] == "C1231234567;100,00;;0"
+    assert "format=c" in sida
+    assert "&lt;script&gt;" not in sida
 
 
 def test_svg_laddas_ner_med_eget_namn(client):
@@ -671,3 +801,30 @@ def test_sidfoten_lankar_till_generatorn_overallt(client):
     för en inloggad användare."""
     for vag in ("/", "/login", "/om", "/nyheter"):
         assert 'href="/swish"' in client.get(vag).text, vag
+
+
+# Uppmätt mot api.swish.nu 2026-09-10 genom att generera koder och avkoda dem.
+# Swish skriver punkt som decimaltecken och stryker efterföljande nollor.
+SWISH_BELOPP = [
+    ("1", "1"),
+    ("10,00", "10"),
+    ("99,90", "99.9"),
+    ("100,00", "100"),
+    ("149,50", "149.5"),
+    ("149,55", "149.55"),
+    ("1000", "1000"),
+]
+
+
+@pytest.mark.parametrize("kronor,vantat", SWISH_BELOPP)
+def test_url_formatet_skriver_belopp_som_swish(kronor, vantat):
+    """Det som skulle ändras om felet fanns: 149,50 blir 149.50 i stället för
+    149.5, alltså ett format Swish egen generator aldrig skriver.
+
+    Formatet är odokumenterat, och vi vet sedan tidigare att Swish är kinkig
+    med talformat - strängen "1.0" i stället för talet 1 bröt applänken helt.
+    Att avvika från facit utan skäl är en risk vi inte behöver ta.
+    """
+    url = url_strang(Swishbetalning(mottagare="1231234567", belopp=kronor))
+
+    assert f"amt={vantat}&" in url, url
