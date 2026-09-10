@@ -33,7 +33,15 @@ a phone with a real Swish number, not a reading of any specification.
 ```
 
 JSON-stringify it, URL-encode the whole string, append to
-`swish://payment?data=`.
+`swish://payment?data=`. This is the format we ship today.
+
+> **BOTH formats work.** `swish://payment?data=` is what we use, and Swish's
+> own https format works just as well - as a tapped link, as a scanned code,
+> and unlike the `C…` format, in the phone camera too:
+> `https://app.swish.nu/1/p/sw/?sw=1231234567&amt=100&cur=SEK&msg=Invoice1042`
+> Both measured on a phone 2026-09-10, see measurement 6. We have not
+> switched: the code becomes forty percent wider. That is a choice, not a
+> limitation.
 
 > **`"version": "1.0"` breaks the link.** The app opens but fills in nothing.
 > It must be the *number* `1`. This was the single difference between a working
@@ -139,6 +147,12 @@ What follows from it:
 
 ## Measurement 5: app.swish.nu opens the app, but does not carry the format
 
+> **CORRECTED BY MEASUREMENT 6.** The conclusion below - that the domain is no
+> good for a prefilled payment - answered a question we asked wrong. We tried
+> `app.swish.nu` with OUR `?data=<JSON>`. The domain carries a different
+> format, and with that one it works. Read measurement 6 before building
+> anything on this section.
+
 The question was whether `swish://` could be replaced by a plain https URL. A
 custom URI scheme does nothing at all when the app is missing - no page, no
 message - and several apps and webviews refuse to open unknown schemes, so a
@@ -173,7 +187,85 @@ when the app is missing, and opens the app when it is present, it works as a
 *supplementary* link for people without Swish - alongside `swish://` for the
 payment itself. Not built, and a separate decision.
 
-**What Swish themselves document:** their "Trigger the Swish app" guide on
+## Measurement 6: the format exists, and it is Swish's own
+
+Measured 2026-09-10, after Swish's own QR generator at
+<https://www.swish.nu/marknadsmaterial/qr-generator> revealed what it
+produces. Their generator draws no code in the browser: it POSTs to
+`https://api.swish.nu/qr/v2/prefilled` and receives a finished image. So the
+format could not be read out of their JavaScript. We ran the generator,
+captured the response and decoded the image.
+
+**Their official code carries an https URL, not the `C…` format:**
+
+```
+https://app.swish.nu/1/p/sw/?sw=1231234567&amt=100&cur=SEK&msg=Invoice1042&src=qr
+```
+
+The path is `/1/p/sw/` and the parameters are `sw`, `amt`, `cur` and `msg`.
+Measurement 5 tried `/1/p/` with `?data=` - nearly the right path and entirely
+the wrong parameters. That is why the app opened empty.
+
+**Locking is controlled by `edit`**, a comma-separated list of what is
+EDITABLE. Omitted means everything is locked. Measured by generating every
+combination through their API and decoding the images:
+
+| What should be open | Parameter |
+| --- | --- |
+| nothing | *(no `edit`)* |
+| the message | `edit=msg` |
+| the amount | `edit=amt` |
+| both | `edit=amt,msg` |
+
+Same meaning as our lock mask - set means editable - but as names rather than
+bits.
+
+**The payee cannot be opened.** The API requires `payee` to be a string and
+rejects an object with `editable`. There is no `edit=sw`. Our
+`REDIGERBAR_MOTTAGARE` has no counterpart here.
+
+**Without an amount, `amt` is omitted entirely**, exactly as `applank()` omits
+`amount` for an open donation.
+
+**Measured on a phone 2026-09-10**, both as a scanned code and as a tapped
+link, in all three locking states:
+
+| State | Editable in the app |
+| --- | --- |
+| no `edit` | nothing, payee included |
+| `edit=amt` | the amount AND the payee |
+| `edit=amt,msg` | all three |
+
+**So the rule is the same as for our own format:** the moment any field is
+open, the payee can be redirected, and only a fully locked payment holds the
+number. See measurement 4. That it holds equally for a scanned code and a
+tapped link is measured, not assumed - the buttons behaved like the codes,
+case for case.
+
+**The camera opens it.** It is a plain https URL, so the phone's camera app
+reads it and the Universal Link association carries it into Swish. That is the
+whole difference from the `C…` format, which only Swish's own scanner
+understands - and the cause of a bug report on 2026-09-10 where a user
+believed the codes had stopped working.
+
+**What it costs.** The URL format is longer, so the matrix is denser:
+
+| Format | Characters | Modules at M | Modules at H |
+| --- | --- | --- | --- |
+| `C…` (ours) | 30 | 37 | 41 |
+| URL (Swish's own) | 79 | 45 | 57 |
+
+The Swish symbol in the centre requires H. There the URL variant is 1.39 times
+wider: a code printed at 30 mm today needs 42 mm for the same module size.
+That is the trade-off, and it is real for anyone printing on paper.
+
+**What we ship today:** `swish://payment?data=` for the button and `C…` for
+the code. Both work. The URL format could replace both with ONE string, and
+make the code readable in the camera as well - at forty percent more width.
+
+## What Swish themselves document
+
+Their "Trigger the Swish app" guide on
 developer.swish.nu describes only
 `swish://paymentrequest?token=<token>&callbackurl=<url>`. That token comes from
 the Commerce API and requires a contract and certificates, so it does not apply

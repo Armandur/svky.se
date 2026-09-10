@@ -36,10 +36,12 @@ specifikation.
 Gör JSON till en sträng, URL-koda hela strängen, och lägg den efter
 `swish://payment?data=`. Det är formatet vi kör i dag.
 
-> **Det finns ett andra format**, Swish eget, som ser ut så här och fungerar
-> både som tryckt länk och som skannad kod - även i telefonens kamera:
+> **BÅDA formaten fungerar i dag.** `swish://payment?data=` är det vi kör,
+> och Swish eget https-format fungerar lika bra - som tryckt länk, som skannad
+> kod, och till skillnad från C-formatet även i telefonens kamera:
 > `https://app.swish.nu/1/p/sw/?sw=1231234567&amt=100&cur=SEK&msg=Testkod`
-> Se mätning 6. Vi har inte bytt till det: koden blir fyrtio procent bredare.
+> Båda prövade på telefon 2026-09-10, se mätning 6. Vi har inte bytt: koden
+> blir fyrtio procent bredare. Det är ett val, inte en begränsning.
 
 > **`"version": "1.0"` bryter länken.** Appen öppnas men fyller inte i
 > någonting. Det måste vara *talet* `1`. Det var den enda skillnaden mellan en
