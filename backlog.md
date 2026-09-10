@@ -1030,23 +1030,71 @@ Kör `crontab -l` (och `systemctl list-timers`) på Hetzner-burken och avgör.
 
 ---
 
-## [P4][todo] [svky] Blockera kortlänkar som pekar tillbaka på svky.se, med easter egg
+## [P4][done] [svky] Blockera måladresser på svky.se i validate_target_url, med easter egg
 
-En kortlänk som pekar på svky.se är antingen ett misstag eller en loop. I dag hindrar inget att någon skapar svky.se/a som går till svky.se/b - eller till sig själv.
+## Context
 
-Blockera det i validate_target_url() (app/validation.py:45), där domänkontrollen redan bor.
+En kortlänk som pekar på svky.se är antingen ett misstag eller en loop. I dag
+hindrar inget att någon skapar `svky.se/a` som går till `svky.se/b`, eller till
+sig själv - och en självrefererande kod går inte att upptäcka förrän någon
+klickar.
 
-BESLUTAT AV RASMUS 2026-09-10:
-- Spärren gäller BARA svky.se, inte varje värdnamn appen svarar på.
-- Den gäller ÄVEN admin och trusted-användare, alltså också när allow_external är sant.
+Beslutat av Rasmus 2026-09-10: spärren gäller BARA svky.se, och den gäller ÄVEN
+admin och trusted-användare.
 
-Följden av det första beslutet: jämför mot en KONSTANT, inte mot BASE_URL. På staging är BASE_URL ts.net-namnet och i dev ubuntu-ai:PORT - jämför man mot BASE_URL blockerar staging sina egna adresser och släpper igenom svky.se, alltså precis tvärtom. Konstanten hör hemma i app/config.py bredvid BASE_URL.
+## Acceptance criteria
 
-Följden av det andra: kontrollen måste ligga FÖRE eller UTANFÖR den gren som allow_external hoppar över. Läggs den inne i domänkontrollen släpps admin förbi.
+- [ ] En måladress på `svky.se` avvisas när en kortlänk skapas eller ändras.
+- [ ] Subdomäner avvisas också: `www.svky.se` är samma loop.
+- [ ] Spärren gäller även när `allow_external=True` (admin och trusted).
+- [ ] Port och userinfo går inte runt den: `svky.se:443` och
+      `nagon@svky.se` avvisas lika.
+- [ ] Andra domäner påverkas INTE, `svenskakyrkan.se` fungerar som förut.
+- [ ] Meddelandet är ett easter egg, inte ett vanligt felmeddelande, men säger
+      ändå vad man ska göra i stället.
 
-Subdomäner: en kortlänk till www.svky.se eller till en framtida subdomän är samma loop. Matcha värdnamnet som svky.se eller något som slutar på .svky.se, inte med en enkel likhet.
+## Implementation hints
 
-Rasmus vill ha ett litet roligt easter-egg för den som försöker, i stället för ett vanligt felmeddelande. Utformningen är öppen - det är hela poängen med den här todon. Enda kravet: det får inte göra det oklart VAD man ska göra i stället. Felmeddelanden till slutanvändare ska vara tydliga och icke-tekniska.
+`validate_target_url()` i `app/validation.py:45`. Lägg kontrollen direkt efter
+raden `host = p.netloc.lower()` och FÖRE `if not allow_external:` - det är den
+grenen admin hoppar över, så en kontroll inuti den skulle släppa förbi dem.
+
+Jämför mot en KONSTANT, inte mot `BASE_URL`. På staging är `BASE_URL`
+ts.net-namnet och i dev `ubuntu-ai:PORT`. Jämför man mot den blockerar staging
+sina egna adresser och släpper igenom svky.se, alltså precis tvärtom. Konstanten
+hör hemma i `app/config.py` bredvid `BASE_URL`.
+
+`normalize_domain()` i `app/domains.py:19` strippar redan schema, userinfo, port
+och sökväg. Använd den på `host` i stället för att skriva egen strängtvätt -
+den är redan prövad och fångar `svky.se:443`-fallet.
+
+Subdomänmatchningen finns som mönster i `match_domain()` (`app/domains.py:56`):
+exakt likhet, eller `host.endswith("." + domän)`.
+
+## Easter egg
+
+Utformningen är öppen, det är halva poängen med uppgiften. Ramar:
+
+- Felmeddelanden till slutanvändare ska vara tydliga och icke-tekniska, på
+  svenska. Skämtet får inte göra det oklart att man ska ange en annan adress.
+- Texten hamnar i ett formulärfel på beställningssidan, alltså i samma ruta som
+  övriga valideringsfel. Den har ingen egen vy och ingen egen styling.
+- Inga emojis, enligt projektets konvention.
+
+## Verification
+
+- INGEN testfil rör `validate_target_url` i dag (kontrollerat 2026-09-10,
+  `grep -rln validate_target_url tests/` ger noll träffar). Lägg proven i en ny
+  `tests/test_urlvalidering.py`.
+- Nya prov som täcker varje kriterium ovan, inklusive `allow_external=True`.
+  Ett prov som bara provar utan flaggan missar hela andra halvan av beslutet.
+- Prov som anropar ROUTEN: `POST /bestall` med en svky.se-adress ska avvisas
+  och visa texten. Att funktionen returnerar en sträng bevisar inte att
+  formuläret visar den.
+- `pytest tests/ -q` - inget annat får falla, särskilt inte proven för
+  svenskakyrkan.se.
+- manuellt: fyll i `https://svky.se/nagot` på `/bestall` och se att texten
+  syns i formuläret.
 
 - ID: `01M2568T7E3HQZRZEMQQ7Z71S0`
 - Type: feature
