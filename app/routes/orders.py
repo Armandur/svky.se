@@ -22,6 +22,7 @@ from app.mail import (
 from app.templating import templates
 from app.validation import (
     MAX_TEXT_LENGTH,
+    SJALVREFERENS,
     validate_code,
     validate_email,
     validate_length,
@@ -183,6 +184,10 @@ async def bestall_post(
         )
         if url_error:
             errors["target_url"] = url_error
+            # Bara DET HÄR felet får en orm. Flaggan sätts här och inte i
+            # mallen, för mallen har bara en sträng att gå på och en
+            # textjämförelse där hade brustit tyst vid en omformulering.
+            errors["orm"] = url_error == SJALVREFERENS
 
         note_error = validate_length(note, MAX_TEXT_LENGTH, "Anteckningen")
         if note_error:
@@ -275,6 +280,7 @@ async def bestall_post(
     url_error = validate_target_url(target_url, allow_external=user_allows_external_urls(email))
     if url_error:
         errors["target_url"] = url_error
+        errors["orm"] = url_error == SJALVREFERENS
 
     note_error = validate_length(note, MAX_TEXT_LENGTH, "Anteckningen")
     if note_error:

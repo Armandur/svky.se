@@ -56,3 +56,58 @@ def test_bestall_visar_easter_egg_for_svky_se(client, inloggad_anvandare, hamta_
 
     assert svar.status_code == 422
     assert EASTER_EGG in svar.text
+
+
+# --- ormen på beställningssidan ------------------------------------------
+
+
+def test_bestall_ritar_ormen_vid_sjalvreferens(client, inloggad_anvandare, hamta_csrf_token):
+    """Ormen ska finnas i svaret, och skriptet som ritar den."""
+    svar = client.post(
+        "/bestall",
+        data={
+            "target_url": "https://svky.se/nagot",
+            "code": "ormbo",
+            "csrf_token": hamta_csrf_token(client, "/bestall"),
+        },
+    )
+
+    assert 'id="orm-canvas"' in svar.text
+    assert "/static/orm.js" in svar.text
+
+
+def test_bestall_ritar_INGEN_orm_vid_andra_fel(client, inloggad_anvandare, hamta_csrf_token):
+    """Det som skulle ändras om felet fanns: flaggan sätts för varje
+    URL-fel i stället för bara självreferensen, och en avvisad domän får en
+    orm den inte ska ha.
+
+    Provet är hela poängen med att flaggan finns. Utan det kunde man lika
+    gärna ritat ormen vid `errors.target_url`.
+    """
+    svar = client.post(
+        "/bestall",
+        data={
+            "target_url": "http://www.svenskakyrkan.se/nagot",
+            "code": "annat",
+            "csrf_token": hamta_csrf_token(client, "/bestall"),
+        },
+    )
+
+    # http och inte https avvisas oavsett behörighet, till skillnad från en
+    # okänd domän som en trusted användare släpps förbi med.
+    assert "måste börja med https" in svar.text, "provet mäter fel fel"
+    assert 'id="orm-canvas"' not in svar.text
+    assert "/static/orm.js" not in svar.text
+
+
+def test_ormen_finns_som_lokal_fil():
+    """Mallen pekar på /static/orm.js. Pekar den på en fil som inte finns
+    blir felet en tyst 404 och en ruta som står tom."""
+    from pathlib import Path
+
+    fil = Path(__file__).resolve().parents[1] / "app" / "static" / "orm.js"
+
+    assert fil.is_file()
+    text = fil.read_text(encoding="utf-8")
+    assert "prefers-reduced-motion" in text, "reducerad rörelse ska hanteras"
+    assert "cdn." not in text and "http" not in text.replace("https://", "")

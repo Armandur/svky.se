@@ -2,6 +2,14 @@
 {% block title %}svky.se - Beställ{% endblock %}
 
 {% block extra_style %}
+/* Ormen vid självreferensfelet, över hela sidan.
+   fixed och inte absolute: den ska följa med när man skrollar, inte ligga
+   kvar högst upp. pointer-events:none så varje klick går RAKT IGENOM till
+   formuläret under - en orm som stjäl klick är inte rolig länge. */
+.orm-overlay {
+  position: fixed; inset: 0; width: 100vw; height: 100vh;
+  pointer-events: none; z-index: 60;
+}
 .prefix-input { display: flex; align-items: center; gap: 0; }
 .prefix-input .prefix {
   background: var(--bg); border: 1px solid var(--border); border-right: none;
@@ -49,6 +57,17 @@
 {% endblock %}
 
 {% block content %}
+{# Ormen kryper över HELA sidan, inte i en ruta. Ritas bara vid självreferens:
+   flaggan sätts i orders.py mot konstanten SJALVREFERENS, för mallen har bara
+   en textsträng att gå på och en jämförelse här hade brustit tyst vid en
+   omformulering.
+
+   aria-hidden och pointer-events:none - skärmläsaren ska få felmeddelandet,
+   inte en beskrivning av ett skämt, och ormen får aldrig ligga i vägen för en
+   knapp. #}
+{% if errors and errors.orm %}
+<canvas id="orm-canvas" class="orm-overlay" aria-hidden="true"></canvas>
+{% endif %}
 <div class="card" style="max-width:620px; margin:0 auto;">
   <h1>Beställ</h1>
   <p class="lead">Skapa en kortlänk eller en länksamling.</p>
@@ -100,6 +119,7 @@
                value="{{ values.target_url if values else '' }}" required
                {% if errors and errors.target_url %}class="error"{% endif %}>
         {% if errors and errors.target_url %}<div class="field-error">{{ errors.target_url }}</div>{% endif %}
+
         {% if user and user.allow_external_urls %}
         <div class="hint" style="color:var(--green, #166534); background:#f0fdf4; border:1px solid #bbf7d0; border-radius:4px; padding:5px 10px; margin-top:4px;">
           Du har behörighet att ange URL:er utanför de godkända domänerna.
@@ -259,6 +279,7 @@
 {% endblock %}
 
 {% block scripts %}
+{% if errors and errors.orm %}<script src="/static/orm.js"></script>{% endif %}
 <script>
 function switchTab(tab, card) {
   document.querySelectorAll('.type-card').forEach(c => c.classList.remove('selected'));

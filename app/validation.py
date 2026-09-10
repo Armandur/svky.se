@@ -42,6 +42,13 @@ def validate_email(email: str, allow_any_domain: bool = False) -> str | None:
     return None
 
 
+# Easter egget för en kortlänk som pekar tillbaka på oss. Som NAMNGIVEN
+# konstant och inte en lös sträng: beställningssidan ritar en orm bredvid just
+# det här felet, och den jämförelsen får inte bygga på en kopierad text som
+# tyst glider isär den dag någon skriver om meningen.
+SJALVREFERENS = "Ormen får inte äta sin egen svans. Ange adressen till sidan du vill nå i stället."
+
+
 def validate_target_url(url: str, allow_external: bool = False) -> str | None:
     """Returns error message or None if OK.
 
@@ -67,7 +74,7 @@ def validate_target_url(url: str, allow_external: bool = False) -> str | None:
     host = p.netloc.lower()
     normalized_host = normalize_domain(host)
     if normalized_host == EGEN_DOMAN or normalized_host.endswith("." + EGEN_DOMAN):
-        return "Ormen får inte äta sin egen svans. Ange adressen till sidan du vill nå i stället."
+        return SJALVREFERENS
 
     free_url = allow_external
     if not allow_external:
