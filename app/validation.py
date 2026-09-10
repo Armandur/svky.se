@@ -1,8 +1,8 @@
 import re
 from urllib.parse import urlparse
 
-from app.config import ALLOWED_EMAIL_DOMAIN, RESERVED_CODES
-from app.domains import get_allowed_domains, match_domain
+from app.config import ALLOWED_EMAIL_DOMAIN, EGEN_DOMAN, RESERVED_CODES
+from app.domains import get_allowed_domains, match_domain, normalize_domain
 
 # Maxlängder för fritextfält. Fälten lagras oavkortat i SQLite och renderas
 # upprepat i listor och på startsidan, så gränserna hindrar att en enskild
@@ -65,6 +65,9 @@ def validate_target_url(url: str, allow_external: bool = False) -> str | None:
         return "URL:en måste börja med https://."
 
     host = p.netloc.lower()
+    normalized_host = normalize_domain(host)
+    if normalized_host == EGEN_DOMAN or normalized_host.endswith("." + EGEN_DOMAN):
+        return "Ormen får inte äta sin egen svans. Ange adressen till sidan du vill nå i stället."
 
     free_url = allow_external
     if not allow_external:

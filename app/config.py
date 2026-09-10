@@ -11,6 +11,10 @@ MILJO = os.environ.get("MILJO", "drift")
 
 BASE_URL: str = os.environ.get("BASE_URL", "http://localhost:8000")
 
+# Härled inte detta värde ur BASE_URL. Staging och utveckling använder andra
+# värdnamn, men kortlänkar tillbaka till produktionsdomänen ska alltid stoppas.
+EGEN_DOMAN = "svky.se"
+
 SECRET_KEY: str = os.environ.get("SECRET_KEY", "")
 if not SECRET_KEY:
     if BASE_URL.startswith("https://"):
