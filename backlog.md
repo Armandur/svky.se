@@ -1824,20 +1824,84 @@ konstruktion.
 
 ---
 
-## [P5][todo] [svky] Animera ormen i easter egget när någon pekar en kortlänk på svky.se
+## [P5][done] [svky] Bygg varianter av animerad orm till easter egget, att välja mellan
 
-TASK-1729 gav en text: 'Ormen får inte äta sin egen svans. Ange adressen till sidan du vill nå i stället.'
+## Context
 
-Rasmus idé 2026-09-10: en animerad orm som äter sin egen svans skulle klä det.
+TASK-1729 gav ett easter egg i text: "Ormen får inte äta sin egen svans. Ange
+adressen till sidan du vill nå i stället." Det syns när någon pekar en kortlänk
+på svky.se.
 
-ATT TÄNKA PÅ:
-- Texten kommer i dag ur validate_target_url() som en vanlig felsträng, och renderas i formulärets ordinarie felruta. En animation kräver att just DET felet går att skilja från andra fel i mallen - i dag är alla fel bara strängar. Antingen en egen felkod, eller att mallen känner igen texten (skört).
-- SVG med CSS-animation, inte en GIF: den skalar, väger inget och kan följa temat. Inga externa bibliotek, allt ligger lokalt sedan TASK-1726.
-- prefers-reduced-motion ska respekteras. En snurrande orm för den som bett om mindre rörelse är precis vad den inställningen finns till för att slippa.
-- Får inte skymma budskapet. Andra meningen säger vad man ska göra i stället, och den är viktigare än skämtet.
-- Ingen emoji, enligt projektets konvention. En ritad orm är något annat än en emoji.
+Rasmus vill ha en riktig orm som rör sig. Idéer 2026-09-10: något åt
+Snake-hållet, och att den följer muspekaren.
 
-Låg prio med flit: det är ett skämt i ett felmeddelande som få ser.
+Uppgiften är att bygga NÅGRA VARIANTER att titta på och välja mellan, inte att
+gissa rätt på första försöket.
+
+## Acceptance criteria
+
+- [ ] Minst tre olika varianter, samlade på en sida där de går att jämföra
+      sida vid sida.
+- [ ] Varje variant fungerar utan externa bibliotek. Allt ligger lokalt sedan
+      TASK-1726, och en CDN-rad fälls av tests/test_lokala_bibliotek.py.
+- [ ] `prefers-reduced-motion: reduce` stoppar rörelsen i alla varianter, utan
+      att ormen försvinner.
+- [ ] Ingen variant skymmer meddelandet. Andra meningen säger vad man ska göra
+      i stället och är viktigare än skämtet.
+- [ ] Varianterna fungerar vid 390px och 1280px.
+- [ ] Inga emojis, enligt projektets konvention. En ritad orm är något annat.
+
+## Idéer att bygga vidare på
+
+Rasmus två: Snake-varianten och muspekarvarianten. Bygg dem, plus minst en
+egen. Några riktningar:
+
+- **Snake.** Ormen som ett rutnät av segment, som i spelet. Kan äta sin egen
+  svans i en loop, eller stanna precis innan.
+- **Följer pekaren.** Huvudet söker muspekaren, kroppen släpar efter. Kräver
+  ett svar på vad som händer på TELEFON, där ingen pekare finns - fallera inte
+  till en stillastående orm utan låt den röra sig av sig själv.
+- **Ouroboros.** Ormen i en cirkel som biter sin egen svans, långsamt roterande.
+  Närmast textens metafor.
+- **Den enkla.** En SVG-orm som bara vaggar. Om en av de andra känns för mycket
+  är det den här som blir kvar.
+
+## Implementation hints
+
+FELET SKA GÅ ATT SKILJA UT. I dag är alla valideringsfel bara strängar:
+`validate_target_url()` returnerar text, `app/routes/orders.py:180` lägger den
+i `errors["target_url"]`, och `bestall.html:102` renderar den i en
+`div.field-error`. Mallen kan alltså inte veta att just DET här felet ska ha en
+orm.
+
+Två vägar, båda öppna:
+1. En egen felkod eller ett eget fält bredvid `errors`, t.ex.
+   `errors["target_url_orm"] = True`. Renare, men rör felhanteringen.
+2. Mallen jämför mot texten. Skört - texten är en konstant i proven, men en
+   ändring på ett ställe bryter tyst på ett annat.
+
+Väg 1 är att föredra. Konstanten för texten bor i `app/validation.py` runt
+rad 69, vid `EGEN_DOMAN`-kontrollen.
+
+SVG med CSS-animation, inte GIF: skalar, väger inget, följer temat. Appen har
+inget mörkt läge (ingen `prefers-color-scheme` i style.css), så ormen behöver
+bara fungera mot ljus bakgrund.
+
+Rörelse som följer pekaren kräver JS. Håll den i en egen fil under
+`app/static/`, inte inline i mallen - resten av projektet gör så (`qr.js`,
+`tabellsvep.js`).
+
+## Verification
+
+- Jämförelsesidan öppnas och alla varianter syns samtidigt.
+- `shot` vid 390px och 1280px av jämförelsesidan.
+- Emulera `prefers-reduced-motion: reduce` och kontrollera att rörelsen
+  upphör men ormen står kvar. Playwright: `new_context(reduced_motion="reduce")`.
+- För muspekarvarianten: flytta pekaren i browsern och kontrollera att ormen
+  FAKTISKT följer - läs ett attribut eller en transform, en skärmdump visar
+  bara ett ögonblick.
+- `grep -rn "cdn\.\|unpkg" ` på det som byggts ska vara tomt.
+- manuellt: Rasmus väljer variant. Det är hela poängen med uppgiften.
 
 - ID: `01M25MH1WA2TYP6K8T7FJH6D79`
 - Type: feature
