@@ -79,6 +79,26 @@ async def admin_stats(request: Request):
                GROUP BY b.id ORDER BY antal DESC LIMIT 10"""
         ).fetchall()
 
+        orm_stats = db.execute(
+            """SELECT date(triggered_at) AS dag, COUNT(*) AS antal
+               FROM easter_egg_triggers
+               GROUP BY dag ORDER BY dag DESC LIMIT 90"""
+        ).fetchall()
+
+        orm_totals = db.execute(
+            """SELECT
+                COUNT(*) AS total,
+                SUM(triggered_at >= datetime('now', '-7 days')) AS last_7d,
+                SUM(triggered_at >= datetime('now', '-30 days')) AS last_30d
+               FROM easter_egg_triggers"""
+        ).fetchone()
+
+        orm_by_kalla = db.execute(
+            """SELECT kalla, COUNT(*) AS antal
+               FROM easter_egg_triggers
+               GROUP BY kalla ORDER BY antal DESC"""
+        ).fetchall()
+
         takeovers = pending_takeover_count(db)
 
     return templates.TemplateResponse(
@@ -95,6 +115,9 @@ async def admin_stats(request: Request):
             "bv_stats": [dict(r) for r in bv_stats],
             "bv_totals": dict(bv_totals),
             "top_bundles": [dict(r) for r in top_bundles],
+            "orm_stats": [dict(r) for r in orm_stats],
+            "orm_totals": dict(orm_totals),
+            "orm_by_kalla": [dict(r) for r in orm_by_kalla],
             "pending_takeovers": takeovers,
         },
     )

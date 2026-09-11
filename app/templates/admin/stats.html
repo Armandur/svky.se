@@ -159,6 +159,50 @@
   </div>
   {% endif %}
 </div>
+<p class="section-heading">Ormen</p>
+
+{# Räknar formulärskick som fick självreferensfelet, inte unika besökare.
+   Samma person som skickar om utan att rätta adressen räknas igen. #}
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="num" id="orm-total">{{ orm_totals.total or 0 }}</div>
+    <div class="lbl">Totalt</div>
+  </div>
+  <div class="stat-card">
+    <div class="num">{{ orm_totals.last_30d or 0 }}</div>
+    <div class="lbl">Senaste 30 dgr</div>
+  </div>
+  <div class="stat-card">
+    <div class="num">{{ orm_totals.last_7d or 0 }}</div>
+    <div class="lbl">Senaste 7 dgr</div>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="chart-section" style="margin-bottom:0;">
+    <h2>Ormen per dag (senaste 30 dagar)</h2>
+    <canvas id="ormChart" height="120"></canvas>
+  </div>
+
+  {% if orm_by_kalla %}
+  <div class="bar-list-section">
+    <h2>Var i formuläret</h2>
+    {% set max_orm = orm_by_kalla[0].antal %}
+    {% for k in orm_by_kalla %}
+    <div class="bar-row">
+      <span class="bar-label">{{ k.kalla }}</span>
+      <div class="bar-wrap"><div class="bar-fill-blue" style="width:{{ (k.antal / max_orm * 100) | int }}%"></div></div>
+      <span class="bar-count">{{ k.antal }} ggr</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="bar-list-section">
+    <h2>Var i formuläret</h2>
+    <p class="muted">Ingen har försökt peka en kortlänk på svky.se än.</p>
+  </div>
+  {% endif %}
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -221,6 +265,7 @@
   makeChart('clickChart', {{ click_stats | tojson }}, 'Klick', 'rgba(35,85,160,');
   makeChart('pvChart', {{ pv_stats | tojson }}, 'Visningar', 'rgba(32,140,90,');
   makeChart('bvChart', {{ bv_stats | tojson }}, 'Visningar', 'rgba(120,80,200,');
+  makeChart('ormChart', {{ orm_stats | tojson }}, 'Gånger', 'rgba(47,115,85,');
 })();
 </script>
 {% endblock %}

@@ -95,6 +95,12 @@ def init_db():
                 viewed_at  DATETIME DEFAULT CURRENT_TIMESTAMP
             );
 
+            CREATE TABLE IF NOT EXISTS easter_egg_triggers (
+                id           INTEGER PRIMARY KEY,
+                kalla        TEXT NOT NULL,
+                triggered_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+
             CREATE TABLE IF NOT EXISTS takeover_requests (
                 id               INTEGER PRIMARY KEY,
                 link_id          INTEGER NOT NULL REFERENCES links(id),
@@ -535,6 +541,25 @@ def _mig_012_visa_mottagare(conn: sqlite3.Connection) -> None:
     _alter(conn, "ALTER TABLE swish_items ADD COLUMN visa_mottagare INTEGER NOT NULL DEFAULT 0")
 
 
+def _mig_013_easter_egg_triggers(conn: sqlite3.Connection) -> None:
+    """Räknare för hur ofta ormen kryper fram.
+
+    Ny tabell, så föregående version av appen fungerar oförändrat mot det
+    här schemat - den skriver bara inga rader. Se rollback-regeln överst.
+    """
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS easter_egg_triggers (
+               id           INTEGER PRIMARY KEY,
+               kalla        TEXT NOT NULL,
+               triggered_at DATETIME DEFAULT CURRENT_TIMESTAMP
+           )"""
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_easter_egg_triggered_at "
+        "ON easter_egg_triggers(triggered_at)"
+    )
+
+
 # Nya migrationer läggs ALLTID SIST - aldrig infogas mellan existerande.
 MIGRATIONS: list[tuple[int, object]] = [
     (1, _mig_001_baseline),
@@ -549,6 +574,7 @@ MIGRATIONS: list[tuple[int, object]] = [
     (10, _mig_010_borttagen),
     (11, _mig_011_swish_items),
     (12, _mig_012_visa_mottagare),
+    (13, _mig_013_easter_egg_triggers),
 ]
 
 
@@ -566,6 +592,24 @@ def log_page_view(path: str) -> None:
     conn = get_connection()
     try:
         conn.execute("INSERT INTO page_views (path) VALUES (?)", (path,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def log_easter_egg(kalla: str) -> None:
+    """Räkna en gång som ormen kröp fram på beställningssidan.
+
+    Bara tidsstämpel och vilken gren av formuläret som gav felet. Ingen IP,
+    ingen e-postadress, ingen URL - samma linje som clicks och page_views.
+    Vem som skrev fel adress är ingens sak, hur ofta det händer är kul.
+
+    Raden skrivs bara när felet FAKTISKT var självreferensen. Flaggan i
+    orders.py sätts vid varje URL-fel och är False för de flesta av dem.
+    """
+    conn = get_connection()
+    try:
+        conn.execute("INSERT INTO easter_egg_triggers (kalla) VALUES (?)", (kalla,))
         conn.commit()
     finally:
         conn.close()

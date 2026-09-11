@@ -13,7 +13,7 @@ from app.csrf import (
     set_anon_csrf_cookie,
     validate_csrf_token,
 )
-from app.database import get_db
+from app.database import get_db, log_easter_egg
 from app.deps import check_rate_limit, user_allows_any_domain, user_allows_external_urls
 from app.mail import (
     MailError,
@@ -188,6 +188,8 @@ async def bestall_post(
             # mallen, för mallen har bara en sträng att gå på och en
             # textjämförelse där hade brustit tyst vid en omformulering.
             errors["orm"] = url_error == SJALVREFERENS
+            if errors["orm"]:
+                log_easter_egg("inloggad")
 
         note_error = validate_length(note, MAX_TEXT_LENGTH, "Anteckningen")
         if note_error:
@@ -281,6 +283,8 @@ async def bestall_post(
     if url_error:
         errors["target_url"] = url_error
         errors["orm"] = url_error == SJALVREFERENS
+        if errors["orm"]:
+            log_easter_egg("utloggad")
 
     note_error = validate_length(note, MAX_TEXT_LENGTH, "Anteckningen")
     if note_error:

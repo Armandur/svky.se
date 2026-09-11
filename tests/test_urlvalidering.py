@@ -111,3 +111,80 @@ def test_ormen_finns_som_lokal_fil():
     text = fil.read_text(encoding="utf-8")
     assert "prefers-reduced-motion" in text, "reducerad rörelse ska hanteras"
     assert "cdn." not in text and "http" not in text.replace("https://", "")
+
+
+def _antal_ormar() -> int:
+    """Frågar databasen i stället för att lita på en siffra i sidan."""
+    from app.database import get_db
+
+    with get_db() as db:
+        return db.execute("SELECT COUNT(*) FROM easter_egg_triggers").fetchone()[0]
+
+
+def test_ormen_raknas_nar_den_kryper_fram(client, inloggad_anvandare, hamta_csrf_token):
+    fore = _antal_ormar()
+
+    client.post(
+        "/bestall",
+        data={
+            "target_url": "https://svky.se/nagot",
+            "code": "ormbo2",
+            "csrf_token": hamta_csrf_token(client, "/bestall"),
+        },
+    )
+
+    assert _antal_ormar() == fore + 1
+
+
+def test_vanliga_url_fel_raknas_inte_som_orm(client, inloggad_anvandare, hamta_csrf_token):
+    """Flaggan errors['orm'] sätts vid VARJE URL-fel och är False för de flesta.
+
+    Räknades raden på flaggans existens i stället för dess värde hade varje
+    felstavad adress blivit en orm, och siffran hade mätt något helt annat än
+    den påstår.
+    """
+    fore = _antal_ormar()
+
+    svar = client.post(
+        "/bestall",
+        data={
+            "target_url": "http://svenskakyrkan.se/nagot",
+            "code": "inteorm",
+            "csrf_token": hamta_csrf_token(client, "/bestall"),
+        },
+    )
+
+    assert svar.status_code == 422, "provet kräver ett avvisat formulär"
+    assert EASTER_EGG not in svar.text
+    assert _antal_ormar() == fore
+
+
+def test_admin_stats_visar_ormraknaren(client, admin, hamta_csrf_token):
+    """Provet anropar ROUTEN, inte bara frågan under den.
+
+    Elementet måste finnas innan värdet betyder något - annars går provet
+    igenom lika glatt när blocket försvunnit ur mallen.
+    """
+    import re
+
+    client.post(
+        "/bestall",
+        data={
+            "target_url": "https://svky.se/nagot",
+            "code": "ormbo3",
+            "csrf_token": hamta_csrf_token(client, "/bestall"),
+        },
+    )
+
+    svar = client.get("/admin/stats")
+
+    assert svar.status_code == 200
+    traff = re.search(r'id="orm-total"[^>]*>(\d+)<', svar.text)
+    assert traff, "hittade inget element med id orm-total i /admin/stats"
+    assert int(traff.group(1)) == _antal_ormar()
+
+
+def test_admin_stats_kraver_admin(client, inloggad_anvandare):
+    svar = client.get("/admin/stats", follow_redirects=False)
+
+    assert svar.status_code in (302, 303), "en vanlig användare ska inte se statistiken"
