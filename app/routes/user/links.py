@@ -18,6 +18,7 @@ from app.mail import MailError, skicka_overlatelseforfragan
 from app.templating import templates
 from app.validation import (
     MAX_NAME_LENGTH,
+    MAX_TEXT_LENGTH,
     validate_email,
     validate_length,
     validate_target_url,
@@ -361,28 +362,39 @@ async def my_link_detail(request: Request, link_id: int):
 
 @router.post("/mina-lankar/{link_id}/update")
 async def update_link(
-    request: Request, link_id: int, target_url: str = Form(...), csrf_token: str = Form(...)
+    request: Request,
+    link_id: int,
+    target_url: str = Form(...),
+    note: str = Form(""),
+    csrf_token: str = Form(...),
 ):
     if not validate_csrf_token(csrf_token, get_csrf_secret(request)):
         raise HTTPException(status_code=403)
     user = get_user_or_redirect(request)
 
-    error = validate_target_url(target_url, allow_external=bool(user["allow_external_urls"]))
+    url_error = validate_target_url(target_url, allow_external=bool(user["allow_external_urls"]))
+    note_error = validate_length(note, MAX_TEXT_LENGTH, "Noteringen")
+    error = url_error or note_error
     if error:
         with get_db() as db:
-            links = db.execute(
+            rows = db.execute(
                 """SELECT l.id, l.code, l.target_url, l.status, l.note,
                           l.created_at, l.last_used_at,
                           (SELECT COUNT(*) FROM clicks WHERE link_id=l.id) AS click_count
                    FROM links l WHERE l.owner_id=? ORDER BY l.created_at DESC""",
                 (user["id"],),
             ).fetchall()
+        links = [dict(row) for row in rows]
+        for link in links:
+            if link["id"] == link_id:
+                link["target_url"] = target_url
+                link["note"] = note
         return templates.TemplateResponse(
             "my_links.html",
             {
                 "request": request,
                 "user": user,
-                "links": [dict(r) for r in links],
+                "links": links,
                 "error": error,
                 "edit_id": link_id,
             },
@@ -396,8 +408,8 @@ async def update_link(
         if not row:
             raise HTTPException(status_code=404)
         db.execute(
-            "UPDATE links SET target_url=? WHERE id=? AND owner_id=?",
-            (target_url, link_id, user["id"]),
+            "UPDATE links SET target_url=?, note=? WHERE id=? AND owner_id=?",
+            (target_url, note or None, link_id, user["id"]),
         )
         code = row["code"]
 

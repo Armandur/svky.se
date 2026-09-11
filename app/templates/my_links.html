@@ -239,7 +239,7 @@
       </button>
       <button class="btn btn-secondary btn-sm"
               onclick="var c=this.closest('.link-card'); c.querySelector('.edit-form').style.display='block'; this.style.display='none';">
-        &#9998; Ändra mål-URL
+        &#9998; Ändra mål och notering
       </button>
       {% if pt %}
       <span style="font-size:.82rem; color:var(--muted); display:flex; align-items:center; gap:6px;">
@@ -275,6 +275,9 @@
           Du har behörighet att ange URL:er utanför <strong>svenskakyrkan.se</strong>.
         </div>
         {% endif %}
+        <label for="note-{{ link.id }}">Notering (valfri)</label>
+        <input type="text" id="note-{{ link.id }}" name="note"
+               maxlength="2000" value="{{ link.note or '' }}" style="width:100%;">
         <div class="btn-row">
           <button type="submit" class="btn btn-primary btn-sm">Spara ändring</button>
           <button type="button" class="btn btn-secondary btn-sm"
