@@ -188,6 +188,13 @@ def url_strang(betalning: Swishbetalning) -> str:
 
     Parametrarnas ordning och ``edit``-värden kommer från Swish egen
     generator. Mottagaren kan inte markeras som redigerbar i formatet.
+
+    ``edit`` tål BARA namnen ``amt`` och ``msg``. Ett okänt namn i listan
+    gör att appen öppnas utan att fylla i någonting alls - inte ens de
+    fält som stavats rätt. Mätt på telefon 2026-09-11 med ``sw``,
+    ``payee`` och ``all``, se mätning 7 i docs/swish-applankens-format.md.
+    Felet syns inte i koden: den ritas, den skannas, appen öppnas. Det
+    märks först när någon ska betala. Lägg alltså inte till fler namn här.
     """
     _kontrollera(betalning)
     parametrar = [("sw", _rensa_mottagare(betalning.mottagare))]

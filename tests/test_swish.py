@@ -11,7 +11,9 @@ design specification" v1.7.2 avsnitt 6.1.
 import html
 import json
 import re
-from urllib.parse import parse_qs, unquote, urlparse
+from dataclasses import fields
+from itertools import combinations
+from urllib.parse import parse_qs, unquote, urlparse, urlsplit
 
 import pytest
 
@@ -82,6 +84,35 @@ def test_url_strangen_utelamnar_bade_amt_och_cur_utan_belopp(falt, edit):
     assert url_strang(betalning) == (
         f"https://app.swish.nu/1/p/sw/?sw=1231234567&msg=Testkod{edit}&src=qr"
     )
+
+
+def test_url_strangen_skickar_aldrig_ett_okant_edit_namn():
+    """Ett okänt namn i edit tömmer HELA betalningen, inte bara sitt eget fält.
+
+    Appen öppnas men fyller inte i något, och koden ser riktig ut ända fram
+    till att någon ska betala. Mätt på telefon 2026-09-11, mätning 7 i
+    docs/swish-applankens-format.md.
+
+    Provet frågar dataklassen efter fälten i stället för att räkna upp
+    kryssrutorna för hand - annars slipper ett nytt redigerbart fält förbi
+    utan att någon rad faller.
+    """
+    redigerbara = [f.name for f in fields(Swishbetalning) if f.name.startswith("redigerbar")]
+    assert redigerbara, "hittade inga redigerbar-fält att pröva"
+
+    for antal in range(len(redigerbara) + 1):
+        for kombination in combinations(redigerbara, antal):
+            betalning = Swishbetalning(
+                "1231234567",
+                "1,00",
+                "Prov",
+                **{namn: True for namn in kombination},
+            )
+            fraga = parse_qs(urlsplit(url_strang(betalning)).query)
+            for varde in fraga.get("edit", [""])[0].split(","):
+                assert varde in ("", "amt", "msg"), (
+                    f"{kombination} gav edit={varde}, och det tömmer betalningen"
+                )
 
 
 def test_url_strangen_kodar_fritext_och_ignorerar_fri_mottagare():
