@@ -223,6 +223,23 @@ Kontrollera samma sak för produktionsstacken - 80 och 443 ska vara publicerade,
 
 ---
 
+## [P3][done] [svky] Mät om mottagaren går att öppna i Swish URL-formatet
+
+Dokumentationen påstår att mottagaren inte går att öppna i URL-formatet. Påståendet vilar på att generator-API:t avvisar ett payee-objekt, inte på en telefonmätning - samma form av antagande som mätning 5, och som rättelsen i mätning 4 fick städa upp.
+
+Provsidan i tmp/swish-prov mäter edit=sw, edit=sw,msg, edit=payee och edit=all mot två kontroller (ingen edit, edit=amt), plus C-formatets oprövade låsmask 1 (bara mottagaren fri).
+
+Acceptanskriterier:
+- Varje rad mätt på telefon, både som tryckt länk och som skannad kod där formatet tillåter båda.
+- Utfallet skrivet i docs/swish-applankens-format.md OCH i den engelska tvillingen docs/swish-app-link-format.md.
+- Går edit=sw: koden och kryssrutans döljning ses över. Går det inte: raden i doc:en märks som mätt, inte härledd.
+
+- ID: `01M27S4WN3Y4SZ7KJ03G9BTQR4`
+- Type: chore
+- Actor: ai:claude-code
+
+---
+
 ## [P3][todo] [svky] Ge Swish-samlingen samma formatväxel som generatorn
 
 TASK-1755 byggde växeln mellan C-format och Swish URL-format i generatorn på /swish. Samlingen fick den INTE - det var uttryckligt icke-mål, för samlingen har egna ritvägar och ett eget formulär.
