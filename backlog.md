@@ -223,7 +223,7 @@ Kontrollera samma sak för produktionsstacken - 80 och 443 ska vara publicerade,
 
 ---
 
-## [P3][todo] [svky] Låt ägaren ändra noteringen på sin kortlänk, inte bara mål-URL:en
+## [P3][done] [svky] Låt ägaren ändra noteringen på sin kortlänk, inte bara mål-URL:en
 
 ## Context
 
