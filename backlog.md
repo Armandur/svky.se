@@ -223,6 +223,81 @@ Kontrollera samma sak för produktionsstacken - 80 och 443 ska vara publicerade,
 
 ---
 
+## [P3][todo] [svky] Låt ägaren ändra noteringen på sin kortlänk, inte bara mål-URL:en
+
+## Context
+
+Noteringen sätts en gång vid beställningen och kan sedan aldrig ändras av
+ägaren. `POST /mina-lankar/<id>/update` tar bara `target_url` och kör
+`UPDATE links SET target_url=?`.
+
+Mål-URL:en GÅR att ändra. Byter någon den står den gamla noteringen kvar och
+beskriver något som inte längre är sant - "Direktlänk till aktuell
+konfirmationsgrupp" när länken numera pekar någon annanstans.
+
+En administratör kan redan ändra noteringen via `/admin/links/<id>`. Att
+ägaren inte kan är extra skevt eftersom noteringen är ägarens eget
+minnesstöd och inte rör någon annan.
+
+## Acceptance criteria
+
+- [ ] Ägaren kan ändra noteringen på sin egen kortlänk, i samma formulär som
+      mål-URL:en.
+- [ ] Ändringen sparas och syns i Mina länkar och på länkens detaljsida.
+- [ ] Noteringen går att TÖMMA, inte bara byta text. En notering som inte går
+      att ta bort är en halv funktion.
+- [ ] Längden valideras mot `MAX_TEXT_LENGTH`, som admin-routen redan gör.
+- [ ] En annan användares länk går inte att ändra. Samma spärr som i dag.
+- [ ] Mål-URL:en fungerar precis som förut - en ändring av bara noteringen
+      får inte röra den, och tvärtom.
+
+## Implementation hints
+
+`app/routes/user/links.py:362`, `update_link()`. Den tar i dag
+`target_url: str = Form(...)` och kör
+`UPDATE links SET target_url=? WHERE id=? AND owner_id=?`.
+
+Admin-routen `app/routes/admin/links.py:148` visar mönstret: `note: str =
+Form("")` plus `validate_length(note, MAX_TEXT_LENGTH, "Anteckningen")`.
+Felmeddelandets ordval är "Anteckningen" där men fältet heter "Notering" i
+användargränssnittet - välj ETT ord och håll det, hellre det användaren ser.
+
+Formuläret ligger i `app/templates/my_links.html:268`, i `div.edit-form`.
+Det har redan CSRF, en `target_url`-rad och en knapprad. Lägg fältet där.
+`link.note` finns redan i raden som mallen får - den visas på rad 188.
+
+Felvägen i routen renderar om hela listan med `edit_id` satt, så att rätt
+formulär fälls ut igen. Följ den för notesfel också, annars tappar
+användaren sin text vid ett valideringsfel.
+
+## Icke-mål
+
+- Rör inte admin-routen. Den fungerar.
+- Lägg inte till noteringar på samlingar eller Swish-poster. De har egna
+  fält och egna vyer.
+- Ingen historik över tidigare noteringar.
+
+## Verification
+
+- Prov som anropar ROUTEN med ny notering och läser tillbaka värdet ur
+  databasen. Att svaret är 303 bevisar inte att något sparades.
+- Prov som TÖMMER noteringen och kontrollerar att den blev tom.
+- Prov som ändrar BARA noteringen och kontrollerar att `target_url` står
+  kvar oförändrad, och tvärtom.
+- Prov att en annan användares länk ger 404 eller omdirigering.
+- Prov för en notering över `MAX_TEXT_LENGTH`: avvisas, och användarens text
+  finns kvar i det återrenderade formuläret.
+- `shot` vid 390px och 1280px av utfällt redigeringsformulär - fältet ska
+  synas och rymmas.
+- manuellt: ändra noteringen på en länk och kontrollera att den nya texten
+  syns både i listan och på detaljsidan.
+
+- ID: `01M27M91CHEZ1PQFJK8QMWMY3F`
+- Type: feature
+- Actor: ai:claude-code
+
+---
+
 ## [P3][done] [svky] Larma inte om osignerad image innan CI hunnit signera den
 
 ## Context
