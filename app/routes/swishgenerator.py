@@ -26,28 +26,20 @@ from app.swish import (
     Swishbetalning,
     Swishfel,
     applank,
-    qr_strang,
-    url_strang,
+    kodstrang,
+    valj_format,
 )
 from app.swishtext import lastext
 from app.templating import templates
 
 router = APIRouter()
 
-_KODFORMAT = {"c": qr_strang, "url": url_strang}
-
-
-def _valj_format(varde: str | None) -> str:
-    """Ett känt format, med C-formatet som säkert förval."""
-    return varde if varde in _KODFORMAT else "c"
-
-
 def _format_ur_fragan(request: Request) -> str:
-    return _valj_format(request.query_params.get("format"))
+    return valj_format(request.query_params.get("format"))
 
 
 def _kodstrang(betalning: Swishbetalning, kodformat: str) -> str:
-    return _KODFORMAT[kodformat](betalning)
+    return kodstrang(betalning, kodformat)
 
 
 def _kodfraga(request: Request) -> str:

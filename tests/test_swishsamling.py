@@ -1097,3 +1097,169 @@ def test_mobilnummer_grupperas_likadant(client, inloggad_anvandare):
     _post(bundle_id, mottagare="0701234567", visa_mottagare=1)
 
     assert "070 123 45 67" in _nummerrutor(client.get("/domkyrkan").text)[0]
+
+
+# ---------------------------------------------------------------------------
+# Formatvalet per samling (TASK-1767). Valet gäller HELA samlingen: det hänger
+# på var koden sitter, inte på vem som får pengarna.
+# ---------------------------------------------------------------------------
+
+
+def _kodformat(bundle_id: int) -> str:
+    """Frågar databasen i stället för att lita på vad provet nyss postade."""
+    with get_db() as db:
+        return db.execute("SELECT kodformat FROM bundles WHERE id=?", (bundle_id,)).fetchone()[0]
+
+
+def test_orord_samling_ritar_exakt_samma_kod_som_forut(client, inloggad_anvandare):
+    """Regressionsspärr för varje samling som redan hänger på en vägg.
+
+    Jämför mot qr_strang() och inte mot en handskriven sträng: faller
+    C-formatet på något annat sätt ska DET provet falla, inte det här.
+    """
+    from app.swish import betalning_ur_rad, qr_strang
+
+    bundle_id = _samling(inloggad_anvandare["id"])
+    item_id = _post(bundle_id, "Diakoni", belopp="100,00")
+
+    assert _kodformat(bundle_id) == "c", "förvalet måste vara C för befintliga samlingar"
+
+    with get_db() as db:
+        rad = db.execute("SELECT * FROM swish_items WHERE id=?", (item_id,)).fetchone()
+    vantat = qr_strang(betalning_ur_rad(rad))
+
+    svar = client.get(f"/swish-post/{item_id}/qr.png")
+
+    assert svar.status_code == 200
+    assert _zxing(svar.content) == vantat
+
+
+def test_publika_koden_foljer_samlingens_format(client, inloggad_anvandare):
+    bundle_id = _samling(inloggad_anvandare["id"])
+    item_id = _post(bundle_id, "Diakoni", belopp="100,00")
+
+    client.post(
+        f"/mina-samlingar/{bundle_id}/kodformat",
+        data={
+            "kodformat": "url",
+            "csrf_token": _csrf(client, f"/mina-samlingar/{bundle_id}"),
+        },
+    )
+
+    assert _kodformat(bundle_id) == "url"
+
+    svar = client.get(f"/swish-post/{item_id}/qr.png")
+    strang = _zxing(svar.content)
+
+    assert svar.status_code == 200
+    assert strang, "koden gick inte att avkoda"
+    assert strang.startswith("https://app.swish.nu/1/p/sw/"), strang
+
+
+def test_agarens_nedladdning_ger_samma_strang_som_publika_bilden(client, inloggad_anvandare):
+    """Ritar de olika format trycker ägaren en kod besökaren aldrig ser."""
+    bundle_id = _samling(inloggad_anvandare["id"])
+    item_id = _post(bundle_id, "Diakoni", belopp="100,00")
+
+    client.post(
+        f"/mina-samlingar/{bundle_id}/kodformat",
+        data={
+            "kodformat": "url",
+            "csrf_token": _csrf(client, f"/mina-samlingar/{bundle_id}"),
+        },
+    )
+
+    publik = _zxing(client.get(f"/swish-post/{item_id}/qr.png").content)
+    egen = client.get(f"/mina-samlingar/{bundle_id}/swish-poster/{item_id}/qr.png")
+
+    assert egen.status_code == 200
+    assert _zxing(egen.content) == publik
+
+
+def test_okant_format_faller_tillbaka_pa_c(client, inloggad_anvandare):
+    """Ett trasigt värde ska ge dagens beteende, inte ett fel på en publik route."""
+    bundle_id = _samling(inloggad_anvandare["id"])
+    item_id = _post(bundle_id, "Diakoni", belopp="100,00")
+
+    client.post(
+        f"/mina-samlingar/{bundle_id}/kodformat",
+        data={
+            "kodformat": "hittepa",
+            "csrf_token": _csrf(client, f"/mina-samlingar/{bundle_id}"),
+        },
+    )
+
+    assert _kodformat(bundle_id) == "c"
+
+    svar = client.get(f"/swish-post/{item_id}/qr.png")
+
+    assert svar.status_code == 200
+    assert _zxing(svar.content).startswith("C")
+
+
+def test_annan_anvandare_kan_inte_byta_format(client, inloggad_anvandare):
+    bundle_id = _samling(_annan_anvandare(), code="annans")
+
+    svar = client.post(
+        f"/mina-samlingar/{bundle_id}/kodformat",
+        data={
+            "kodformat": "url",
+            "csrf_token": _csrf(client, "/mina-lankar"),
+        },
+    )
+
+    assert svar.status_code == 404
+    assert _kodformat(bundle_id) == "c"
+
+
+def test_formatvalet_syns_i_agarvyn(client, inloggad_anvandare):
+    """Provet anropar ROUTEN och kräver att kontrollen finns innan värdet mäts."""
+    bundle_id = _samling(inloggad_anvandare["id"])
+    _post(bundle_id)
+
+    svar = client.get(f"/mina-samlingar/{bundle_id}")
+
+    assert svar.status_code == 200
+    assert 'name="kodformat"' in svar.text, "formatvalet saknas i ägarvyn"
+    assert 'value="url"' in svar.text
+
+
+def test_mottagarkryssrutan_doljs_i_url_format(client, inloggad_anvandare):
+    """Kryssrutan har ingen motsvarighet i URL-formatet.
+
+    url_strang() ignorerar fri_mottagare, och det finns inget edit-namn för
+    mottagaren - mätt på telefon 2026-09-11, se docs/swish-applankens-format.md
+    mätning 7. En kryssruta som ser ut att fungera men inte gör något är
+    sämre än ingen.
+    """
+    bundle_id = _samling(inloggad_anvandare["id"])
+    _post(bundle_id)
+
+    med_c = client.get(f"/mina-samlingar/{bundle_id}")
+    assert 'name="fri_mottagare"' in med_c.text, "kryssrutan ska finnas i C-läge"
+    assert med_c.text.count("Fritt Swish-nummer") >= 1
+
+    client.post(
+        f"/mina-samlingar/{bundle_id}/kodformat",
+        data={
+            "kodformat": "url",
+            "csrf_token": _csrf(client, f"/mina-samlingar/{bundle_id}"),
+        },
+    )
+
+    med_url = client.get(f"/mina-samlingar/{bundle_id}")
+
+    assert med_url.status_code == 200
+    # Fältet är kvar i formuläret, men dolt: byter ägaren tillbaka till C
+    # ska valet finnas kvar.
+    assert 'name="fri_mottagare"' in med_url.text
+
+    # Varje label som bär kryssrutan ska vara dold. Räknar etiketterna i
+    # stället för att leta efter EN träff: mallen har två formulär, ett för
+    # befintliga poster och ett för nya, och båda måste följa formatet.
+    etiketter = re.findall(r"<label([^>]*)>(?:(?!</label>).)*?fri_mottagare", med_url.text, re.S)
+    assert etiketter, "hittade ingen label runt fri_mottagare"
+    assert all("hidden" in attr for attr in etiketter), (
+        f"{sum('hidden' not in a for a in etiketter)} av {len(etiketter)} "
+        "mottagarkryssrutor är synliga i URL-läge"
+    )

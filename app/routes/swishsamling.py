@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 
 from app import qr
 from app.database import get_db
-from app.swish import Swishfel, betalning_ur_rad, qr_strang
+from app.swish import Swishfel, betalning_ur_rad, kodstrang
 
 router = APIRouter()
 
@@ -24,7 +24,7 @@ def _post_i_aktiv_samling(db, item_id: int):
     någon behållit adressen till bilden.
     """
     rad = db.execute(
-        """SELECT i.* FROM swish_items i
+        """SELECT i.*, b.kodformat FROM swish_items i
              JOIN bundles b ON b.id = i.bundle_id
             WHERE i.id=? AND b.status=1 AND b.theme='swish'""",
         (item_id,),
@@ -48,7 +48,9 @@ async def post_qr(item_id: int, andelse: str):
     with get_db() as db:
         rad = _post_i_aktiv_samling(db, item_id)
     try:
-        strang = qr_strang(betalning_ur_rad(rad))
+        # Formatet är samlingens, inte postens. Förvalet 'c' i kolumnen ger
+        # varje samling som aldrig rört valet exakt den kod den hade förut.
+        strang = kodstrang(betalning_ur_rad(rad), rad["kodformat"])
     except Swishfel:
         # Posten går inte att koda. Den syns inte på samlingssidan heller,
         # så adressen pekar på något som inte finns.

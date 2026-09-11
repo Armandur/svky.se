@@ -322,6 +322,7 @@ def _mig_002_bundles(conn: sqlite3.Connection) -> None:
             name        TEXT NOT NULL,
             description TEXT,
             theme       TEXT NOT NULL DEFAULT 'rich',
+            kodformat   TEXT NOT NULL DEFAULT 'c',
             owner_id    INTEGER REFERENCES users(id),
             status      INTEGER DEFAULT 1,
             created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -560,6 +561,19 @@ def _mig_013_easter_egg_triggers(conn: sqlite3.Connection) -> None:
     )
 
 
+def _mig_014_bundle_kodformat(conn: sqlite3.Connection) -> None:
+    """Format på Swish-koderna, valt för HELA samlingen.
+
+    Per samling och inte per post: valet hänger på var koden sitter, inte
+    på vem som får pengarna. En anslagstavla vill ha samma format för hela
+    tavlan. Beslut Rasmus 2026-09-11, se TASK-1767.
+
+    Förvalet 'c' ger varje befintlig samling exakt den kod den hade förut.
+    Kolumnen är ny, så föregående version av appen kör oförändrat vidare.
+    """
+    _alter(conn, "ALTER TABLE bundles ADD COLUMN kodformat TEXT NOT NULL DEFAULT 'c'")
+
+
 # Nya migrationer läggs ALLTID SIST - aldrig infogas mellan existerande.
 MIGRATIONS: list[tuple[int, object]] = [
     (1, _mig_001_baseline),
@@ -575,6 +589,7 @@ MIGRATIONS: list[tuple[int, object]] = [
     (11, _mig_011_swish_items),
     (12, _mig_012_visa_mottagare),
     (13, _mig_013_easter_egg_triggers),
+    (14, _mig_014_bundle_kodformat),
 ]
 
 

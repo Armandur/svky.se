@@ -26,7 +26,9 @@ from app.swish import (
     Swishfel,
     applank,
     betalning_ur_rad,
+    kodstrang,
     qr_strang,
+    valj_format,
 )
 from app.swishtext import lastext
 from app.templating import templates
@@ -48,7 +50,7 @@ def _egen_samling(db, bundle_id: int, user_id: int):
     return dict(rad)
 
 
-def _poster(db, bundle_id: int) -> list[dict]:
+def _poster(db, bundle_id: int, kodformat: str = "c") -> list[dict]:
     """Posterna med sina två strängar uträknade.
 
     Strängarna sparas aldrig. De räknas fram ur fälten vid varje visning, så
@@ -63,10 +65,13 @@ def _poster(db, bundle_id: int) -> list[dict]:
         post = dict(rad)
         betalning = betalning_ur_rad(rad)
         try:
-            post["kodstrang"] = qr_strang(betalning)
+            post["kodstrang"] = kodstrang(betalning, kodformat)
             post["applank"] = applank(betalning)
             post["fel"] = None
-            post["lastext"] = lastext(betalning)
+            # Låstexten SKILJER sig mellan formaten - URL-formatet har ingen
+            # motsvarighet till mottagarbiten. Utan formatet här hade raden
+            # sagt C-formatets sanning om en kod som ritas som URL.
+            post["lastext"] = lastext(betalning, kodformat)
         except Swishfel as fel:
             # Allt som skrivs härifrån går genom _falt() och är kodbart. En
             # rad som ändrats direkt i databasen behöver ändå kunna visas:
@@ -140,7 +145,7 @@ def _tillbaka(
 async def samlingsvy(request: Request, user: dict, bundle: dict):
     """Ägarens redigeringsvy. Anropas från bundles.min_samling."""
     with get_db() as db:
-        poster = _poster(db, bundle["id"])
+        poster = _poster(db, bundle["id"], bundle["kodformat"])
         tryck = {
             rad["swish_item_id"]: rad["antal"]
             for rad in db.execute(
@@ -335,6 +340,36 @@ async def visa_mottagare_alla(
     return _tillbaka(bundle_id)
 
 
+@router.post("/mina-samlingar/{bundle_id}/kodformat")
+async def valj_kodformat(
+    request: Request,
+    bundle_id: int,
+    kodformat: str = Form(...),
+    csrf_token: str = Form(...),
+):
+    """Format på samlingens Swish-koder, för hela samlingen på en gång.
+
+    Egen route och inte ett fält i /mina-samlingar/{id}/update: den routen
+    är gemensam för alla teman, och ett swish-fält där hade antingen gällt
+    samlingar som inte har några koder eller tyst nollats av dem.
+
+    valj_format() sätter C om värdet inte känns igen, så ett trasigt fält
+    ger dagens beteende i stället för ett fel.
+    """
+    if not validate_csrf_token(csrf_token, get_csrf_secret(request)):
+        raise HTTPException(status_code=403)
+    user = get_user_or_redirect(request)
+
+    with get_db() as db:
+        _egen_samling(db, bundle_id, user["id"])
+        db.execute(
+            "UPDATE bundles SET kodformat=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            (valj_format(kodformat), bundle_id),
+        )
+
+    return _tillbaka(bundle_id)
+
+
 @router.post("/mina-samlingar/{bundle_id}/swish-poster/{item_id}/delete")
 async def ta_bort_post(request: Request, bundle_id: int, item_id: int, csrf_token: str = Form(...)):
     if not validate_csrf_token(csrf_token, get_csrf_secret(request)):
@@ -407,13 +442,16 @@ async def post_qr(request: Request, bundle_id: int, item_id: int, andelse: str):
         raise HTTPException(status_code=404)
 
     with get_db() as db:
-        _egen_samling(db, bundle_id, user["id"])
+        samling = _egen_samling(db, bundle_id, user["id"])
         rad = db.execute(
             "SELECT * FROM swish_items WHERE id=? AND bundle_id=?", (item_id, bundle_id)
         ).fetchone()
         if not rad:
             raise HTTPException(status_code=404)
-        strang = qr_strang(betalning_ur_rad(rad))
+        # Nedladdningen måste ge SAMMA sträng som den publika bilden. Ritar
+        # de olika format trycker ägaren en kod som inte är den besökaren
+        # ser, och skillnaden märks först på papperet.
+        strang = kodstrang(betalning_ur_rad(rad), samling["kodformat"])
 
     if andelse == "png":
         return Response(

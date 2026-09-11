@@ -283,6 +283,25 @@ def applank(betalning: Swishbetalning) -> str:
     return f"swish://payment?data={quote(nyttolast, safe='')}"
 
 
+KODFORMAT = {"c": qr_strang, "url": url_strang}
+
+
+def valj_format(varde: str | None) -> str:
+    """Ett känt format, med C-formatet som säkert förval.
+
+    Enda stället fallbacken bor. Ett tomt eller trasigt värde ur databasen
+    eller en frågesträng får aldrig nå KODFORMAT-uppslaget direkt - en
+    publik bildroute ska inte kunna falla på en KeyError för att en kolumn
+    bär skräp.
+    """
+    return varde if varde in KODFORMAT else "c"
+
+
+def kodstrang(betalning: Swishbetalning, kodformat: str | None) -> str:
+    """QR-strängen i det format som begärts, eller C om det inte känns igen."""
+    return KODFORMAT[valj_format(kodformat)](betalning)
+
+
 def betalning_ur_rad(rad) -> Swishbetalning:
     """En sparad swishpost som betalning.
 

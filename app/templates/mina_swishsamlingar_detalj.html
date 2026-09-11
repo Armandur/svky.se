@@ -62,6 +62,13 @@
   box-shadow: var(--shadow);
 }
 .sw-installningar[open] { padding-bottom: 18px; }
+.sw-format { margin: 18px 0 0; padding-top: 16px; border-top: 1px solid var(--border); }
+.sw-format-rubrik { font-weight: 600; margin: 0 0 8px; }
+.sw-format .kryss { display: grid; grid-template-columns: auto 1fr; gap: 8px;
+                    align-items: start; margin-bottom: 8px; }
+.sw-format .kryss input { margin-top: 4px; }
+.sw-format-hjalp { color: var(--muted); font-size: .9rem; margin: 4px 0 12px;
+                   line-height: 1.45; }
 .sw-installningar summary {
   cursor: pointer; padding: 14px 0; font-weight: 700; font-size: .92rem;
   color: var(--blue-dark);
@@ -176,6 +183,35 @@
     </div>
   </form>
 
+  {# Eget formulär och inte ett fält i /update: den routen är gemensam för
+     alla teman, och ett swish-fält där hade antingen gällt samlingar utan
+     koder eller tyst nollats av dem. Valet gäller HELA samlingen - det
+     hänger på var koden sitter, inte på vem som får pengarna. #}
+  <form method="post" action="/mina-samlingar/{{ bundle.id }}/kodformat" class="sw-format">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <p class="sw-format-rubrik">Format på koderna</p>
+    <label class="kryss">
+      <input type="radio" name="kodformat" value="c"
+             {% if bundle.kodformat != 'url' %}checked{% endif %}>
+      <span><strong>C-format - kompakt.</strong>
+        Läses bara i Swish-appens skanner. Mindre kod.</span>
+    </label>
+    <label class="kryss">
+      <input type="radio" name="kodformat" value="url"
+             {% if bundle.kodformat == 'url' %}checked{% endif %}>
+      <span><strong>Swish URL-format - kameraläsbart.</strong>
+        Läses även av telefonens kamera, men koden blir cirka 40 procent
+        bredare. Mottagaren går inte att låsa upp i det här formatet.</span>
+    </label>
+    <p class="sw-format-hjalp">
+      Sitter samlingen på en anslagstavla som folk fotar med mobilen passar
+      URL-formatet. Trycks koderna smatt passar C-formatet.
+    </p>
+    <button type="submit" class="btn btn-primary btn-sm" id="spara-kodformat">
+      Spara format
+    </button>
+  </form>
+
   <div class="sw-farligt">
     {% if bundle.status == 1 %}
     {# Panel och inte confirm(), samma standard som Ta bort längre ner.
@@ -276,7 +312,7 @@
     </div>
 
     <div class="sw-fria">
-      <label>
+      <label {% if bundle.kodformat == 'url' %}hidden{% endif %}>
         <input type="checkbox" name="fri_mottagare" value="1"
                {% if post.fri_mottagare %}checked{% endif %}> Fritt Swish-nummer
       </label>
@@ -405,7 +441,8 @@
       <input id="nytt-desc" type="text" name="description">
     </div>
     <div class="sw-fria">
-      <label><input type="checkbox" name="fri_mottagare" value="1"> Fritt Swish-nummer</label>
+      <label {% if bundle.kodformat == 'url' %}hidden{% endif %}><input type="checkbox"
+             name="fri_mottagare" value="1"> Fritt Swish-nummer</label>
       <label><input type="checkbox" name="fritt_belopp" value="1" id="nytt-fritt-belopp"> Fritt belopp</label>
       <label><input type="checkbox" name="fritt_meddelande" value="1"> Fritt meddelande</label>
       <label class="sw-visa"><input type="checkbox" name="visa_mottagare" value="1"> Visa numret i klartext</label>
@@ -464,6 +501,9 @@
       var f = falt(form, namn);
       if (f && f.checked) delar.set(namn, '1');
     });
+    // Samlingens format, inte generatorns förval. Utan det hade rutan visat
+    // C-formatets sträng och låstext för en samling som ritar URL.
+    delar.set('format', {{ bundle.kodformat | tojson }});
     return delar.toString();
   }
 
