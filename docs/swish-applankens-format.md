@@ -128,6 +128,13 @@ appen öppnar för redigering - den fäster inte mottagaren. Mätt på telefon.
 Det tidigare påståendet var aldrig prövat för QR-vägen utan följde med som
 antagande.
 
+**Tillägg 2026-09-11: låsmask 1 gör mottagaren fri, och bara den.** Det
+fallet saknades i tabellen ovan. En kod med `C…;1,00;…;1` - alltså bara
+mottagaren fri, belopp och meddelande låsta - låter betalaren byta nummer
+medan de två andra fälten står kvar låsta. Kryssrutan "Mottagaren får ändras"
+gör alltså något, men bara i det här enda läget. Så fort belopp eller
+meddelande är fritt släpper mottagaren ändå. Mätt på telefon.
+
 Vad som följer av det:
 
 - **Ingenting håller mottagaren låst utom att låsa alla fält.** Det gäller
@@ -220,7 +227,9 @@ i stället för bitar.
 
 **Mottagaren går inte att öppna.** API:t kräver att `payee` är en sträng och
 avvisar ett objekt med `editable`. Det finns ingen `edit=sw`. Vår
-`REDIGERBAR_MOTTAGARE` har alltså ingen motsvarighet här.
+`REDIGERBAR_MOTTAGARE` har alltså ingen motsvarighet här. Det stod först här
+som en slutsats dragen ur vad API:t vägrar ta emot, alltså ur vad Swish egen
+generator gör. Mätning 7 prövade det på telefon i stället, och det höll.
 
 **Utan belopp utelämnas `amt` helt**, precis som `applank()` utelämnar
 `amount` för en gåva med fritt belopp.
@@ -259,6 +268,51 @@ avvägningen mellan de två, och den är verklig för den som trycker på papper
 **Vad vi kör i dag:** `swish://payment?data=` för knappen och `C…` för koden.
 Båda fungerar. URL-formatet skulle kunna ersätta båda med EN sträng, och
 dessutom göra koden läsbar i kameran - mot fyrtio procent större kod.
+
+## Mätning 7: `edit` tål bara sina två namn
+
+Mätt 2026-09-11 på telefon, med ett riktigt Swish-nummer och en krona i
+belopp. Frågan var om mätning 6 hade rätt om mottagaren. Det påståendet vilade
+på att generator-API:t avvisar ett `payee`-objekt, alltså på vad Swish egen
+generator gör. Vad appen tål är en annan fråga, och hela `payment?data=` är ett
+exempel på att de två inte är samma sak.
+
+Kontrollerna först. Utan dem betyder ingen av raderna något:
+
+| Rad | Skickat | Utfall |
+| --- | --- | --- |
+| R1 | ingen `edit` | Fylls i. Allt låst, mottagaren inräknad |
+| R2 | `edit=amt` | Fylls i. Belopp och mottagare fria |
+
+Båda som mätning 6 sade. Sedan de fyra kandidaterna:
+
+| Rad | Skickat | Utfall |
+| --- | --- | --- |
+| R3 | `edit=sw` | **Appen öppnas, inget ifyllt** |
+| R4 | `edit=sw,msg` | **Appen öppnas, inget ifyllt** |
+| R5 | `edit=payee` | **Appen öppnas, inget ifyllt** |
+| R6 | `edit=all` | **Appen öppnas, inget ifyllt** |
+
+**Ett okänt värde i `edit` bryter hela betalningen.** Appen startar, men
+belopp, meddelande och mottagare är tomma. Den hoppar alltså inte över det den
+inte känner igen.
+
+R4 visar hur långt det går. Där stod ett känt namn bredvid ett okänt, och
+`msg` räddade ingenting. Ett enda okänt namn fördärvar listan.
+
+Två saker följer av det:
+
+- **Mottagaren går inte att öppna, och nu är det mätt.** Varken `sw` eller
+  `payee` finns, och `all` finns inte heller. `REDIGERBAR_MOTTAGARE` har ingen
+  motsvarighet i URL-formatet. Generatorn döljer därför kryssrutan för
+  mottagaren när URL-formatet är valt.
+- **`edit` är en fälla för den som bygger vidare.** Lägger någon till ett
+  fältnamn i listan slutar koden tyst att fylla i något. Den ritas, den
+  skannas, appen öppnas - och betalningen är tom. `url_strang()` skickar bara
+  `amt` och `msg`, och den gränsen ska stå kvar.
+
+Symptomet är detsamma som i mätning 5, och det är lika lätt att missa: koden
+ser riktig ut hela vägen fram till att någon ska betala.
 
 ## Vad Swish själva dokumenterar
 

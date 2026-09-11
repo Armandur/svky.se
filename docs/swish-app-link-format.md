@@ -130,6 +130,13 @@ governs which fields the app pre-fills as editable - it does not pin the
 payee. Measured on a phone; the earlier claim was never tested for the QR
 path and was carried over by assumption.
 
+**Addition 2026-09-11: lock mask 1 frees the payee, and only the payee.**
+That case was missing from the table above. A code carrying `C…;1,00;…;1` -
+only the payee free, amount and message locked - lets the payer change the
+number while the other two fields stay locked. So the "payee may be changed"
+checkbox does do something, but only in this one case. As soon as the amount
+or the message is open, the payee comes loose anyway. Measured on a phone.
+
 What follows from it:
 
 - **Nothing keeps the payee locked except locking every field.** That holds
@@ -222,7 +229,10 @@ bits.
 
 **The payee cannot be opened.** The API requires `payee` to be a string and
 rejects an object with `editable`. There is no `edit=sw`. Our
-`REDIGERBAR_MOTTAGARE` has no counterpart here.
+`REDIGERBAR_MOTTAGARE` has no counterpart here. This first stood here as a
+conclusion drawn from what the API refuses to accept, that is, from what
+Swish's own generator does. Measurement 7 tested it on a phone instead, and it
+held.
 
 **Without an amount, `amt` is omitted entirely**, exactly as `applank()` omits
 `amount` for an open donation.
@@ -262,6 +272,51 @@ That is the trade-off, and it is real for anyone printing on paper.
 **What we ship today:** `swish://payment?data=` for the button and `C…` for
 the code. Both work. The URL format could replace both with ONE string, and
 make the code readable in the camera as well - at forty percent more width.
+
+## Measurement 7: `edit` accepts only its two names
+
+Measured 2026-09-11 on a phone, with a real Swish number and a one-krona
+amount. The question was whether measurement 6 was right about the payee. That
+claim rested on the generator API rejecting a `payee` object, that is, on what
+Swish's own generator does. What the app accepts is a different question, and
+the whole `payment?data=` format is proof that the two are not the same thing.
+
+The controls first. Without them none of the rows mean anything:
+
+| Row | Sent | Outcome |
+| --- | --- | --- |
+| R1 | no `edit` | Fills in. Everything locked, payee included |
+| R2 | `edit=amt` | Fills in. Amount and payee editable |
+
+Both as measurement 6 described. Then the four candidates:
+
+| Row | Sent | Outcome |
+| --- | --- | --- |
+| R3 | `edit=sw` | **App opens, nothing filled in** |
+| R4 | `edit=sw,msg` | **App opens, nothing filled in** |
+| R5 | `edit=payee` | **App opens, nothing filled in** |
+| R6 | `edit=all` | **App opens, nothing filled in** |
+
+**An unknown value in `edit` breaks the whole payment.** The app starts, but
+amount, message and payee are all empty. So it does not skip what it fails to
+recognise.
+
+R4 shows how far this goes. There a known name stood next to an unknown one,
+and `msg` saved nothing. A single unknown name spoils the list.
+
+Two things follow from it:
+
+- **The payee cannot be opened up, and now that is measured.** Neither `sw`
+  nor `payee` exists, and neither does `all`. `REDIGERBAR_MOTTAGARE` has no
+  counterpart in the URL format. The generator therefore hides the payee
+  checkbox when the URL format is selected.
+- **`edit` is a trap for whoever builds on this.** Add one field name to the
+  list and the code quietly stops filling anything in. It renders, it scans,
+  the app opens - and the payment is empty. `url_strang()` sends only `amt`
+  and `msg`, and that limit should stay.
+
+The symptom is the same as in measurement 5, and just as easy to miss: the
+code looks right all the way up to the moment someone tries to pay.
 
 ## What Swish themselves document
 
