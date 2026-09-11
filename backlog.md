@@ -223,6 +223,37 @@ Kontrollera samma sak för produktionsstacken - 80 och 443 ska vara publicerade,
 
 ---
 
+## [P3][todo] [svky] Ge Swish-samlingen samma formatväxel som generatorn
+
+TASK-1755 byggde växeln mellan C-format och Swish URL-format i generatorn på /swish. Samlingen fick den INTE - det var uttryckligt icke-mål, för samlingen har egna ritvägar och ett eget formulär.
+
+Nu när mönstret satt sig i generatorn hör samlingen till.
+
+BERÖRS:
+- app/routes/swishsamling.py rad 59 och 64, den publika bildrouten
+- app/routes/user/swishsamlingar.py rad 420 och 425, ägarens nedladdning
+- app/templates/mina_swishsamlingar_detalj.html, formuläret per post
+
+VAR FORMATET SKA BO: generatorn läser valet ur frågesträngen, men en samling
+SPARAS. Alltså behöver swish_items troligen en kolumn, eller så gäller valet
+hela samlingen. Det är det första som ska avgöras - per post eller per
+samling. Per post är mer flexibelt men ger en kryssruta till i ett formulär
+som redan har fem.
+
+ARGUMENTET FÖR ATT TA DEN: en samlingssida sitter ofta på en anslagstavla och
+skannas av besökare som tar fram kameran, inte Swish-appen. C-formatet kräver
+Swish-appens egen skanner. Det var precis den förvirringen som kom som
+felanmälan 2026-09-10.
+
+Strängbyggaren url_strang() finns redan i app/swish.py och är prövad.
+Låsningens översättning står i docs/swish-applankens-format.md mätning 6.
+
+- ID: `01M27R5F5HS120YSNR992658D0`
+- Type: feature
+- Actor: ai:claude-code
+
+---
+
 ## [P3][done] [svky] Låt ägaren ändra noteringen på sin kortlänk, inte bara mål-URL:en
 
 ## Context
@@ -1960,6 +1991,27 @@ KLART NAR: svky.se har en uppetidscheck som larmar pa samma tva kanaler, och fel
 - ID: `01KZGSFCXPCKH624AAEYVFNTMG`
 - Type: feature
 - Actor: human:rasmus
+
+---
+
+## [P5][todo] [svky] Ett ord för noteringen: admin säger Anteckningen, användaren Noteringen
+
+Samma fält kallas två saker beroende på vem som tittar.
+
+- app/routes/admin/links.py rad 161: validate_length(note, MAX_TEXT_LENGTH, 'Anteckningen')
+- app/routes/user/links.py: validate_length(note, MAX_TEXT_LENGTH, 'Noteringen')
+- Gränssnittet säger Notering i både my_links.html och bestall.html
+
+Användarsidan valde ordet gränssnittet visar, vilket är rätt. Admin bör följa
+efter. Kolla också app/routes/orders.py, som validerar samma fält vid
+beställning.
+
+Litet, men ett felmeddelande som använder ett annat ord än etiketten ovanför
+fältet får folk att leta efter fel sak.
+
+- ID: `01M27R5F5PWF579R1B6S8YDK4T`
+- Type: chore
+- Actor: ai:claude-code
 
 ---
 
