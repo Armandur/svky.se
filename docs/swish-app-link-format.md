@@ -318,6 +318,13 @@ Two things follow from it:
 The symptom is the same as in measurement 5, and just as easy to miss: the
 code looks right all the way up to the moment someone tries to pay.
 
+**Spaces may be encoded as plus.** `url_strang()` builds the query string with
+`urlencode`, which turns spaces into `+` rather than `%20`. The app reads plus
+as a space: `msg=Prov+plus` shows up as "Prov plus", exactly like the `%20`
+twin. Measured 2026-09-11. It was worth testing, because the rows above all
+sent `%20` while the shipping code sends `+`, and Swish's own example has no
+space to compare against.
+
 ## What Swish themselves document
 
 Their "Trigger the Swish app" guide on

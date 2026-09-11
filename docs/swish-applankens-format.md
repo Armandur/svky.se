@@ -314,6 +314,13 @@ Två saker följer av det:
 Symptomet är detsamma som i mätning 5, och det är lika lätt att missa: koden
 ser riktig ut hela vägen fram till att någon ska betala.
 
+**Mellanslag får kodas som plus.** `url_strang()` bygger frågesträngen med
+`urlencode`, som gör mellanslag till `+` och inte `%20`. Appen läser plus som
+ett mellanslag: `msg=Prov+plus` visas som "Prov plus", precis som `%20`-
+tvillingen. Mätt 2026-09-11. Det var värt att pröva, för raderna ovan
+skickade `%20` medan koden i drift skickar `+`, och Swish eget exempel har
+inget mellanslag att jämföra med.
+
 ## Vad Swish själva dokumenterar
 
 Deras guide "Trigger the Swish app" på
