@@ -20,7 +20,11 @@ STATIC = Path(__file__).resolve().parents[1] / "app" / "static"
 # den ska fånga de vanliga, inte vara en fullständig katalog.
 CDN_MONSTER = re.compile(
     r"(cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|ajax\.googleapis\.com"
-    r"|code\.jquery\.com|stackpath\.bootstrapcdn\.com)",
+    r"|code\.jquery\.com|stackpath\.bootstrapcdn\.com"
+    # Typsnitt räknas hit. Gravplatssidan bär svenskakyrkan.se-temat med DM
+    # Sans och Spectral, och ett anrop till fonts.gstatic.com hade lämnat
+    # besökarens IP-adress hos Google för att rita en rubrik.
+    r"|fonts\.googleapis\.com|fonts\.gstatic\.com)",
     re.I,
 )
 
@@ -58,6 +62,10 @@ def test_mallen_hamtar_inget_over_internet(mall: Path):
         "easymde.min.css",
         "fontawesome-easymde.css",
         "fontawesome-webfont.woff2",
+        "fonts/dmsans-latin.woff2",
+        "fonts/spectral-300-latin.woff2",
+        "fonts/OFL-DMSans.txt",
+        "fonts/OFL-Spectral.txt",
     ],
 )
 def test_biblioteket_finns_lokalt(fil: str):

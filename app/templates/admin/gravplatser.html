@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}svky.se Admin - Gravplatser{% endblock %}
+
+{% block extra_style %}
+.grav-intro { color: var(--muted); font-size: .88rem; margin: 4px 0 20px; max-width: 720px; }
+.grav-tab td, .grav-tab th { vertical-align: middle; }
+.grav-tab .vag input { width: 100%; min-width: 220px; font-family: "SF Mono","Fira Code",monospace; font-size: .85rem; }
+.grav-tab .last { color: var(--muted); font-size: .8rem; }
+.grav-tab form { display: flex; gap: 6px; align-items: center; }
+{% endblock %}
+
+{% block admin_bar %}
+{% include "admin/_bar.html" %}
+{% endblock %}
+
+{% block content %}
+<h1 style="font-size:1.4rem; color:var(--blue-dark); margin:0;">Gravplatser</h1>
+<p class="grav-intro">
+  Sökvägen går att ändra tills gravplatsen är markerad som tryckt. Sedan är
+  den låst: skylten sitter i sten och adressen måste överleva den.
+  Den gamla sökvägen lever kvar som alias och går aldrig att ge till någon
+  annan gravplats.
+</p>
+
+{% if saved %}
+<div class="alert alert-success" style="margin-bottom:16px;">&#10003;&nbsp; Sparat.</div>
+{% endif %}
+{% if error %}
+<div class="alert alert-error" style="margin-bottom:16px;">{{ error }}</div>
+{% endif %}
+
+{% if gravplatser %}
+<div class="table-wrap">
+<table class="grav-tab">
+  <thead>
+    <tr><th>Sökväg</th><th>Nummer</th><th>Nod</th><th>Visningar</th><th>Tryckt</th></tr>
+  </thead>
+  <tbody>
+    {% for g in gravplatser %}
+    <tr>
+      <td class="vag">
+        {% if g.tryckt_at %}
+          <code>/{{ g.sokvag }}</code>
+        {% else %}
+        <form method="post" action="/admin/gravplatser/{{ g.id }}/sokvag">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="text" name="sokvag" value="{{ g.sokvag }}" aria-label="Sökväg för gravplats {{ g.nummer }}">
+          <button type="submit" class="btn btn-sm">Spara</button>
+        </form>
+        {% endif %}
+      </td>
+      <td>{{ g.nummer }}</td>
+      <td>{{ g.nod_namn or '-' }}</td>
+      <td>{{ g.visningar }}</td>
+      <td class="last">{{ g.tryckt_at | sthlm if g.tryckt_at else 'Nej' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="grav-intro">Inga gravplatser är registrerade än.</p>
+{% endif %}
+{% endblock %}

@@ -7,6 +7,7 @@ Varje submodul hanterar ett ansvarsområde:
   takeovers.py - överlåtelseförfrågningar (godkänn/avvisa via panel och e-post)
   featured.py  - snabblänkar på startsidan (featured links)
   domains.py   - tillåtna måldomäner för kortlänkar
+  gravplatser.py - gravplatsernas sökvägar, låsta när skylten är tryckt
   domain_requests.py - ansökningar om extern länkning
   settings.py  - om-sidan och integritetssidan (markdown-redigering)
   stats.py     - klick- och sidvisningsstatistik
@@ -20,6 +21,7 @@ from . import (
     domain_requests,
     domains,
     featured,
+    gravplatser,
     links,
     settings,
     stats,
@@ -40,3 +42,4 @@ router.include_router(settings.router)
 router.include_router(stats.router)
 router.include_router(transfers.router)
 router.include_router(domain_requests.router)
+router.include_router(gravplatser.router)

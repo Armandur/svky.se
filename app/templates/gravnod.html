@@ -1,0 +1,46 @@
+{% extends "grav_base.html" %}
+{% block title %}{{ nodnamn }} - svky.se{% endblock %}
+
+{% block content %}
+  <p class="grav-smula">
+    {% for smula in smulor %}{% if not loop.first %} &rsaquo; {% endif %}{% if smula.niva == 'stift' %}{{ smula.namn }}{% else %}<a href="{{ smula.sokvag }}">{{ smula.namn }}</a>{% endif %}{% endfor %}
+  </p>
+
+  <h1 class="grav-beteckning">{{ nodnamn }}</h1>
+
+  <p class="grav-plats">
+    {% if barn %}
+      {% if nod.niva == 'kyrkogard' %}Kvarter på kyrkogården{% elif nod.niva == 'forvaltning' %}Kyrkogårdar{% else %}Under {{ nodnamn }}{% endif %}
+    {% else %}
+      {# Kvarteret listar inget. En lista över gravplatser hade gjort sidan
+         till ett register över var människor ligger begravda, och det är
+         inte vad tjänsten är till för. #}
+      Skanna QR-koden på gravplatsmarkören för att komma till en gravplats.
+    {% endif %}
+  </p>
+
+  <div class="grav-kort-grupp">
+    {% if barn %}
+    <ul class="grav-lista">
+      {% for b in barn %}
+      <li>
+        <a class="grav-kort" href="{{ smulor[-1].sokvag }}/{{ b.segment }}">
+          <strong>{{ b.namn }}</strong>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if arvda.telefon or arvda.epost %}
+    <div class="grav-kort kontakt">
+      <strong>Frågor om gravplatserna</strong>
+      <small>
+        {% if forvaltning %}{{ forvaltning }}<br>{% endif %}
+        {% if arvda.telefon %}<a href="tel:{{ arvda.telefon|replace(' ', '') }}">{{ arvda.telefon }}</a><br>{% endif %}
+        {% if arvda.epost %}<a href="mailto:{{ arvda.epost }}">{{ arvda.epost }}</a>{% endif %}
+      </small>
+    </div>
+    {% endif %}
+  </div>
+{% endblock %}

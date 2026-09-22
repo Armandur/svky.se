@@ -14,6 +14,7 @@ from app.deps import RedirectRequired
 from app.routes import (
     admin,
     auth,
+    grav,
     orders,
     public,
     swishgenerator,
@@ -123,6 +124,11 @@ async def healthz():
 # svarar 404 på dem innan generatorn hinner rendera.
 app.include_router(swishgenerator.router)
 app.include_router(swishsamling.router)
+
+# Gravplatssökvägarna monteras före public. De är flersegmentsadresser och
+# krockar inte med catch-all, men stiftskoden är ett eget segment - och
+# RESERVED_CODES ser till att ingen kortlänk heter "10".
+app.include_router(grav.router)
 
 app.include_router(public.router)  # sist - innehåller catch-all GET /{code}
 

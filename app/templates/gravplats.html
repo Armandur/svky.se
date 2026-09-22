@@ -1,0 +1,50 @@
+{% extends "grav_base.html" %}
+{% block title %}{{ beteckning }} - svky.se{% endblock %}
+
+{% block content %}
+  <p class="grav-smula">
+    {# Stiftet har ingen egen sida: ett ensamt segment fångas av catch-all
+       för kortlänkar, och en länk dit hade lett till en 404. #}
+    {% for smula in smulor %}{% if not loop.first %} &rsaquo; {% endif %}{% if smula.niva == 'stift' %}{{ smula.namn }}{% else %}<a href="{{ smula.sokvag }}">{{ smula.namn }}</a>{% endif %}{% endfor %}
+  </p>
+
+  <h1 class="grav-beteckning">{{ beteckning }}</h1>
+  <p class="grav-plats">{{ plats }}</p>
+
+  {% if not registrerad %}
+  {# Skylten finns, raden saknas. Att säga det rakt ut är bättre än en
+     felsida: besökaren står vid graven och behöver veta vem som kan svara. #}
+  <p class="grav-notis">
+    Gravplats {{ nummer }} är inte registrerad här ännu. Skylten finns, men
+    gravplatsen saknas i vårt register.
+  </p>
+  {% endif %}
+
+  <div class="grav-kort-grupp">
+  {% if sok_url %}
+  <a class="grav-kort" href="{{ sok_url }}" target="_blank" rel="noopener">
+    <strong>Sök gravsatta hos {{ leverantor }}</strong>
+    <small>Söker på gravplatsnummer {{ beteckning }}{% if forvaltning %} inom {{ forvaltning }}{% endif %}.
+      Sökningen kan ge flera träffar eller ingen.</small>
+  </a>
+  {% endif %}
+
+  {% if kart_url %}
+  <a class="grav-kort karta" href="{{ kart_url }}" target="_blank" rel="noopener">
+    <strong>Visa gravplatsen på karta</strong>
+    <small>Öppnar kyrkogårdskartan med gravplatsen markerad.</small>
+  </a>
+  {% endif %}
+
+  {% if arvda.telefon or arvda.epost %}
+  <div class="grav-kort kontakt">
+    <strong>Frågor om gravplatsen</strong>
+    <small>
+      {% if forvaltning %}{{ forvaltning }}<br>{% endif %}
+      {% if arvda.telefon %}<a href="tel:{{ arvda.telefon|replace(' ', '') }}">{{ arvda.telefon }}</a><br>{% endif %}
+      {% if arvda.epost %}<a href="mailto:{{ arvda.epost }}">{{ arvda.epost }}</a>{% endif %}
+    </small>
+  </div>
+  {% endif %}
+  </div>
+{% endblock %}

@@ -574,6 +574,81 @@ def _mig_014_bundle_kodformat(conn: sqlite3.Connection) -> None:
     _alter(conn, "ALTER TABLE bundles ADD COLUMN kodformat TEXT NOT NULL DEFAULT 'c'")
 
 
+def _mig_015_gravplatser(conn: sqlite3.Connection) -> None:
+    """Nodträd, gravplatser med frusen sökväg, alias, ägarskap och visningar.
+
+    Bara nya tabeller, så föregående version av appen kör oförändrat vidare
+    mot det här schemat - den läser dem aldrig. Se rollback-regeln överst.
+
+    parent_id är 0 och inte NULL för rotnoderna. SQLite räknar varje NULL som
+    unik i ett unikt index, så NULL hade släppt igenom två stift med samma
+    segment.
+
+    segment och sokvag lagras NFC-normaliserade och i gemener. Den vikningen
+    görs i Python (app/gravplats.py), aldrig i SQL: SQLites LOWER() är
+    ASCII-only och lämnar SÄ orört.
+    """
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS gravnoder (
+            id          INTEGER PRIMARY KEY,
+            parent_id   INTEGER NOT NULL DEFAULT 0,
+            niva        TEXT NOT NULL,
+            segment     TEXT NOT NULL,
+            namn        TEXT,
+            kod         TEXT,
+            prefixmall  TEXT,
+            sokmall     TEXT,
+            kartmall    TEXT,
+            tema        TEXT,
+            telefon     TEXT,
+            epost       TEXT,
+            url         TEXT,
+            parish_id   TEXT,
+            skp_kod     TEXT,
+            pensionerad INTEGER NOT NULL DEFAULT 0,
+            created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_gravnoder_segment
+            ON gravnoder(parent_id, segment);
+
+        CREATE TABLE IF NOT EXISTS gravplatser (
+            id         INTEGER PRIMARY KEY,
+            nod_id     INTEGER NOT NULL,
+            sokvag     TEXT NOT NULL,
+            nummer     TEXT NOT NULL,
+            tryckt_at  DATETIME,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_gravplatser_sokvag
+            ON gravplatser(sokvag);
+        CREATE INDEX IF NOT EXISTS idx_gravplatser_nod ON gravplatser(nod_id);
+
+        CREATE TABLE IF NOT EXISTS gravplats_alias (
+            id           INTEGER PRIMARY KEY,
+            gravplats_id INTEGER NOT NULL,
+            sokvag       TEXT NOT NULL,
+            created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_gravplats_alias_sokvag
+            ON gravplats_alias(sokvag);
+
+        CREATE TABLE IF NOT EXISTS nod_agare (
+            nod_id     INTEGER NOT NULL,
+            user_id    INTEGER NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (nod_id, user_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS gravplats_views (
+            id           INTEGER PRIMARY KEY,
+            gravplats_id INTEGER NOT NULL,
+            viewed_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_gravplats_views_at
+            ON gravplats_views(viewed_at);
+    """)
+
+
 # Nya migrationer läggs ALLTID SIST - aldrig infogas mellan existerande.
 MIGRATIONS: list[tuple[int, object]] = [
     (1, _mig_001_baseline),
@@ -590,6 +665,7 @@ MIGRATIONS: list[tuple[int, object]] = [
     (12, _mig_012_visa_mottagare),
     (13, _mig_013_easter_egg_triggers),
     (14, _mig_014_bundle_kodformat),
+    (15, _mig_015_gravplatser),
 ]
 
 

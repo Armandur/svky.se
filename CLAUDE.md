@@ -30,12 +30,16 @@ app/
                    #   m.fl. (11 funktioner totalt), inline HTML med SMTP via Lettermint
   validation.py    # validate_target_url(), validate_code(), validate_email()
                    #   - returnerar felmeddelande (str) eller None
+  gravplats.py     # Nodträd för gravplatslänkar: normalisering (NFC + gemener),
+                   #   uppslag, arv av mallar, prefixregel, låst sökväg
   domains.py       # Tillåtna måldomäner: get_allowed_domains(), match_domain(),
                    #   normalize_domain(), validate_domain() - leaf-modul
   csrf.py          # generate_csrf_token(), validate_csrf_token() via itsdangerous
   templating.py    # Jinja2-instans som pekar på app/templates/
   routes/
     auth.py        # GET/POST /login, GET /auth/<token>, GET /logout
+    grav.py        # Gravplatslänkar: GET /<stift>/<enhet>/<kyrkogård>/<kvarter>[/<avd>]
+                   #   [/<nummer>] - landningssida och nodsidor, monterad FÖRE catch-all
     public.py      # GET /, GET /bestall, POST /bestall, GET /verify/<token>,
                    #   GET /<code> (catch-all redirect), om/integritet, transfer-action,
                    #   bundle-takeover-requests, bundle-display
@@ -51,6 +55,7 @@ app/
                    #   /admin/bundle-takeover-requests (approve/reject)
       snabblänkar.py # /admin/snabblänkar - featured links på startsidan
       domains.py   #   /admin/domaner - tillåtna måldomäner för kortlänkar
+      gravplatser.py # /admin/gravplatser - byt sökväg tills gravplatsen är tryckt
       settings.py  #   /admin/om, /admin/integritet - markdown-redigering
       stats.py     #   /admin/stats - klick/sidvisnings/samlingsstatistik
       helpers.py   #   pending_takeover_count() - intern hjälpfunktion
@@ -103,6 +108,22 @@ from app.deps import (
 - **Rate limiting** - SQLite-tabellen `rate_limits`, max 5 req/timme per IP per action, se `deps.check_rate_limit()`
 - **URL-validering** - endast https. Värdnamnet måste matcha en domän i tabellen `allowed_domains` (admin styr listan via `/admin/domaner`). Seedas med `svenskakyrkan.se`. En domän med `allow_free_url=1` - liksom `allow_external=True` (trusted-användare/admin) - tillåter även frågeparametrar och fria sökvägssegment; annars avvisas query/fragment och path-segment med t.ex. punkter
 - **CSRF** - alla POST-formulär kräver `csrf_token`-fält; valideras med `validate_csrf_token()`
+- **Gravplatslänkar** - adressen `/10/had/hkn/allm/0446` är stift, enhet,
+  kyrkogård, kvarter, valfri avdelning och gravplatsnummer. Landningssida och
+  aldrig 302: ingen leverantör har permalänk per gravplats. Sökvägen ägs av
+  gravplatsraden och fryses när skylten trycks - koder, mallar, tema och
+  kontaktuppgifter hämtas ur nodträdet vid uppslaget. Segment lagras och
+  jämförs NFC-normaliserat och i gemener, och den vikningen görs i Python:
+  SQLites `LOWER()` är ASCII-only och lämnar `SÄ` orört. Stiftskoderna `01`
+  till `13` ligger i `RESERVED_CODES`. Sidorna svarar `noindex` och visar
+  platsen, aldrig personen. Nodens `namn` är valfritt: kyrkogårdarna har
+  riktiga namn, kvarteren har bara sin kod. Saknas namnet skriver sidan
+  koden ordagrant med nivåns ord framför - `Kvarter Allm`, aldrig ett
+  påhittat "Kvarteret Allmänna" som varken står i systemet eller känns igen
+  av personalen i telefonen. Temat `svk` ritar i svenskakyrkan.se-profilen
+  och laddar DM Sans och Spectral från `app/static/fonts/` - aldrig från
+  Google Fonts, som hade lämnat besökarens IP-adress där. Typsnitten är
+  OFL-licensierade och licenstexterna ligger bredvid filerna.
 
 ## Miljövariabler (.env)
 

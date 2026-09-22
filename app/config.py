@@ -34,6 +34,27 @@ RATE_LIMIT_PER_HOUR: int = 5
 RATE_LIMIT_PER_HOUR_IP: int = 30
 
 
+# Stiften, i SCB:s nummerordning. Koden är tvåsiffrig med inledande nolla och
+# bildar första segmentet i en gravplatssökväg: /10/had/hkn/allm/0446.
+# Listan är källan för både routingen och reservationen nedan - två
+# uppräkningar av samma tretton koder glider isär.
+STIFT: dict[str, str] = {
+    "01": "Uppsala stift",
+    "02": "Linköpings stift",
+    "03": "Skara stift",
+    "04": "Strängnäs stift",
+    "05": "Västerås stift",
+    "06": "Växjö stift",
+    "07": "Lunds stift",
+    "08": "Göteborgs stift",
+    "09": "Karlstads stift",
+    "10": "Härnösands stift",
+    "11": "Luleå stift",
+    "12": "Visby stift",
+    "13": "Stockholms stift",
+}
+
+
 class LinkStatus(IntEnum):
     PENDING = 0  # Väntar på e-postverifiering
     ACTIVE = 1  # Aktiv, omdirigerar
@@ -69,3 +90,9 @@ RESERVED_CODES = {
     # blivit oåtkomlig utan att någon förstod varför.
     "swish-data",
 }
+
+# Stiftskoderna reserveras som toppnivåsegment åt gravplatslänkarna
+# (TASK-2145). Kontrollerat 2026-09-22: ingen av de tretton koderna fanns i
+# drift. En skylt i sten lever i trettio år, så segmentet måste vara vårt
+# innan första QR-koden graveras - inte när någon redan tryckt den.
+RESERVED_CODES.update(STIFT)
