@@ -99,7 +99,9 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       {% if user %}
       <div class="alert alert-success" style="margin-bottom:16px; text-align:left;">
-        Inloggad som <strong>{{ user.email }}</strong> - länken aktiveras direkt.
+        {# Ett enda flex-barn: annars blir "Inloggad som" en egen smal spalt
+           som bryter mitt i ordet på mobil. #}
+        <div>Inloggad som <strong>{{ user.email }}</strong> - länken aktiveras direkt.</div>
       </div>
       {% else %}
       <div class="form-group">
@@ -196,7 +198,7 @@
 
     {% else %}
     <div class="alert alert-success" style="margin-bottom:20px; text-align:left;">
-      Inloggad som <strong>{{ user.email }}</strong>
+      <div>Inloggad som <strong>{{ user.email }}</strong></div>
     </div>
 
     {% if bundle_errors and bundle_errors.get('general') %}
