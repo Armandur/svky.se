@@ -206,7 +206,11 @@ input.error    { border-color: var(--red); }
   display: flex;
   gap: 10px;
   align-items: flex-start;
+  /* Flex-barn krymper inte under sitt innehåll, så en lång e-postadress i
+     <strong> sprängde 390 px på /bestall (TASK-1707). */
+  overflow-wrap: anywhere;
 }
+.alert > * { min-width: 0; }
 .alert-success { background: var(--green-bg);  color: #1a5c28;        border: 1px solid #b8dfc0; }
 .alert-warning { background: var(--orange-bg); color: #7a3f00;        border: 1px solid #f5d49a; }
 .alert-error   { background: var(--red-bg);    color: var(--red);     border: 1px solid #f5c6c2; }
