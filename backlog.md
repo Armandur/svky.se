@@ -362,7 +362,7 @@ Kontrollera samma sak för produktionsstacken - 80 och 443 ska vara publicerade,
 
 ---
 
-## [P3][todo] [svky] Inventera destruktiva admin-åtgärder som bör få förhandsvisning före bekräftelse
+## [P3][done] [svky] Inventera destruktiva admin-åtgärder som bör få förhandsvisning före bekräftelse
 
 Klicknollställningen (/admin/links/<id>/nollstall-klick) visar antal rader och tidsspann innan POST utför raderingen. Gå igenom övriga destruktiva åtgärder i admin (avaktivera, överlåt alla, radera användare, inaktivera samling, gravimport m.fl.) och avgör vilka som bör få samma GET-förhandsvisning + POST-bekräftelse.
 
@@ -1774,7 +1774,7 @@ Resten av listan gäller fortfarande: QR-sköldarna, samlingarnas QR, admin-grä
 
 ---
 
-## [P4][todo] [svky] Beställningssidan spränger mobilbredden med 5 px
+## [P4][done] [svky] Beställningssidan spränger mobilbredden med 5 px
 
 Mätt 2026-09-08: /bestall ger scrollWidth 395 i ett 390 px fönster, inloggad. Felet fanns före Swish-fliken - samma siffra med och utan den.
 
@@ -1802,7 +1802,7 @@ Verifiera: shot vid 390px OCH 1280px i både friskt och varningstungt läge, och
 
 ---
 
-## [P4][todo] [svky] Visa reserverade koder för admin i admin-UI:t
+## [P4][done] [svky] Visa reserverade koder för admin i admin-UI:t
 
 RESERVED_CODES i app/config.py är osynlig i driften - en admin som skapar en kortlänk ser inte vilka koder som är upptagna av systemet förrän valideringen nekar. Visa listan någonstans i admin-UI:t (egen liten sida eller ett avsnitt under en befintlig admin-vy). Verifiera: shot vid 390px OCH 1280px, och att listan matchar RESERVED_CODES i koden i stället för en handskriven kopia.
 
