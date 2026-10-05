@@ -458,7 +458,7 @@ def fragment(besked: str = "", beskedklass: str = "") -> str:
 
     if ci:
         kl = "ok" if ci.get("utfall") == "success" else "fel"
-        ci_rad = (f'<p>Senaste körningen på main: '
+        ci_rad = (f'<p>Senaste bygget på main: '
                   f'<a href="{esc(ci.get("url", "#"))}">'
                   f'<span class="pill {kl}">{_sv(ci.get("utfall"))}</span></a> '
                   f'<code>{_v(ci.get("sha"))}</code> {_v(ci.get("tid"))}</p>')

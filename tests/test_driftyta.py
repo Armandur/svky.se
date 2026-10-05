@@ -118,7 +118,7 @@ def test_automatik_ar_kompakt_men_visar_alla_uppgifter(tmp_path):
     assert '<section class="kort automatik"' in html
     assert automatikrubrik < statusrubrik
     assert _css_varde(kod, ".automatik", "box-shadow") == "none"
-    for uppgift in ("Staginguppdateraren", "Uppetidssond", "Senaste körningen"):
+    for uppgift in ("Staginguppdateraren", "Uppetidssond", "Senaste bygget"):
         assert uppgift in html
 
 

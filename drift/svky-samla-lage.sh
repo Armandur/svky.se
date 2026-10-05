@@ -71,15 +71,18 @@ begaran_trasiga=${begaran_trasiga# }
 begaran_lagen=${begaran_lagen# }
 timer_aktiv=$(systemctl is-active svky-staging-uppdatera.timer 2>/dev/null)
 
-# Senaste körningen på main. UTAN den här raden vet ytan bara vad som NÅTT
-# servern, och ett bygge som faller når den aldrig. Tokenen är fine-grained
-# med endast Actions: read och är valfri - saknas den blir fältet null och
-# ytan säger att den inte vet, inte att allt är bra.
+# Senaste BYGGET på main, inte senaste körningen av vilket workflow som helst.
+# UTAN den här raden vet ytan bara vad som NÅTT servern, och ett bygge som
+# faller når den aldrig. Lint kör parallellt och blev klar sist 2026-10-05,
+# så ytan visade "Lint lyckades" fast det är imagen som avgör om något kan
+# befordras. Tokenen är fine-grained med endast Actions: read och är valfri -
+# saknas den blir fältet null och ytan säger att den inte vet, inte att
+# allt är bra.
 ci=null
 if [ -n "${SVKY_GITHUB_TOKEN:-}" ]; then
     svar=$(curl -sS -m 10 -H "Authorization: Bearer $SVKY_GITHUB_TOKEN" \
         -H "Accept: application/vnd.github+json" \
-        "https://api.github.com/repos/$REPO/actions/runs?branch=main&per_page=1" 2>/dev/null)
+        "https://api.github.com/repos/$REPO/actions/workflows/docker.yml/runs?branch=main&per_page=1" 2>/dev/null)
     ci=$(printf '%s' "$svar" | python3 -c '
 import json,sys
 try:
