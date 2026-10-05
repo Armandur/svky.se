@@ -362,6 +362,16 @@ Kontrollera samma sak för produktionsstacken - 80 och 443 ska vara publicerade,
 
 ---
 
+## [P3][todo] [svky] Inventera destruktiva admin-åtgärder som bör få förhandsvisning före bekräftelse
+
+Klicknollställningen (/admin/links/<id>/nollstall-klick) visar antal rader och tidsspann innan POST utför raderingen. Gå igenom övriga destruktiva åtgärder i admin (avaktivera, överlåt alla, radera användare, inaktivera samling, gravimport m.fl.) och avgör vilka som bör få samma GET-förhandsvisning + POST-bekräftelse.
+
+- ID: `01M46PAKY7FAT73E4TCSYZG3Q0`
+- Type: improvement
+- Actor: ai:claude-code
+
+---
+
 ## [P3][todo] [svky] Gallra konton som aldrig skapat någon länk efter viss tid
 
 Användare som registrerat sig men aldrig skapat en länk eller samling ligger kvar i users för alltid. Utred om de ska gallras efter t.ex. 90 dagar (dataminimering), och om gallringen ska bli en nyhet på /nyheter.
