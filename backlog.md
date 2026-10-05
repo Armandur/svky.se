@@ -1,5 +1,144 @@
 # Backlog Export
 
+## [P2][todo] [svky] Bulkimport av gravplatser ur verksamhetssystemets export
+
+## Context
+
+Bygger på TASK-2145. Härnösands export ligger i
+`~/delat/Kistskanning/2026-09-22 - Gravplatsnummer.csv`, 14 423 rader ur
+Aveny med kolumnerna Kyrkogård, Kvarter, Avdelning, Gravplatsnummer,
+Gammalt gravnummer. Ingen persondata.
+
+Exporten är redan prövad mot modellen, se backlog doc `01M34X7M`:
+sammansättningsregeln `kgard + kvarter + mellanslag + nummer` höll på
+alla rader, och sökvägarna blev 14 423 unika av 14 423.
+
+## Acceptance criteria
+
+- [ ] Importen läser CSV med semikolon, UTF-8 med BOM och CRLF.
+- [ ] Gravplatsnumret lagras ORDAGRANT. Ingen normalisering av
+      nollpadding.
+- [ ] Kyrkogårds- och kvartersnoder skapas ur kolumnerna, avdelningsnod
+      bara när kolumnen är ifylld.
+- [ ] Segmentförslaget är gemener och NFC-normaliserat. Kolumnen
+      `Gammalt gravnummer` läses inte in.
+- [ ] Tecken som bryter ett sökvägssegment slugas: `HKNP.11 0009/17` ska
+      ge kvarteret `p.11` och numret `0009-17` utan att bli extra
+      segment.
+- [ ] Unikt index på (förälder, segment). En krock STOPPAR importen och
+      namnger raderna, den slår aldrig ihop dem.
+- [ ] Omkörning uppdaterar befintliga rader och skapar inga dubbletter.
+      Nyckeln är noden plus gravplatsnumret ordagrant.
+- [ ] Förhandsgranskning visar föreslagna sökvägar och krockar innan
+      något skrivs.
+- [ ] En gravplats som är markerad som tryckt får aldrig sin sökväg
+      ändrad av en omkörning.
+
+## Verification
+
+- Kör hela Härnösandsexporten: 14 423 rader in, 14 423 unika sökvägar,
+  noll krockar.
+- Kör den en andra gång: noll nya rader.
+- Konstruerat prov med två rader som slugar till samma segment: importen
+  ska falla, inte slå ihop.
+- Prov för `HKNP.11 0009/17` och för `HEGA 0032A` mot `HEGA 0045a`.
+
+
+- ID: `01M356KGYY9N87RKY3V4RRZ3ZN`
+- Type: feature
+- Actor: ai:claude-code
+
+---
+
+## [P2][done] [svky] Gravplatslänkar för QR på gravplatsmarkörer: nodträd, landningssida och frysta sökvägar
+
+## Context
+
+Gravplatsmarkörer med QR-kod ska peka på svky.se i stället för direkt på
+leverantören, så skyltarna överlever att Svenskagravar eller Gravar.se
+byter struktur. Hela utredningen med mätningar ligger i backlog doc
+`01M34X7M`. Fyra mockupar finns i `tmp/gravplats-*.html`.
+
+Adressen blir `svky.se/10/had/hkn/allm/0446`: stift, enhet, kyrkogård,
+kvarter, valfri avdelning, gravplatsnummer.
+
+## Beslut som redan är fattade
+
+- **Landningssida, inte 302.** Ingen leverantör har permalänk per
+  gravplats, och sökningen kan ge noll eller flera träffar.
+- **Nodträd med obestämt djup.** Nivån under kvarter heter `avdelning`,
+  samma namn som leverantörerna använder. Den är valfri och saknas i
+  Härnösand.
+- **Format B.** Stiftet är eget segment, tvåsiffrigt med inledande nolla,
+  01 till 13. Enhetssegmentet är ett fritt fält, 2 till 8 tecken, unikt
+  per stift. Förval är trebokstavskoden, reserv är KP-delen av SKP-koden.
+- **Åäö tillåts i sökvägen.** `segment` lagras och jämförs
+  NFC-normaliserat och i gemener. Beslutet kan behöva backas om
+  iPhone-provet faller, se separat punkt.
+- **Sökvägen fryses, målet gör det inte.** Gravplatsraden äger sin
+  sökväg. Koder, mallar, tema och kontaktuppgifter hämtas ur trädet vid
+  uppslaget.
+- **Mallar per förvaltningsnod, ärvda nedåt:** `prefixmall`, `sokmall`,
+  `kartmall`, `tema`, kontaktuppgifter, `parishId`.
+- **Kartlänken pekar på `kartor-test.svenskagravar.se`** eftersom det är
+  vad leverantören har i sin produktionsmiljö.
+- **Gamla gravnummer lagras inte.**
+- **Ingen persondata.** Sidan visar platsen, aldrig personen.
+- **Ingen indexering** på någon av sidorna.
+- **Nodnivåerna får egna sidor:** kyrkogården listar sina kvarter,
+  kvarteret listar inget.
+- **Ägarskap i egen tabell** `nod_agare (nod_id, user_id)`. Ingen ny
+  flagga på `users`.
+- **En frigjord kod återanvänds aldrig.** Samma regel som
+  `RESERVED_CODES` och krockkontrollen i promoteringen.
+
+## Acceptance criteria
+
+- [ ] `01` till `13` ligger i `RESERVED_CODES` med kontrolldatum i
+      kommentaren. Kontrollerat 2026-09-22: ingen av dem finns i drift.
+- [ ] Routen för gravplatssökvägar är monterad FÖRE catch-all i
+      `main.py`. Catch-all `@router.get("/{code}")` är orörd.
+- [ ] `GET /10/had/hkn/allm/0446` svarar med landningssida som visar
+      beteckning, kyrkogård, kvarter, söklänk till leverantören,
+      kartlänk när `kartmall` finns och förvaltningens kontaktuppgifter.
+- [ ] Kartkortet göms helt när `kartmall` är tom.
+- [ ] Välformad men oregistrerad sökväg ger en sida med kyrkogård,
+      kvarter och kontaktuppgifter, INTE en naken 404.
+- [ ] `GET /10/had/hkn` listar kvarteren. `GET /10/had/hkn/allm` svarar
+      utan gravplatslista.
+- [ ] Sökvägen är redigerbar tills gravplatsen markeras som tryckt, sedan
+      låst.
+- [ ] Alias löser till samma gravplats som den frysta sökvägen.
+- [ ] Temat ärvs från förvaltningsnoden och gäller även nodsidorna.
+- [ ] Visningar räknas i egen tabell med bara tidsstämpel och
+      gravplats-id, som `bundle_views`.
+- [ ] Alla sidor svarar `noindex`.
+- [ ] Migrationen är bakåtkompatibel en version enligt
+      `docs/migrationer.md`.
+
+## Verification
+
+- Prov som anropar ROUTEN, inte tjänsten under den: gravplatssida,
+  kyrkogårdssida, kvarterssida, oregistrerad sökväg, låst sökväg.
+- Prov som visar att catch-all fortfarande svarar på en vanlig kortkod.
+- Prov för NFC: samma synliga `sä` i två kodpunktsformer ska träffa samma
+  rad.
+- Prov för reserverade stiftskoder: `validate_code("10")` ska avvisa.
+- Browser-verifierat vid 390 px och 1280 px, båda teman.
+
+## Öppet
+
+- Teckenvalet bekräftas med iPhone 2026-09-23. Faller det, byt
+  importens förslag till translitterering och kör om slug-passet för
+  gravplatser som inte är markerade som tryckta.
+
+
+- ID: `01M356JM8YKM4ZGBFGHD72CPSY`
+- Type: feature
+- Actor: ai:claude-code
+
+---
+
 ## [P2][done] [svky] Inloggade får Förbjudet på alla skanner-säkra engångslänkar
 
 ## Context
@@ -223,6 +362,56 @@ Kontrollera samma sak för produktionsstacken - 80 och 443 ska vara publicerade,
 
 ---
 
+## [P3][todo] [svky] Gallra konton som aldrig skapat någon länk efter viss tid
+
+Användare som registrerat sig men aldrig skapat en länk eller samling ligger kvar i users för alltid. Utred om de ska gallras efter t.ex. 90 dagar (dataminimering), och om gallringen ska bli en nyhet på /nyheter.
+
+- ID: `01M46NVYQ4B3RCVR84Q5VKT151`
+- Type: improvement
+- Actor: ai:claude-code
+
+---
+
+## [P3][todo] [svky] Uttag av QR-koder i batch till skyltleverantören
+
+## Context
+
+Bygger på TASK-2145. Tusentals skyltar ska graveras, så koderna måste ut
+ur tjänsten i ett svep till skyltleverantören. `app/qr.py` kan redan SVG
+och PNG, och testerna använder zipfile.
+
+Mätt 2026-09-22: adressformatet påverkar inte kodens täthet. Alla
+varianter ger 29x29 moduler på nivå M. Skölden kräver nivå H och tar
+koden till 37x37, vilket är en riktig kostnad på en liten platta.
+
+## Acceptance criteria
+
+- [ ] Uttag per kyrkogård eller per kvarter, inte bara per gravplats.
+- [ ] ZIP med en SVG per gravplats. Filnamnet är gravplatsnumret slugat.
+- [ ] CSV i samma ZIP med gravplatsnummer ordagrant, sökväg och
+      filnamn, så leverantören kan sätta graveringen automatiskt.
+- [ ] Symbol är valbar: ingen symbol, svart sköld eller färgsköld.
+      Förvalet är ingen symbol, eftersom 29 moduler ger grövre streck än
+      37 på samma yta.
+- [ ] Koden bär den publika sökvägen, aldrig måladressen.
+- [ ] Uttaget markerar gravplatserna som tryckta och fryser deras
+      sökvägar.
+
+## Verification
+
+- Ta ut en kyrkogård och avkoda ett stickprov ur ZIP:en med zxing-cpp.
+  Varje kod ska ge exakt den sökväg CSV:en anger.
+- Prov som visar att sökvägen är låst efter uttaget.
+- Prov för att ZIP:en klarar en kyrkogård i Härnösands storlek, 5 843
+  gravplatser.
+
+
+- ID: `01M356KGZ6QBD8XFZ7ZNCZNBND`
+- Type: feature
+- Actor: ai:claude-code
+
+---
+
 ## [P3][done] [svky] Mät om mottagaren går att öppna i Swish URL-formatet
 
 Dokumentationen påstår att mottagaren inte går att öppna i URL-formatet. Påståendet vilar på att generator-API:t avvisar ett payee-objekt, inte på en telefonmätning - samma form av antagande som mätning 5, och som rättelsen i mätning 4 fick städa upp.
@@ -240,7 +429,7 @@ Acceptanskriterier:
 
 ---
 
-## [P3][todo] [svky] Ge Swish-samlingen samma formatväxel som generatorn
+## [P3][doing] [svky] Ge Swish-samlingen samma formatväxel som generatorn
 
 TASK-1755 byggde växeln mellan C-format och Swish URL-format i generatorn på /swish. Samlingen fick den INTE - det var uttryckligt icke-mål, för samlingen har egna ritvägar och ett eget formulär.
 
