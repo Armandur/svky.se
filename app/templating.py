@@ -81,6 +81,20 @@ def _qr_symboler() -> dict[str, str]:
 templates.env.globals["qr_symboler"] = _qr_symboler()
 
 
+def _reserverade_koder() -> list[str]:
+    """Jinja-global {{ reserverade_koder }} - koderna systemet håller för sig.
+
+    Ur app.config, inte en avskrift i mallen: listan växer när en route
+    tillkommer, och en kopia hade visat admin gårdagens lista.
+    """
+    from app.config import RESERVED_CODES
+
+    return sorted(RESERVED_CODES)
+
+
+templates.env.globals["reserverade_koder"] = _reserverade_koder()
+
+
 def _vantande_domanansokningar() -> int:
     """Jinja-global {{ vantande_domanansokningar() }} - badgen i adminbaren.
 

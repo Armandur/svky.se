@@ -71,6 +71,12 @@
              pattern="[a-z0-9][a-z0-9\-]*[a-z0-9]|[a-z0-9]"
              autocomplete="off" spellcheck="false">
       <div class="hint">Lämna tomt för automatisk kod. Endast gemener, siffror och bindestreck.</div>
+      <details class="hint" style="margin-top:6px;">
+        <summary style="cursor:pointer;">{{ reserverade_koder | length }} koder är reserverade av systemet</summary>
+        <div style="margin-top:6px; line-height:1.9; overflow-wrap:anywhere;">
+          {% for kod in reserverade_koder %}<code>{{ kod }}</code>{% if not loop.last %} {% endif %}{% endfor %}
+        </div>
+      </details>
       {% if errors.code %}
       <div class="field-error">{{ errors.code }}</div>
       {% endif %}
