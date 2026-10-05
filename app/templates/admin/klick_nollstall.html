@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}svky.se Admin - Nollställ klick{% endblock %}
+
+{% block admin_bar %}
+{% include "admin/_bar.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:520px; margin:0 auto;">
+  <div style="font-size:2rem; margin-bottom:12px; color:var(--red);">&#10007;</div>
+  <h1>Nollställ klick för svky.se/{{ link.code }}</h1>
+  <p class="lead">
+    Det här raderas. Kontrollera siffrorna innan du bekräftar.
+  </p>
+
+  <table class="table" style="margin-bottom:20px;">
+    <tbody>
+      <tr><th>Klick som raderas</th><td><strong>{{ oversikt.totalt }}</strong></td></tr>
+      <tr><th>Varav senaste 7 dagar</th><td>{{ oversikt.senaste_7d }}</td></tr>
+      <tr><th>Varav senaste 30 dagar</th><td>{{ oversikt.senaste_30d }}</td></tr>
+      <tr><th>Första klick</th><td>{{ oversikt.forsta | sthlm if oversikt.forsta else '-' }}</td></tr>
+      <tr><th>Sista klick</th><td>{{ oversikt.sista | sthlm if oversikt.sista else '-' }}</td></tr>
+    </tbody>
+  </table>
+
+  <p style="color:var(--muted); font-size:.9rem;">
+    Länkens alla klick försvinner ur statistiken, och "Senast klickad" töms.
+    Länken själv påverkas inte. Åtgärden går inte att ångra och loggas i länkens historik.
+  </p>
+
+  <form action="/admin/links/{{ link.id }}/nollstall-klick" method="post" style="margin-top:24px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div style="display:flex; gap:12px;">
+      <button type="submit" class="btn btn-danger" style="flex:1; justify-content:center; padding:11px;"{% if not oversikt.totalt %} disabled{% endif %}>
+        Ja, radera {{ oversikt.totalt }} klick
+      </button>
+      <a href="/admin/links/{{ link.id }}" class="btn btn-secondary" style="flex:1; text-align:center; padding:11px;">
+        Avbryt
+      </a>
+    </div>
+  </form>
+</div>
+{% endblock %}

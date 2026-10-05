@@ -39,3 +39,4 @@ data-staging/
 
 # Sessionsfiler och skräp, se TASK-1684
 tmp/
+.devdata/

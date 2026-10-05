@@ -72,6 +72,11 @@
   &#10003;&nbsp; Länken skapades och är nu aktiv.
 </div>
 {% endif %}
+{% if request.query_params.get('nollstallt') is not none %}
+<div class="alert alert-success" style="margin-bottom:16px;">
+  &#10003;&nbsp; Klickstatistiken nollställdes, {{ request.query_params.get('nollstallt') }} klick raderade.
+</div>
+{% endif %}
 {% if request.query_params.get('resent') %}
 <div class="alert alert-success" style="margin-bottom:16px;">
   &#10003;&nbsp; Verifieringsmail skickat om till {{ link.owner_email }}.
@@ -89,6 +94,9 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button class="btn btn-secondary btn-sm">&#8635; Skicka om verifieringsmail</button>
     </form>
+    {% endif %}
+    {% if total_clicks %}
+    <a href="/admin/links/{{ link.id }}/nollstall-klick" class="btn btn-secondary btn-sm">Nollställ klick</a>
     {% endif %}
     <form action="/admin/links/{{ link.id }}/toggle" method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
