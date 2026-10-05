@@ -292,12 +292,13 @@
   {% if not u.is_admin %}
   <div class="transfer-panel">
     <h4>Flytta alla länkar och samlingar från {{ u.email }} till:</h4>
-    <form action="/admin/users/{{ u.id }}/transfer-all" method="post">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {# GET till förhandsvisningen: admin ser vad som flyttas och om mottagaren
+       finns innan POST gör det. #}
+    <form action="/admin/users/{{ u.id }}/flytta-allt" method="get">
       <div class="row">
         <input type="email" name="new_email" aria-label="E-postadress att flytta allt till"
                placeholder="ny.agare@svenskakyrkan.se" required>
-        <button type="submit" class="btn btn-secondary btn-sm">Flytta allt</button>
+        <button type="submit" class="btn btn-secondary btn-sm">Visa vad som flyttas</button>
         <button type="button" class="btn btn-secondary btn-sm"
                 onclick="this.closest('.transfer-panel').style.display='none'; this.closest('.user-card').querySelector('[onclick*=transfer-panel]').style.display='';">
           Avbryt

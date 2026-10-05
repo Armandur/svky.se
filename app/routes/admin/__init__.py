@@ -11,6 +11,7 @@ Varje submodul hanterar ett ansvarsområde:
   domain_requests.py - ansökningar om extern länkning
   settings.py  - om-sidan och integritetssidan (markdown-redigering)
   stats.py     - klick- och sidvisningsstatistik
+  flytt.py     - flytta allt från en användare, förhandsvisning före flytten
   klick.py     - nollställ en länks klickstatistik, förhandsvisning före radering
   helpers.py   - interna hjälpfunktioner
 """
@@ -22,6 +23,7 @@ from . import (
     domain_requests,
     domains,
     featured,
+    flytt,
     gravplatser,
     klick,
     links,
@@ -46,3 +48,4 @@ router.include_router(transfers.router)
 router.include_router(domain_requests.router)
 router.include_router(gravplatser.router)
 router.include_router(klick.router)
+router.include_router(flytt.router)

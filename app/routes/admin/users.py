@@ -141,60 +141,6 @@ async def admin_toggle_external_urls(request: Request, user_id: int, csrf_token:
     return RedirectResponse(url="/admin/users", status_code=303)
 
 
-@router.post("/users/{user_id}/transfer-all")
-async def admin_transfer_all(
-    request: Request,
-    user_id: int,
-    new_email: str = Form(...),
-    csrf_token: str = Form(...),
-):
-    if not validate_csrf_token(csrf_token, get_csrf_secret(request)):
-        raise HTTPException(status_code=403)
-    admin = get_admin_or_redirect(request)
-    new_email = new_email.strip().lower()
-
-    with get_db() as db:
-        old_user = db.execute("SELECT email FROM users WHERE id=?", (user_id,)).fetchone()
-        if not old_user:
-            raise HTTPException(status_code=404)
-
-        db.execute("INSERT OR IGNORE INTO users (email) VALUES (?)", (new_email,))
-        new_user = db.execute("SELECT id FROM users WHERE email=?", (new_email,)).fetchone()
-
-        link_rows = db.execute("SELECT id FROM links WHERE owner_id=?", (user_id,)).fetchall()
-        bundle_rows = db.execute(
-            "SELECT id, code FROM bundles WHERE owner_id=?", (user_id,)
-        ).fetchall()
-
-        db.execute("UPDATE links SET owner_id=? WHERE owner_id=?", (new_user["id"], user_id))
-        db.execute(
-            "UPDATE bundles SET owner_id=?, updated_at=CURRENT_TIMESTAMP WHERE owner_id=?",
-            (new_user["id"], user_id),
-        )
-
-        for link in link_rows:
-            db.execute(
-                "INSERT INTO audit_log (action, actor_id, link_id, detail) VALUES (?,?,?,?)",
-                (
-                    "transfer",
-                    admin["id"],
-                    link["id"],
-                    f"bulk move from {old_user['email']} to {new_email}",
-                ),
-            )
-        for bundle in bundle_rows:
-            db.execute(
-                "INSERT INTO audit_log (action, actor_id, detail) VALUES (?,?,?)",
-                (
-                    "admin_bundle_transfer",
-                    admin["id"],
-                    f"bundle:{bundle['id']} (kod={bundle['code']}) bulk-överflytt från {old_user['email']} till {new_email}",
-                ),
-            )
-
-    return RedirectResponse(url="/admin/users", status_code=303)
-
-
 @router.post("/users/{user_id}/delete")
 async def admin_delete_user(
     request: Request,
