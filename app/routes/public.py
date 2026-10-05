@@ -178,7 +178,7 @@ async def integritet(request: Request):
     )
 
 
-@router.get("/{code}")
+@router.api_route("/{code}", methods=["GET", "HEAD"])
 async def redirect_code(request: Request, code: str):
     code = code.lower()  # P4.1: case-insensitive lookup
     if code in RESERVED_CODES:
@@ -290,7 +290,10 @@ async def redirect_code(request: Request, code: str):
                 status_code=404,
             )
 
-        db.execute("INSERT INTO clicks (link_id) VALUES (?)", (row["id"],))
-        db.execute("UPDATE links SET last_used_at=CURRENT_TIMESTAMP WHERE id=?", (row["id"],))
+        # HEAD är en kontroll, inte ett besök: övervakning (Kistvakt) och
+        # länkförhandsvisning ska inte räknas som klick.
+        if request.method != "HEAD":
+            db.execute("INSERT INTO clicks (link_id) VALUES (?)", (row["id"],))
+            db.execute("UPDATE links SET last_used_at=CURRENT_TIMESTAMP WHERE id=?", (row["id"],))
 
     return RedirectResponse(url=row["target_url"], status_code=302)
