@@ -34,6 +34,7 @@ from app.templating import templates
 
 router = APIRouter()
 
+
 def _format_ur_fragan(request: Request) -> str:
     return valj_format(request.query_params.get("format"))
 
