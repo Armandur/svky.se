@@ -265,8 +265,13 @@ alltså ingen, avsättning sker i adminytan där den syns i audit-loggen.
 
 - **En ändrad monterad konfigfil startar inte om något.** `up -d` jämför
   tjänstens definition, inte innehållet i en bind-mount. Gäller Caddyfile i
-  produktionsstacken: rätt åtgärd är
-  `docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile`.
+  produktionsstacken: rätt åtgärd är `docker compose restart caddy`, några
+  sekunders paus.
+- **`caddy reload` räcker inte efter `git merge`.** Compose monterar Caddyfilen
+  som en enskild fil, och en sådan mount följer filens inode, inte namnet.
+  git skriver en ny fil och byter namn på den, så containern ser kvar den
+  gamla. Reload svarar då "config is unchanged" och ändringen syns inte.
+  Reload fungerar bara när någon redigerar filen på plats.
 - **Byter tailnetet namn i Tailscale-adminen** slutar certifikaten gälla,
   eftersom de är utställda på FQDN:en. Kör `sudo tailscale serve reset` och
   båda serve-raderna igen, och rätta `BASE_URL` i `.env.staging`.
