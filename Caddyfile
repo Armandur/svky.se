@@ -9,3 +9,9 @@ svky.se {
         header_up X-Forwarded-For {remote_host}
     }
 }
+
+# www pekar på samma server i DNS. Caddy skaffar bara certifikat för namn
+# som har ett eget block, så utan det här ger www ett TLS-fel.
+www.svky.se {
+    redir https://svky.se{uri} permanent
+}
