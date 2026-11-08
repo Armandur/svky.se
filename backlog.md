@@ -439,7 +439,7 @@ Acceptanskriterier:
 
 ---
 
-## [P3][doing] [svky] Ge Swish-samlingen samma formatväxel som generatorn
+## [P3][done] [svky] Ge Swish-samlingen samma formatväxel som generatorn
 
 TASK-1755 byggde växeln mellan C-format och Swish URL-format i generatorn på /swish. Samlingen fick den INTE - det var uttryckligt icke-mål, för samlingen har egna ritvägar och ett eget formulär.
 
