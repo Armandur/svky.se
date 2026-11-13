@@ -86,7 +86,7 @@ avbryt() {
 notis() {
     # Driftlarm går till den DELADE ntfy-instansen, inte till en lokal.
     # En larmväg som körs på servern den larmar om tystnar precis när den
-    # behövs. Se ~/workspace/infra/docs/ntfy-notifieringspolicy.md.
+    # behövs. Se ~/workspace/infraparm/kapitel/07-notifieringar.md.
     #
     # $1 text, $2 nivå: "ops" (titta idag, prio 3) eller "alert" (väck mig,
     # prio 4). Nivåerna är policyns, inte våra.

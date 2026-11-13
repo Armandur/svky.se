@@ -131,7 +131,7 @@ Notiser är valfria och kräver `NTFY_URL` och `NTFY_TOKEN` i
 Larmen går till den DELADE ntfy-instansen, aldrig till en lokal på samma
 server - en larmväg som körs på servern den larmar om tystnar precis när den
 behövs. Topicerna är policyns `svc_ops` (titta idag) och `svc_alert` (väck
-mig), inte egna. Se `~/workspace/infra/docs/ntfy-notifieringspolicy.md`.
+mig), inte egna. Se `~/workspace/infraparm/kapitel/07-notifieringar.md`.
 
 **Bara fel notifieras.** En lyckad stagingdeploy sker vid varje push till main
 och kräver ingen handpåläggning. En kanal som mest bär bra nyheter slutar man
