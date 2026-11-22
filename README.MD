@@ -112,6 +112,31 @@ The suite runs against a fresh SQLite database per test - it never touches
 - All redirects use **302** (not 301) to allow target URL changes without browser cache issues
 - The app uses `PRAGMA foreign_keys = ON` - schema integrity is enforced at the SQLite level
 
+### SMTP-larm
+
+Appen larmar till `svc_ops` med prioritet 3 efter sex misslyckade SMTP-utskick
+inom en rullande timme. Larmet använder HTTPS.
+
+Sätt värdens `NTFY_URL` och `NTFY_TOKEN` i appens privata miljöfil (`.env`).
+Larmet kräver båda värdena.
+
+Drift kör en Uvicorn-process per miljö. Appen håller räknaren och spärren i
+processminnet. En omstart nollställer båda. Produktion och staging räknar var
+för sig.
+
+Appen gör högst ett larmförsök per timme, även om transporten fallerar.
+Om du kör fler processer får varje process en egen spärr.
+
+Prova larmvägen i en isolerad staging-instans.
+
+1. Lägg in larmkonfigurationen i `.env.staging`.
+2. Återskapa appens container så att den läser in värdena.
+3. Stoppa instansens Mailpit.
+4. Begär sex inloggningslänkar inom en timme. Använd olika testadresser på en tillåten domän.
+5. Kontrollera att telefonen får ett larm märkt `svky.se staging / SMTP`.
+6. Begär en länk till. Kontrollera att telefonen bara har fått ett larm.
+7. Starta Mailpit igen och återställ provinstansens konfiguration.
+
 ## CI/CD
 
 GitHub Actions builds and publishes a Docker image on every push:

@@ -4,6 +4,7 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
+from app.smtp_larm import registrera_smtp_fel
 from app.templating import mail_env
 
 log = logging.getLogger(__name__)
@@ -40,6 +41,10 @@ def _send(to: str, subject: str, html: str):
             s.sendmail(MAIL_FROM, to, msg.as_string())
     except Exception as e:
         log.error("Kunde inte skicka mail till %s: %s", to, e)
+        try:
+            registrera_smtp_fel()
+        except Exception:
+            log.warning("Kunde inte starta SMTP-larmet.")
         raise MailError(str(e)) from e
 
 
